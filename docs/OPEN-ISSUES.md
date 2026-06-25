@@ -25,6 +25,10 @@ wrong/unverified targets were downgraded rather than left green.
 | Fusion orientation | MTB DNA/RNA-fusion use `component:five-prime-gene`/`three-prime-gene` | RESOLVED → applied as DRAFT until rewired |
 | chromosome component | `component:chromosome-identifier` (LOINC 48000-4) | RESOLVED → **fixed** |
 | Block cardinalities (RD) | DNPM Datenmodell V2.1 + rd-validation give required/optional/conditional | RESOLVED (dnpm-rd, dnpm-datenmodell) |
+| **RECIST response** (was open #3) | `Observation:Response`, LOINC **21976-6**, values **CR/PR/MR/SD/PD/NA**, method {RECIST,RANO} | RESOLVED — full DNPM Datenmodell ingested (`knowledge/dnpm-datenmodell/crosswalk.md`) |
+| **MTB recommendation profiles** (was open #5) | Therapieplan=CarePlan + activity.reference→TherapyRecommendation(MedicationRequest)/ServiceRequest(GeneticCounselling/Rebiopsy/StudyInclusion); evidence ladder m1A–m3 | RESOLVED — crosswalk pp.113-150 |
+| **Oncology block cardinalities** (was open #14) | MTB-Akte Bundle: NGS≥1 & CarePlan≥1 required for MVH; ECOG+Follow-up required for followup-type | RESOLVED — crosswalk pp.151-164 |
+| NGS variant component codes | SimpleVariant/CNV/Fusion/RNASeq bwhc profiles + LOINC (dna-chg 48004-6, gene 48018-6, chromosome 48000-4, ref/alt 69547-8/69551-0, …) | RESOLVED — crosswalk pp.95-112 |
 | Biobank `Specimen.type` SNOMED slice | SCT slice required; KDK ships BTO only → needs SCT translation (MIIUP-04) | CONFIRMED open |
 | TNM enrichment | UICC value system + LOINC cT/cN/cM 21905-5/21906-3/21907-1; `Condition.stage` for AJCC overall | INFORMED (bih-cei A1) |
 | RD phenotype status | SNOMED present/refuted `410605003`/`723511001` behind HPO assessment | INFORMED (bih-cei B1) |
