@@ -185,12 +185,104 @@ MODULE_MOLGEN_ONC_PREFIX = [
      "fusion partner B; gene-studied 48018-6; HGNC (LOCKED)", "MAPPED", GL),
 ]
 
+# ---- oncology treatment / plan / follow-up (Prozedur, Medikation, CarePlan, Verlauf) ----
+OBDSPROC = "http://hl7.org/fhir/de/oncology/StructureDefinition/obds-procedure-systemtherapie"
+MEDSTMT  = "https://www.medizininformatik-initiative.de/fhir/core/modul-medikation/StructureDefinition/mii-pr-medikation-medicationstatement"
+MEDREQ   = "https://www.medizininformatik-initiative.de/fhir/core/modul-medikation/StructureDefinition/mii-pr-medikation-medicationrequest"
+VITAL    = "https://www.medizininformatik-initiative.de/fhir/core/modul-person/StructureDefinition/mii-pr-person-vitalstatus"
+P = "[[mii-consent-med-proc]]"
+PO = "[[mii-consent-med-proc]] [[mii-diagnose-onkologie]]"
+MTB = "[[mtb-evidence-levels]]"
+
+MODULE_ONC_TX = {
+    # prior systemic therapies (oBDS Procedure + MedicationStatement chain)
+    "case.priorProcedures[].treatmentType": ("Prozedur", OBDSPROC, "Procedure.extension(StellungZurOp)", "oBDS Stellung O/A/N/I/S; ext http://fhir.de/onkologie/StructureDefinition/StellungZurOp", "MAPPED", P),
+    "case.priorProcedures[].intention": ("Prozedur", OBDSPROC, "Procedure.extension(Intention)", "oBDS Intention K/P/S/X; ext http://fhir.de/onkologie/StructureDefinition/Intention", "MAPPED", P),
+    "case.priorProcedures[].therapyStartDate": ("Prozedur", OBDSPROC, "Procedure.performedPeriod.start", "", "MAPPED", P),
+    "case.priorProcedures[].therapyEndDate": ("Prozedur", OBDSPROC, "Procedure.performedPeriod.end", "", "MAPPED", P),
+    "case.priorProcedures[].terminationReasonOBDS": ("Prozedur", OBDSPROC, "Procedure.outcome", "SYSTEndegrund http://fhir.de/CodeSystem/onkologie/SYSTEndegrund", "MAPPED", P),
+    "case.priorProcedures[].therapyResponse": ("Onkologie", OBDSPROC, "Observation(RECIST).valueCodeableConcept", "RECIST response LOINC 21976-6; referenced via Procedure.report", "MAPPED", PO),
+    "case.priorProcedures[].therapyResponseDate": ("Onkologie", OBDSPROC, "Observation(RECIST).effectiveDateTime", "", "MAPPED", PO),
+    "case.priorProcedures[].substances[].name": ("Medikation", MEDSTMT, "MedicationStatement.medicationCodeableConcept.text", "substance display", "MAPPED", P),
+    # plan: recommended systemic therapies -> MedicationRequest
+    "plan.recommendedSystemicTherapies[].identifier": ("Medikation", MEDREQ, "MedicationRequest.identifier", "", "MAPPED", P),
+    "plan.recommendedSystemicTherapies[].priority": ("Medikation", MEDREQ, "MedicationRequest.priority", "", "MAPPED", P),
+    "plan.recommendedSystemicTherapies[].substances[].name": ("Medikation", MEDREQ, "MedicationRequest.medicationCodeableConcept.text", "substance display", "MAPPED", P),
+    "plan.recommendedSystemicTherapies[].type": ("Medikation", MEDREQ, "MedicationRequest.extension(offLabel)", "off-label use type — VERIFY ext", "DRAFT", P),
+    "plan.recommendedSystemicTherapies[].therapeuticStrategy": ("Medikation", MEDREQ, "MedicationRequest.note", "therapeutic strategy — no dedicated element", "DRAFT", P),
+    "plan.recommendedSystemicTherapies[].evidenceLevel": ("Medikation", MEDREQ, "MedicationRequest.extension(evidenceLevel)", "MTB evidence m1A-m4; genomde extension", "DRAFT", MTB),
+    "plan.recommendedSystemicTherapies[].evidenceLevelDetails[]": ("Medikation", MEDREQ, "MedicationRequest.extension(evidenceLevel)", "MTB evidence detail", "DRAFT", MTB),
+    "plan.recommendedSystemicTherapies[].variants[]": ("Medikation", MEDREQ, "MedicationRequest.reasonReference", "supporting variant Observation(s)", "DRAFT", P),
+    # plan: recommended studies -> ResearchStudy / CarePlan.activity
+    "plan.recommendedStudies[].name": ("Onkologie", "ResearchStudy", "ResearchStudy.title", "", "MAPPED", MTB),
+    "plan.recommendedStudies[].register": ("Onkologie", "ResearchStudy", "ResearchStudy.identifier.system", "register (NCT/EudraCT/DRKS)", "MAPPED", MTB),
+    "plan.recommendedStudies[].id": ("Onkologie", "ResearchStudy", "ResearchStudy.identifier.value", "study id within register", "MAPPED", MTB),
+    "plan.recommendedStudies[].identifier": ("Onkologie", "ResearchStudy", "ResearchStudy.identifier", "", "MAPPED", MTB),
+    "plan.recommendedStudies[].substances[].name": ("Medikation", MEDREQ, "MedicationRequest.medicationCodeableConcept.text", "study drug display", "MAPPED", P),
+    "plan.recommendedStudies[].evidenceLevel": ("Onkologie", "ResearchStudy", "ResearchStudy.extension(evidenceLevel)", "MTB evidence", "DRAFT", MTB),
+    "plan.recommendedStudies[].evidenceLevelDetails[]": ("Onkologie", "ResearchStudy", "ResearchStudy.extension(evidenceLevel)", "MTB evidence detail", "DRAFT", MTB),
+    "plan.recommendedStudies[].priority": ("Onkologie", "ResearchStudy", "CarePlan.activity.detail", "recommendation priority", "DRAFT", MTB),
+    "plan.recommendedStudies[].variants[]": ("Onkologie", "ResearchStudy", "ResearchStudy.extension", "supporting variants", "DRAFT", P),
+    # plan: carePlanOd (CarePlan)
+    "plan.carePlanOd.molecularBoardDecisionDate": ("Onkologie", "CarePlan", "CarePlan.created", "MTB decision date", "MAPPED", MTB),
+    "plan.carePlanOd.studyRecommended": ("Onkologie", "CarePlan", "CarePlan.activity(study).detail.kind", "boolean -> presence of study recommendation activity", "MAPPED", MTB),
+    "plan.carePlanOd.counsellingRecommended": ("Onkologie", "CarePlan", "CarePlan.activity(counselling)", "boolean flag", "MAPPED", MTB),
+    "plan.carePlanOd.interventionRecommended": ("Onkologie", "CarePlan", "CarePlan.activity(intervention)", "boolean flag", "MAPPED", MTB),
+    "plan.carePlanOd.reEvaluationRecommended": ("Onkologie", "CarePlan", "CarePlan.activity(reevaluation)", "boolean flag", "MAPPED", MTB),
+    "plan.carePlanOd.otherRecommendations[]": ("Onkologie", "CarePlan", "CarePlan.activity.detail.description", "free-text other recommendation", "DRAFT", MTB),
+    "plan.carePlanOd.suitableInterventions[].interventionIsTherapeutic": ("Onkologie", "CarePlan", "CarePlan.activity.detail", "therapeutic flag", "DRAFT", MTB),
+    "plan.carePlanOd.suitableInterventions[].interventionsIsRiskReducing": ("Onkologie", "CarePlan", "CarePlan.activity.detail", "risk-reducing flag", "DRAFT", MTB),
+    "plan.carePlanOd.suitableInterventions[].type.name": ("Onkologie", "CarePlan", "CarePlan.activity.detail.code.text", "intervention type display", "MAPPED", MTB),
+    "plan.preventiveMeasures[].identifier": ("Onkologie", "CarePlan", "CarePlan.activity.reference.identifier", "", "MAPPED", MTB),
+    "plan.preventiveMeasures[].type": ("Onkologie", "CarePlan", "CarePlan.activity.detail.code", "preventive measure type", "MAPPED", MTB),
+    # follow-up (Verlauf)
+    "followUp.followUpOds[].vitalStatus": ("Person", VITAL, "Observation.valueCodeableConcept", "LOINC 67162-8 + MII Vitalstatus CS (L/T/A/N/B/V/X) — LOCKED", "MAPPED", "[[mii-diagnose-onkologie]] [[fml-codesystem-url-lock]]"),
+    "followUp.followUpOds[].deathDate": ("Person", PAT, "Patient.deceasedDateTime", "also obds-observation-tod", "MAPPED", M),
+    "followUp.followUpOds[].ecogPerformanceStatusScore": ("Onkologie", ONKO + "/mii-pr-onko-allgemeiner-leistungszustand-ecog", "Observation.valueCodeableConcept", "ECOG LOINC 89247-1; MII ECOG CS 0-4 (LOCKED)", "MAPPED", "[[mii-diagnose-onkologie]] [[fml-codesystem-url-lock]]"),
+    "followUp.followUpOds[].followUpDate": ("Onkologie", "Observation", "Observation.effectiveDateTime", "follow-up date", "MAPPED", PO),
+    "followUp.followUpOds[].lastContactDate": ("Onkologie", "Observation", "Observation.effectiveDateTime", "last contact (Lebenszeichen)", "MAPPED", PO),
+    "followUp.followUpOds[].metachroneDiagnoses": ("Diagnose", DIAG, "Condition.code", "metachronous diagnosis -> additional Condition", "DRAFT", PO),
+    "followUp.followUpOds[].therapies[].substances[].name": ("Medikation", MEDSTMT, "MedicationStatement.medicationCodeableConcept.text", "substance display", "MAPPED", P),
+    "followUp.followUpOds[].therapies[].treatmentType": ("Prozedur", OBDSPROC, "Procedure.extension(StellungZurOp)", "oBDS Stellung", "MAPPED", P),
+    "followUp.followUpOds[].therapies[].therapyStartDate": ("Prozedur", OBDSPROC, "Procedure.performedPeriod.start", "", "MAPPED", P),
+    "followUp.followUpOds[].therapies[].therapyEndDate": ("Prozedur", OBDSPROC, "Procedure.performedPeriod.end", "", "MAPPED", P),
+    "followUp.followUpOds[].therapies[].terminationReasonOBDS": ("Prozedur", OBDSPROC, "Procedure.outcome", "SYSTEndegrund", "MAPPED", P),
+    "followUp.followUpOds[].therapies[].therapyResponse": ("Onkologie", OBDSPROC, "Observation(RECIST).valueCodeableConcept", "RECIST 21976-6", "MAPPED", PO),
+    "followUp.followUpOds[].therapies[].therapyResponseDate": ("Onkologie", OBDSPROC, "Observation(RECIST).effectiveDateTime", "", "MAPPED", PO),
+    "followUp.followUpOds[].therapies[].therapyResponseSource": ("Onkologie", OBDSPROC, "Observation(RECIST).method", "response assessment source", "DRAFT", PO),
+    "followUp.followUpOds[].therapies[].reference": ("Onkologie", OBDSPROC, "Procedure.basedOn", "link to recommended therapy", "DRAFT", PO),
+    "followUp.followUpOds[].phenotypes[].change": ("MolGen", MOLG + "/...phaenotyp", "Observation.interpretation", "phenotype change (new/improved/worsened)", "DRAFT", G),
+    "followUp.followUpOds[].preventiveMeasures[].type": ("Onkologie", "CarePlan", "CarePlan.activity.detail.code", "", "MAPPED", MTB),
+    "followUp.followUpOds[].preventiveMeasures[].preventiveMeasureDate": ("Onkologie", "CarePlan", "CarePlan.activity.detail.scheduledDateTime", "", "MAPPED", MTB),
+    "followUp.followUpOds[].preventiveMeasures[].preventiveMeasureResult": ("Onkologie", "CarePlan", "CarePlan.activity.outcomeCodeableConcept", "", "DRAFT", MTB),
+    "followUp.followUpOds[].preventiveMeasures[].reference": ("Onkologie", "CarePlan", "CarePlan.activity.reference", "", "DRAFT", MTB),
+}
+
+MODULE_ONC_TX_PREFIX = [
+    ("case.priorProcedures[].substances[].code", "Medikation", MEDSTMT, "MedicationStatement.medicationCodeableConcept", "atc",
+     "ATC http://fhir.de/CodeSystem/bfarm/atc +version; one MedicationStatement (status=completed) per substance, Procedure.usedReference", "MAPPED", P),
+    ("plan.recommendedSystemicTherapies[].substances[].code", "Medikation", MEDREQ, "MedicationRequest.medicationCodeableConcept", "atc",
+     "ATC http://fhir.de/CodeSystem/bfarm/atc; real code (not placeholder)", "MAPPED", P),
+    ("plan.recommendedStudies[].substances[].code", "Medikation", MEDREQ, "MedicationRequest.medicationCodeableConcept", "atc",
+     "study drug ATC", "MAPPED", P),
+    ("plan.carePlanOd.suitableInterventions[].type.code", "Onkologie", "CarePlan", "CarePlan.activity.detail.code", None,
+     "intervention type (OPS/own coding)", "MAPPED", MTB),
+    ("followUp.followUpOds[].therapies[].substances[].code", "Medikation", MEDSTMT, "MedicationStatement.medicationCodeableConcept", "atc",
+     "ATC; administered therapy", "MAPPED", P),
+    ("followUp.followUpOds[].additionalDiagnoses", "Diagnose", DIAG, "Condition.code", "icd10-gm",
+     "new diagnoses at follow-up; multi-coded Condition", "MAPPED", D),
+    ("followUp.followUpOds[].phenotypes", "MolGen", MOLG + "/...phaenotyp", "Observation.valueCodeableConcept", None,
+     "HPO at follow-up; system http://human-phenotype-ontology.org (LOCKED)", "MAPPED", GL),
+]
+
 PREFIX_MODULES = {
     "case.diagnosisOd (Diagnose/Onkologie)": MODULE_DIAG_ONC,
     "molecular (MolGen) — oncology": MODULE_MOLGEN_ONC_PREFIX,
+    "oncology treatment/plan/followUp": MODULE_ONC_TX_PREFIX,
 }
 
 MODULES["molecular (MolGen) — oncology"] = MODULE_MOLGEN_ONC
+MODULES["oncology treatment/plan/followUp"] = MODULE_ONC_TX
 
 CC_PARTS = ("code", "system", "display", "version")
 

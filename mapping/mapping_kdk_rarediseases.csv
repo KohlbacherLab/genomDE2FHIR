@@ -120,11 +120,11 @@ plan.carePlanRd.molecularBoardDecisionDate,string,yes,no,,date,Date of the case 
 plan.carePlanRd.reEvaluationRecommended,boolean,yes,no,,,Recommendation for re-evaluation.,,CarePlan,CarePlan,RD care plan — NOT MII Onkologie (base FHIR CarePlan),DRAFT,
 plan.carePlanRd.studyRecommended,boolean,yes,no,,,Recommendation for participation in a clinical study.,,CarePlan,CarePlan,RD care plan — NOT MII Onkologie (base FHIR CarePlan),DRAFT,
 plan.carePlanRd.therapyRecommended,boolean,yes,no,,,Recommendation for therapy.,,CarePlan,CarePlan,RD care plan — NOT MII Onkologie (base FHIR CarePlan),DRAFT,
-plan.recommendedStudies[].id,string,yes,yes,,,,Onkologie,CarePlan / ResearchStudy,CarePlan.activity,recommended study,DRAFT,
-plan.recommendedStudies[].identifier,string,yes,yes,,,,Onkologie,CarePlan / ResearchStudy,CarePlan.activity,recommended study,DRAFT,
-plan.recommendedStudies[].name,string,yes,yes,,,Name of the recommended study.,Onkologie,CarePlan / ResearchStudy,CarePlan.activity,recommended study,DRAFT,
-plan.recommendedStudies[].register,string,yes,yes,"NCT, DRKS, Eudra-CT/CTIS, other, yesButStudyIsUnknown",,Study register with priority to NCT if multiple entries exist.,Onkologie,CarePlan / ResearchStudy,CarePlan.activity,recommended study,DRAFT,
-plan.recommendedStudies[].variants[],string,no,yes,,,,Onkologie,CarePlan / ResearchStudy,CarePlan.activity,recommended study,DRAFT,
+plan.recommendedStudies[].id,string,yes,yes,,,,Onkologie,ResearchStudy,ResearchStudy.identifier.value,study id within register,MAPPED,[[mtb-evidence-levels]]
+plan.recommendedStudies[].identifier,string,yes,yes,,,,Onkologie,ResearchStudy,ResearchStudy.identifier,,MAPPED,[[mtb-evidence-levels]]
+plan.recommendedStudies[].name,string,yes,yes,,,Name of the recommended study.,Onkologie,ResearchStudy,ResearchStudy.title,,MAPPED,[[mtb-evidence-levels]]
+plan.recommendedStudies[].register,string,yes,yes,"NCT, DRKS, Eudra-CT/CTIS, other, yesButStudyIsUnknown",,Study register with priority to NCT if multiple entries exist.,Onkologie,ResearchStudy,ResearchStudy.identifier.system,register (NCT/EudraCT/DRKS),MAPPED,[[mtb-evidence-levels]]
+plan.recommendedStudies[].variants[],string,no,yes,,,,Onkologie,ResearchStudy,ResearchStudy.extension,supporting variants,DRAFT,[[mii-consent-med-proc]]
 plan.recommendedTherapies[].identifier,string,yes,yes,,,,,MedicationRequest / CarePlan,CarePlan.activity,RD therapy recommendation — not Onkologie,DRAFT,
 plan.recommendedTherapies[].strategy,string,yes,yes,"systemicMedication, targetedMedication, preventionMedication, genetic, prophylactic, earlyDetection, combination, nutrition, other",,Description of the recommended therapy strategy.,,MedicationRequest / CarePlan,CarePlan.activity,RD therapy recommendation — not Onkologie,DRAFT,
 plan.recommendedTherapies[].strategyCombination,string,no,yes,,,Description of the recommended therapy only if'combination' is selected.,,MedicationRequest / CarePlan,CarePlan.activity,RD therapy recommendation — not Onkologie,DRAFT,
