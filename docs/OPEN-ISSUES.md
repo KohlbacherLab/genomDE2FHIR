@@ -157,3 +157,12 @@ LMU/Tübingen contacts), re-extract leaves, then re-run the alignment passes.
 ### Lower priority (real but rarely/never populated in the examples)
 AlphaID-SE-vs-AlphaID, EpisodeOfCare-vs-Encounter semantics, `barcode="na"` sentinel,
 Consent 3rd category coding — correctness items, but not high-frequency in the corpus.
+
+## Update — GMFCS resolved (LOINC 62782-8)
+GMFCS (42/42 every RD case, previously DRAFT "no MII/DNPM CodeSystem") is now MAPPED:
+`Observation.code` = LOINC **62782-8** (PhenX gross motor function 6-12y / GMFCS Family
+Report), value from LOINC answer list **LL1594-2** (LA-codes). ConceptMap {I→LA16552-4,
+II→LA15151-6, III→LA15150-8, IV→LA16556-5, V→LA16558-1} — by severity, not list order.
+Residual caveat: 62782-8 is the **6-12y** age band; the source level is age-agnostic —
+confirm the band (or that a single code is acceptable). No MII Seltene GMFCS profile, so
+this is a base `Observation` with standard LOINC binding.
