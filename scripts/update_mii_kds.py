@@ -67,6 +67,10 @@ def in_scope_mii(url):
     if not p.netloc.endswith("medizininformatik-initiative.de"):
         return False
     path = p.path.lower()
+    # reject mis-joined / non-page links (e.g. .../chat.fhir.org, *.pdf, *.zip)
+    last = path.rstrip("/").rsplit("/", 1)[-1]
+    if "." in last and not last.endswith((".html", ".htm")):
+        return False
     return ("/kerndatensatz/" in path
             or "modul" in path
             or "kerndatensatz" in path)
@@ -173,14 +177,17 @@ def crawl_simplifier(max_pages, delay, workers):
     return ok, errors, truncated
 
 def write_moc(subdir, heading, order, errors, truncated, cap):
-    lines = [f"# {heading}", "", f"_{len(order)} pages crawled._", ""]
+    lines = [f"# {heading}", "", f"_{len(order)} pages crawled, {len(errors)} errors._", ""]
     if truncated:
         lines.append(f"> ⚠️ Truncated at --max-pages={cap}. Raise the cap to crawl further.\n")
     for title, url in order:
         lines.append(f"- [[{slug(url)}|{title}]]")
     if errors:
-        lines += ["", "## Errors", ""] + [f"- {u} — {e}" for u, e in errors]
-    (VAULT / subdir / "_MOC.md").write_text("\n".join(lines) + "\n")
+        lines += ["", f"## Errors ({len(errors)}, showing first 30)", ""]
+        lines += [f"- {u} — {e}" for u, e in errors[:30]]
+    d = VAULT / subdir
+    d.mkdir(parents=True, exist_ok=True)
+    (d / "_MOC.md").write_text("\n".join(lines) + "\n")
 
 def write_root_index(stats):
     VAULT.mkdir(parents=True, exist_ok=True)
