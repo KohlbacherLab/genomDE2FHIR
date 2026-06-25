@@ -1,0 +1,25 @@
+1. mapping_kdk_rarediseases.csv:plan.carePlanRd.* → Onkologie/CarePlan → NOMAP or non-oncology CarePlan outside MII Onkologie → rare-disease management is not an oncology concept.
+2. mapping_kdk_rarediseases.csv:followUp.followUpRds.* → Onkologie/Observation (Verlauf) → non-oncology Observation/Condition/Patient targets → rare-disease follow-up is not MII Onkologie Verlauf.
+3. mapping_grz.csv:donors[].relation → Person/Patient/Patient → FamilyMemberHistory.relationship + Patient.link/RelatedPerson as needed → trio relation is lost and non-index donors are not the index Patient.
+4. mapping_grz.csv:submission.coverageType → NOMAP → Fall/Coverage/Coverage.type → GRZ has same insurance concept KDK maps to Coverage.
+5. mapping_grz.csv:submission.localCaseId → NOMAP → Person/Patient/Patient.identifier → same index-patient case identifier as KDK metaData.localCaseId.
+6. mapping_grz.csv:submission.tanG → NOMAP → Person/Patient/Patient.identifier → index-patient genomic pseudonym should not be discarded.
+7. mapping_kdk_oncology.csv:case.diagnosisOd.mainDiagnosis.date → Diagnose/Condition/Condition.code → Condition.recordedDate → diagnosis date is not a code.
+8. mapping_kdk_oncology.csv:case.diagnosisOd.additionalDiagnoses[].date → Diagnose/Condition/Condition.code → Condition.recordedDate → diagnosis date is not a code.
+9. mapping_kdk_oncology.csv:followUp.followUpOds[].additionalDiagnoses[].date → Diagnose/Condition/Condition.code → Condition.recordedDate → follow-up diagnosis date is not a code.
+10. mapping_kdk_oncology.csv:case.diagnosisOd.*Diagnosis*.{code,system,display,version} → Condition.code → Condition.code.coding.{code,system,display,version} → coding parts point only at the CodeableConcept shell.
+11. mapping_kdk_rarediseases.csv:case.diagnosisRd.diagnoses[].{code,system,display,version} → Condition.code → Condition.code.coding.{code,system,display,version} → coding parts point only at the CodeableConcept shell.
+12. mapping_kdk_oncology.csv:case.diagnosisOd.topography.{code,system,display,version} → Condition.bodySite → Condition.bodySite.coding.{code,system,display,version} → ICD-O-3-T coding parts need the bodySite coding slice.
+13. mapping_kdk_oncology.csv:case.diagnosisOd.libraryType → Diagnose/Condition/Condition → MolGen DiagnosticReport/ServiceRequest method → sequencing type is not a diagnosis.
+14. mapping_kdk_rarediseases.csv:case.diagnosisRd.libraryType → Diagnose/Condition/Condition → MolGen DiagnosticReport/ServiceRequest method → sequencing type is not a diagnosis.
+15. mapping_kdk_rarediseases.csv:case.diagnosisRd.diagnosticExtent → Diagnose/Condition/Condition → MolGen ServiceRequest/DiagnosticReport study design → single/duo/trio is genomic testing metadata, not Condition.
+16. mapping_kdk_rarediseases.csv:case.diagnosisRd.diagnosisGmfcs → Diagnose/Condition/Condition → Observation.valueCodeableConcept → GMFCS is a functional score, not the diagnosis resource.
+17. mapping_kdk_rarediseases.csv:case.priorRds[].{hospitalizationPeriods,hospitalizationDuration,zseContactDate} → MolGen/DiagnosticReport → Encounter/Fall or NOMAP → utilization/ZSE contact data are not molecular diagnostic report content.
+18. mapping_grz.csv:donors[].labData[].tissueOntology.{name,version} → Specimen.type → Specimen.type.coding.{system,version} → ontology metadata is coding metadata, not the tissue code itself.
+19. mapping_grz.csv:donors[].labData[].{tissueTypeId,tissueTypeName} → Specimen → Specimen.type.coding.{code,display} → tissue code/display must populate Specimen.type coding.
+20. mapping_grz.csv:donors[].labData[].tumorCellCount[].method → Observation.valueQuantity → Observation.method → method is not the percentage value.
+21. mapping_grz.csv:donors[].labData[].tumorCellCount[].count → Biobank/Observation → Onkologie or Specimen-focused Observation.valueQuantity[%] → tumor-cell content is oncology/sample quality, not Biobank module.
+22. mapping_grz.csv:donors[].labData[].{libraryType,sequenceType,sequenceSubtype,sequencingLayout,fragmentationMethod,*Kit*,sequencer*} → Biobank/Specimen → MolGen DiagnosticReport/Procedure/Device metadata → library/sequencer prep metadata is not biospecimen type.
+23. mapping_grz.csv:donors[].labData[].sequenceData.referenceGenome → MolGen Observation/DocumentReference/Observation → MolGen variant Observation.component(reference-sequence-assembly) or report-level genomic build → coordinates need a reference build, not a document.
+24. mapping_kdk_oncology.csv:molecular.{smallVariants,copyNumberVariants,structuralVariants}[]* → MolGen Observation(...)/Observation with VERIFY → exact MII MolGen variant Observation profiles under DiagnosticReport.result → resource choice is right, but whole-Observation target and guessed profile are not implementable.
+25. mapping_kdk_rarediseases.csv:molecular.{smallVariants,copyNumberVariants,structuralVariants}[]* → MolGen Observation(...)/Observation with VERIFY → exact MII MolGen variant Observation profiles under DiagnosticReport.result → resource choice is right, but whole-Observation target and guessed profile are not implementable.
