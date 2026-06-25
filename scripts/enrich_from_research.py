@@ -71,6 +71,81 @@ MODULES = {
     "metaData (Person/Fall/Coverage/Consent)": MODULE_METADATA,
 }
 
+# --- prefix-rule modules (homogeneous coding-triple groups) ---
+# (prefix, module, profile, base_element, coding_slice|None, transform, status, notes)
+DIAG = "https://www.medizininformatik-initiative.de/fhir/core/modul-diagnose/StructureDefinition/Diagnose"
+ONKO = "https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition"  # + /<profile>
+MOLG = "https://www.medizininformatik-initiative.de/fhir/ext/modul-molgen/StructureDefinition"  # + /<profile>
+D = "[[mii-diagnose-onkologie]]"
+DL = "[[mii-diagnose-onkologie]] [[fml-codesystem-url-lock]]"
+
+MODULE_DIAG_ONC = [
+    # diagnoses -> MII Diagnose Condition (multi-coding on ONE Condition)
+    ("case.diagnosisOd.mainDiagnosis", "Diagnose", DIAG, "Condition.code", "icd10-gm",
+     "primary oncological diagnosis; ICD-10-GM +version 1..1; SCT/orphanet/alpha-id parallel codings on same Condition", "MAPPED", D),
+    ("case.diagnosisOd.additionalDiagnoses", "Diagnose", DIAG, "Condition.code", "icd10-gm",
+     "secondary diagnoses; one Condition each, multi-coded", "MAPPED", D),
+    ("case.diagnosisOd.germlineDiagnoses", "Diagnose", DIAG, "Condition.code", "icd10-gm",
+     "hereditary tumour syndrome (ICD-10-GM Z80*/Z85* + SCT); germline route", "MAPPED", D),
+    ("case.diagnosisOd.germlineDiagnosisConfirmed", "Onkologie", ONKO + "/...", "Observation.valueBoolean",
+     None, "HT-syndrome confirmed flag (Observation)", "MAPPED", D),
+    # oBDS Observations (LOINC + value system locked)
+    ("case.diagnosisOd.histology", "Onkologie", ONKO + "/mii-pr-onko-histologie", "Observation.valueCodeableConcept",
+     None, "LOINC 59847-4; ICD-O-3 morphology value system urn:oid:2.16.840.1.113883.6.43.1 +version 1..1", "MAPPED", D),
+    ("case.diagnosisOd.topography", "Onkologie", ONKO + "/mii-pr-onko-tumorausbreitung", "Observation.valueCodeableConcept",
+     None, "LOINC 21861-0 (LOCKED, not 66112-0); ICD-O-3 topography system urn:oid:2.16.840.1.113883.6.43.1 (LOCKED, not .43.2)", "MAPPED", DL),
+    ("case.diagnosisOd.grading", "Onkologie", ONKO + "/mii-pr-onko-grading", "Observation.valueCodeableConcept",
+     None, "LOINC 33732-9; oBDS Grading OID urn:oid:2.16.840.1.113883.3.7.1.10 or SCT", "MAPPED", D),
+    ("case.diagnosisOd.tnmClassifications", "Onkologie", ONKO + "/mii-pr-onko-tnm", "Observation.component.valueCodeableConcept",
+     None, "TNM cluster: parent LOINC 21908-9 (UICC OID urn:oid:2.16.840.1.113883.15.16) hasMember T/N/M (c:21905-5/21906-3/21907-1, p:21899-0/21900-6/21901-4)", "MAPPED", D),
+    ("case.diagnosisOd.ecogPerformanceStatusScore", "Onkologie", ONKO + "/mii-pr-onko-allgemeiner-leistungszustand-ecog",
+     "Observation.valueCodeableConcept", None,
+     "LOINC 89247-1; MII ECOG CS codes 0-4(+U) (LOCKED, not LOINC LA); binding mii-vs-onko-allgemeiner-leistungszustand-ecog", "MAPPED", DL),
+    ("case.diagnosisOd.diagnosticAssessment", "Onkologie", ONKO + "/...", "Observation.valueCodeableConcept",
+     None, "genetic diagnostic evaluation (HT only); verify onko profile", "MAPPED", D),
+    ("case.diagnosisOd.additionalClassification", "Onkologie", ONKO + "/...", "Observation",
+     None, "other staging classification (key/system, e.g. non-TNM); verify onko profile", "MAPPED", D),
+    # phenotype + sequencing-type live under diagnosisOd but belong to MolGen
+    ("case.diagnosisOd.hpoTerms", "MolGen", MOLG + "/...phaenotyp", "Observation.valueCodeableConcept",
+     None, "HPO Observation; system http://human-phenotype-ontology.org (LOCKED); verify molgen phenotype profile", "MAPPED", DL),
+    ("case.diagnosisOd.libraryType", "MolGen", "ServiceRequest", "ServiceRequest.code",
+     None, "sequencing type panel/wes/wgs/none; not a diagnosis", "MAPPED", D),
+]
+
+PREFIX_MODULES = {
+    "case.diagnosisOd (Diagnose/Onkologie)": MODULE_DIAG_ONC,
+}
+
+CC_PARTS = ("code", "system", "display", "version")
+
+def norm(p):
+    return p.replace("[]", "")
+
+def refine_element(base, slice_, path):
+    seg = norm(path).rsplit(".", 1)[-1]
+    if base.startswith("Condition") and seg == "date":
+        return "Condition.recordedDate"
+    if seg == "text":
+        if base.endswith("component.valueCodeableConcept"):
+            return base[: -len(".valueCodeableConcept")] + ".valueString"
+        if base.endswith(("CodeableConcept", ".code", ".bodySite")):
+            return base + ".text"
+        return base
+    if seg in CC_PARTS and base.endswith(("CodeableConcept", ".code", ".bodySite")):
+        cod = f".coding:{slice_}" if slice_ else ".coding"
+        return base + cod + "." + seg
+    return base
+
+def match_prefix(path, rules):
+    np = norm(path)
+    best = None
+    for r in rules:
+        pref = r[0]
+        if np == pref or np.startswith(pref + ".") or np.startswith(pref + "["):
+            if best is None or len(pref) > len(best[0]):
+                best = r
+    return best
+
 def apply():
     tables = {tf: list(csv.DictReader(open(MAP / tf))) for tf in CSVS}
     fields = {tf: list(rows[0].keys()) for tf, rows in tables.items() if rows}
@@ -85,6 +160,20 @@ def apply():
                     r["transform"], r["status"], r["notes"] = tr, st, notes
                     hit += 1
         print(f"  module '{mod_name}': {hit} rows enriched")
+        total += hit
+    for mod_name, rules in PREFIX_MODULES.items():
+        hit = 0
+        for tf, rows in tables.items():
+            for r in rows:
+                m = match_prefix(r["path"], rules)
+                if not m:
+                    continue
+                _, module, profile, base, slice_, tr, st, notes = m
+                r["mii_module"], r["mii_profile"] = module, profile
+                r["fhir_element"] = refine_element(base, slice_, r["path"]) if module else ""
+                r["transform"], r["status"], r["notes"] = tr, st, notes
+                hit += 1
+        print(f"  prefix-module '{mod_name}': {hit} rows enriched")
         total += hit
     for tf, rows in tables.items():
         with open(MAP / tf, "w", newline="") as f:
