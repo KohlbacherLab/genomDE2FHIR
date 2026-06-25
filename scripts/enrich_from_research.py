@@ -112,9 +112,85 @@ MODULE_DIAG_ONC = [
      None, "sequencing type panel/wes/wgs/none; not a diagnosis", "MAPPED", D),
 ]
 
+# ---- MolGen (molecular) — oncology. genomics-reporting components by LOINC ----
+VAR  = MOLG + "/mii-pr-molgen-variante"
+CNVP = MOLG + "/mii-pr-molgen-kopienzahlvariante"
+SVP  = MOLG + "/mii-pr-molgen-strukturvariante"
+G = "[[mii-molgen-biobank]]"
+GL = "[[mii-molgen-biobank]] [[fml-codesystem-url-lock]]"
+
+def cmp(slice_, value="valueCodeableConcept"):
+    return f"Observation.component:{slice_}.{value}"
+
+MODULE_MOLGEN_ONC = {
+    # small variants (mii-pr-molgen-variante)
+    "molecular.smallVariants[].identifier": ("MolGen", VAR, "Observation.identifier", "variant id", "MAPPED", G),
+    "molecular.smallVariants[].dnaChange": ("MolGen", VAR, cmp("dna-change"), "cHGVS; LOINC 48004-6; HGVS system", "MAPPED", G),
+    "molecular.smallVariants[].proteinChange": ("MolGen", VAR, cmp("amino-acid-change"), "pHGVS; LOINC 48005-3", "MAPPED", G),
+    "molecular.smallVariants[].ref": ("MolGen", VAR, cmp("genomic-ref-allele", "valueString"), "LOINC 69547-8", "MAPPED", G),
+    "molecular.smallVariants[].alt": ("MolGen", VAR, cmp("genomic-alt-allele", "valueString"), "LOINC 69551-0", "MAPPED", G),
+    "molecular.smallVariants[].startPosition": ("MolGen", VAR, cmp("exact-start-end", "valueRange.low"), "LOINC 81254-5 Range", "MAPPED", G),
+    "molecular.smallVariants[].endPosition": ("MolGen", VAR, cmp("exact-start-end", "valueRange.high"), "LOINC 81254-5 Range", "MAPPED", G),
+    "molecular.smallVariants[].chromosome": ("MolGen", VAR, cmp("chromosome"), "LOINC 48000-4; LA codes LL2938-0 (chr1 LA21254-0 ..)", "MAPPED", G),
+    "molecular.smallVariants[].genomicSource": ("MolGen", VAR, cmp("genomic-source-class"), "LOINC 48002-0; Somatic LA6684-0 / Germline LA6683-2", "MAPPED", G),
+    "molecular.smallVariants[].loh": ("MolGen", VAR, "Observation.component", "loss-of-heterozygosity: no standard genomics-reporting component; candidate genomde CS — DECIDE", "DRAFT", G),
+    "molecular.smallVariants[].localization": ("MolGen", VAR, "Observation.component", "variant localization (coding/intronic/...): map to molecular-consequence or RegionStudied — VERIFY", "DRAFT", G),
+    # CNV (mii-pr-molgen-kopienzahlvariante)
+    "molecular.copyNumberVariants[].identifier": ("MolGen", CNVP, "Observation.identifier", "CNV id", "MAPPED", G),
+    "molecular.copyNumberVariants[].cnvType": ("MolGen", CNVP, cmp("variant-type"), "SO:0001019 CNV; gain LA14033-7 / loss LA14034-5; or copy-number LOINC 82155-3", "MAPPED", G),
+    "molecular.copyNumberVariants[].chromosome": ("MolGen", CNVP, cmp("chromosome"), "LOINC 48000-4", "MAPPED", G),
+    "molecular.copyNumberVariants[].startPosition": ("MolGen", CNVP, cmp("exact-start-end", "valueRange.low"), "LOINC 81254-5", "MAPPED", G),
+    "molecular.copyNumberVariants[].endPosition": ("MolGen", CNVP, cmp("exact-start-end", "valueRange.high"), "LOINC 81254-5", "MAPPED", G),
+    "molecular.copyNumberVariants[].genomicSource": ("MolGen", CNVP, cmp("genomic-source-class"), "LOINC 48002-0", "MAPPED", G),
+    "molecular.copyNumberVariants[].localization": ("MolGen", CNVP, "Observation.component", "VERIFY (see smallVariants.localization)", "DRAFT", G),
+    # structural variants / fusions (mii-pr-molgen-strukturvariante)
+    "molecular.structuralVariants[].identifier": ("MolGen", SVP, "Observation.identifier", "SV id", "MAPPED", G),
+    "molecular.structuralVariants[].genomicSource": ("MolGen", SVP, cmp("genomic-source-class"), "LOINC 48002-0", "MAPPED", G),
+    "molecular.structuralVariants[].structureType": ("MolGen", SVP, cmp("variant-type"), "SO variant-type (fusion SO:0001565 etc.)", "MAPPED", G),
+    "molecular.structuralVariants[].description": ("MolGen", SVP, cmp("cytogenomic-nomenclature"), "ISCN; LOINC 81291-7; or Observation.note", "MAPPED", G),
+    "molecular.structuralVariants[].sequenceType": ("MolGen", SVP, "Observation.component", "DNA/RNA assay type — VERIFY component", "DRAFT", G),
+    "molecular.structuralVariants[].localization": ("MolGen", SVP, "Observation.component", "VERIFY (see smallVariants.localization)", "DRAFT", G),
+    # expression variants
+    "molecular.expressionVariants[].identifier": ("MolGen", VAR, "Observation.identifier", "expression id", "MAPPED", G),
+    "molecular.expressionVariants[].expressionType": ("MolGen", VAR, "Observation.valueCodeableConcept", "expression Observation LOINC 82122-3", "MAPPED", G),
+    "molecular.expressionVariants[].reference": ("MolGen", VAR, "Observation.component", "expression reference/baseline — VERIFY", "DRAFT", G),
+    # complex biomarkers (LOINC)
+    "molecular.complexBiomarkers[].identifier": ("MolGen", VAR, "Observation.identifier", "biomarker id", "MAPPED", G),
+    "molecular.complexBiomarkers[].tmb": ("MolGen", VAR, "Observation.valueQuantity", "TMB LOINC 94076-7; {count}/Mb", "MAPPED", G),
+    "molecular.complexBiomarkers[].hrdHigh": ("MolGen", VAR, "Observation.valueCodeableConcept", "HRD interpretation LOINC 94195-5; Pos LA33381-3 / Neg LA33380-5", "MAPPED", G),
+    "molecular.complexBiomarkers[].ploidy": ("MolGen", VAR, "Observation.valueQuantity", "Ploidy LOINC 81303-0", "MAPPED", G),
+    "molecular.complexBiomarkers[].lstHigh": ("MolGen", VAR, "Observation.valueBoolean", "LST: no LOINC; https://genomde.de/fhir/CodeSystem/biomarker#LST", "MAPPED", G),
+    "molecular.complexBiomarkers[].taiHigh": ("MolGen", VAR, "Observation.valueBoolean", "TAI: no LOINC; https://genomde.de/fhir/CodeSystem/biomarker#TAI", "MAPPED", G),
+    # SBS mutational signatures
+    "molecular.sbsSignatures[].identifier": ("MolGen", VAR, "Observation.identifier", "signature id", "MAPPED", G),
+    "molecular.sbsSignatures[].name[]": ("MolGen", VAR, "Observation.valueCodeableConcept", "SBS signature LOINC 93573-4", "MAPPED", G),
+    "molecular.sbsSignatures[].version": ("MolGen", VAR, "Observation.method", "signature catalogue version (COSMIC) — VERIFY", "DRAFT", G),
+}
+
+# coding-triple sub-objects of molecular -> gene-studied / transcript / variant-type components
+MODULE_MOLGEN_ONC_PREFIX = [
+    ("molecular.smallVariants[].gene", "MolGen", VAR, cmp("gene-studied"), None,
+     "gene-studied LOINC 48018-6; HGNC http://www.genenames.org (LOCKED, no /geneId)", "MAPPED", GL),
+    ("molecular.smallVariants[].transcriptId", "MolGen", VAR, cmp("transcript-ref-seq"), None,
+     "transcript-ref-seq LOINC 51958-7; NM_ system http://www.ncbi.nlm.nih.gov/refseq", "MAPPED", G),
+    ("molecular.smallVariants[].variantTypes", "MolGen", VAR, cmp("variant-type"), None,
+     "SO molecular consequence; system http://www.sequenceontology.org", "MAPPED", G),
+    ("molecular.copyNumberVariants[].gene", "MolGen", CNVP, cmp("gene-studied"), None,
+     "gene-studied 48018-6; HGNC (LOCKED)", "MAPPED", GL),
+    ("molecular.expressionVariants[].gene", "MolGen", VAR, cmp("gene-studied"), None,
+     "gene-studied 48018-6; HGNC (LOCKED)", "MAPPED", GL),
+    ("molecular.structuralVariants[].geneA", "MolGen", SVP, cmp("gene-studied"), None,
+     "fusion partner A; gene-studied 48018-6; HGNC (LOCKED)", "MAPPED", GL),
+    ("molecular.structuralVariants[].geneB", "MolGen", SVP, cmp("gene-studied"), None,
+     "fusion partner B; gene-studied 48018-6; HGNC (LOCKED)", "MAPPED", GL),
+]
+
 PREFIX_MODULES = {
     "case.diagnosisOd (Diagnose/Onkologie)": MODULE_DIAG_ONC,
+    "molecular (MolGen) — oncology": MODULE_MOLGEN_ONC_PREFIX,
 }
+
+MODULES["molecular (MolGen) — oncology"] = MODULE_MOLGEN_ONC
 
 CC_PARTS = ("code", "system", "display", "version")
 
@@ -140,9 +216,9 @@ def match_prefix(path, rules):
     np = norm(path)
     best = None
     for r in rules:
-        pref = r[0]
-        if np == pref or np.startswith(pref + ".") or np.startswith(pref + "["):
-            if best is None or len(pref) > len(best[0]):
+        pref = norm(r[0])
+        if np == pref or np.startswith(pref + "."):
+            if best is None or len(pref) > len(norm(best[0])):
                 best = r
     return best
 
