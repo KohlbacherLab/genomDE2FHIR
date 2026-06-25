@@ -275,14 +275,114 @@ MODULE_ONC_TX_PREFIX = [
      "HPO at follow-up; system http://human-phenotype-ontology.org (LOCKED)", "MAPPED", GL),
 ]
 
+# ---- rare diseases (Diagnose multi-coded, HPO, Encounter, RD molecular+ACMG, plan) ----
+RD = "[[mii-diagnose-onkologie]]"
+RDM = "[[mii-molgen-biobank]]"
+RDML = "[[mii-molgen-biobank]] [[fml-codesystem-url-lock]]"
+
+MODULE_RD = {
+    "case.diagnosisRd.diagnosisGmfcs": ("", "Observation", "Observation.valueCodeableConcept", "GMFCS functional score (base FHIR Observation)", "MAPPED", RD),
+    "case.diagnosisRd.diagnosticAssessment": ("Onkologie", ONKO + "/...", "Observation.valueCodeableConcept", "genetic diagnostic evaluation; verify profile", "MAPPED", RD),
+    "case.diagnosisRd.diagnosticExtent": ("MolGen", "ServiceRequest", "ServiceRequest.code", "single/duo/trio genomic study design", "MAPPED", RDM),
+    "case.diagnosisRd.libraryType": ("MolGen", "ServiceRequest", "ServiceRequest.code", "sequencing type panel/wes/wgs", "MAPPED", RDM),
+    "case.diagnosisRd.molecularBoardDecisionDate": ("Fall", ENC, "Encounter.period.start", "MTB date; seeds per-case Encounter + CarePlan.created", "MAPPED", M),
+    "case.diagnosisRd.symptomOnsetDate": ("Diagnose", DIAG, "Condition.onsetDateTime", "symptom onset", "MAPPED", RD),
+    "case.diagnosisRd.noMatchingCodeExists": ("Diagnose", DIAG, "Condition.code.extension(data-absent-reason)", "no matching code flag; data-absent-reason on code", "DRAFT", RD),
+    # priorRds -> Encounter (utilization) + prior diagnostics
+    "case.priorRds[].zseContactDate": ("Fall", ENC, "Encounter.period.start", "ZSE contact date", "MAPPED", M),
+    "case.priorRds[].hospitalizationPeriods": ("Fall", ENC, "Encounter.period", "hospitalization period(s)", "MAPPED", M),
+    "case.priorRds[].hospitalizationDuration": ("Fall", ENC, "Encounter.length", "hospitalization length", "MAPPED", M),
+    "case.priorRds[].diagnosticDate": ("MolGen", VAR, "DiagnosticReport.effectiveDateTime", "prior diagnostic date", "MAPPED", RDM),
+    "case.priorRds[].diagnosticResult": ("MolGen", VAR, "DiagnosticReport.conclusion", "prior diagnostic result", "DRAFT", RDM),
+    "case.priorRds[].genomicStudyType": ("MolGen", "ServiceRequest", "ServiceRequest.code", "single/duo/trio", "MAPPED", RDM),
+    "case.priorRds[].genomicTestType": ("MolGen", "ServiceRequest", "ServiceRequest.code", "prior genomic test type", "MAPPED", RDM),
+    # follow-up RD
+    "followUp.followUpRds[].deathDate": ("Person", PAT, "Patient.deceasedDateTime", "", "MAPPED", M),
+    "followUp.followUpRds[].vitalStatus": ("Person", VITAL, "Observation.valueCodeableConcept", "LOINC 67162-8 + MII Vitalstatus CS (LOCKED)", "MAPPED", "[[mii-diagnose-onkologie]] [[fml-codesystem-url-lock]]"),
+    "followUp.followUpRds[].followUpDate": ("", "Observation", "Observation.effectiveDateTime", "", "MAPPED", RD),
+    "followUp.followUpRds[].gmfcs": ("", "Observation", "Observation.valueCodeableConcept", "GMFCS at follow-up", "MAPPED", RD),
+    "followUp.followUpRds[].diagnosisEstablished": ("Diagnose", DIAG, "Condition.verificationStatus", "diagnosis established -> confirmed", "MAPPED", RD),
+    "followUp.followUpRds[].diseaseProgression": ("", "Observation", "Observation.valueCodeableConcept", "disease progression status", "DRAFT", RD),
+    "followUp.followUpRds[].phenotypes[].change": ("MolGen", MOLG + "/...phaenotyp", "Observation.interpretation", "phenotype change", "DRAFT", RDM),
+    # RD molecular — variant Observation components (smallVariants / CNV / SV)
+    **{f"molecular.{v}[].cdnaChange": (("MolGen", prof, cmp("dna-change"), "cHGVS LOINC 48004-6", "MAPPED", RDM))
+       for v, prof in [("smallVariants", VAR), ("copyNumberVariants", CNVP), ("structuralVariants", SVP)]},
+    **{f"molecular.{v}[].gdnaChange": (("MolGen", prof, cmp("genomic-dna-change", "valueString"), "gHGVS LOINC 81290-9", "MAPPED", RDM))
+       for v, prof in [("smallVariants", VAR), ("copyNumberVariants", CNVP), ("structuralVariants", SVP)]},
+    **{f"molecular.{v}[].proteinChange": (("MolGen", prof, cmp("amino-acid-change"), "pHGVS LOINC 48005-3", "MAPPED", RDM))
+       for v, prof in [("smallVariants", VAR), ("copyNumberVariants", CNVP), ("structuralVariants", SVP)]},
+    **{f"molecular.{v}[].zygosity": (("MolGen", prof, cmp("allelic-state"), "zygosity LOINC 53034-5; LL381-5 (Het LA6705-3/Hom LA6706-1/Hemi LA6707-9)", "MAPPED", RDM))
+       for v, prof in [("smallVariants", VAR), ("copyNumberVariants", CNVP), ("structuralVariants", SVP)]},
+    **{f"molecular.{v}[].modeOfInheritance": (("MolGen", prof, cmp("mode-of-inheritance"), "LOINC 79742-3; LL3731-8 (AD LA24640-7/AR LA24641-5/XL LA24788-4)", "MAPPED", RDM))
+       for v, prof in [("smallVariants", VAR), ("copyNumberVariants", CNVP), ("structuralVariants", SVP)]},
+    **{f"molecular.{v}[].acmgClass": (("MolGen", prof, "Observation.interpretation", "ACMG class -> interpretation (LL4034-6): 1=LA6675-8 Benign..5=LA6668-3 Pathogenic; alt component 53037-8", "MAPPED", RDM))
+       for v, prof in [("smallVariants", VAR), ("copyNumberVariants", CNVP), ("structuralVariants", SVP)]},
+    **{f"molecular.{v}[].acmgCriteria[].value": (("MolGen", prof, "Observation.derivedFrom->Observation(acmg-criterion)", "child Observation; ClinGen https://clinicalgenome.org/codesystem/acmg-criteria (PVS1/PS/PM/PP/BA/BS/BP)", "MAPPED", RDM))
+       for v, prof in [("smallVariants", VAR), ("copyNumberVariants", CNVP), ("structuralVariants", SVP)]},
+    **{f"molecular.{v}[].acmgCriteria[].modifier": (("MolGen", prof, "Observation(acmg-criterion).component(strength)", "ACMG strength modifier", "DRAFT", RDM))
+       for v, prof in [("smallVariants", VAR), ("copyNumberVariants", CNVP), ("structuralVariants", SVP)]},
+    **{f"molecular.{v}[].diagnosticSignificance": (("MolGen", prof, "Observation.note", "diagnostic significance; moved off 53037-8 to avoid ACMG collision", "DRAFT", RDM))
+       for v, prof in [("smallVariants", VAR), ("copyNumberVariants", CNVP), ("structuralVariants", SVP)]},
+    **{f"molecular.{v}[].externalId": (("MolGen", prof, "Observation.identifier", "external variant id (ClinVar/dbSNP)", "MAPPED", RDM))
+       for v, prof in [("smallVariants", VAR), ("copyNumberVariants", CNVP), ("structuralVariants", SVP)]},
+    **{f"molecular.{v}[].publications[]": (("MolGen", prof, "Observation.derivedFrom / extension(PMID)", "supporting publications (PMID)", "DRAFT", RDM))
+       for v, prof in [("smallVariants", VAR), ("copyNumberVariants", CNVP), ("structuralVariants", SVP)]},
+    **{f"molecular.{v}[].segregationAnalysis": (("MolGen", prof, "Observation.note", "segregation analysis result", "DRAFT", RDM))
+       for v, prof in [("smallVariants", VAR), ("copyNumberVariants", CNVP), ("structuralVariants", SVP)]},
+    "molecular.copyNumberVariants[].type": ("MolGen", CNVP, cmp("variant-type"), "CNV type SO:0001019 (gain LA14033-7/loss LA14034-5)", "MAPPED", RDM),
+    "molecular.structuralVariants[].type": ("MolGen", SVP, cmp("variant-type"), "SV type SO (fusion SO:0001565)", "MAPPED", RDM),
+    # plan RD (CarePlan — NOT onko) + recommended therapies/studies
+    "plan.carePlanRd.molecularBoardDecisionDate": ("", "CarePlan", "CarePlan.created", "MTB date", "MAPPED", RD),
+    "plan.carePlanRd.studyRecommended": ("", "CarePlan", "CarePlan.activity(study)", "boolean flag", "MAPPED", RD),
+    "plan.carePlanRd.therapyRecommended": ("", "CarePlan", "CarePlan.activity(therapy)", "boolean flag", "MAPPED", RD),
+    "plan.carePlanRd.counsellingRecommended": ("", "CarePlan", "CarePlan.activity(counselling)", "boolean flag", "MAPPED", RD),
+    "plan.carePlanRd.reEvaluationRecommended": ("", "CarePlan", "CarePlan.activity(reevaluation)", "boolean flag", "MAPPED", RD),
+    "plan.carePlanRd.clinicalManagementRecommended": ("", "CarePlan", "CarePlan.activity(management)", "boolean flag", "MAPPED", RD),
+    "plan.carePlanRd.clinicalManagementDescriptions[]": ("", "CarePlan", "CarePlan.activity.detail.description", "management description", "DRAFT", RD),
+    "plan.recommendedTherapies[].identifier": ("", "MedicationRequest", "MedicationRequest.identifier", "", "MAPPED", P),
+    "plan.recommendedTherapies[].strategy": ("", "MedicationRequest", "MedicationRequest.note", "RD therapy strategy", "DRAFT", P),
+    "plan.recommendedTherapies[].strategyCombination": ("", "MedicationRequest", "MedicationRequest.note", "combination strategy", "DRAFT", P),
+    "plan.recommendedTherapies[].strategyOther": ("", "MedicationRequest", "MedicationRequest.note", "other strategy", "DRAFT", P),
+    "plan.recommendedTherapies[].type": ("", "MedicationRequest", "MedicationRequest.extension(offLabel)", "therapy type", "DRAFT", P),
+    "plan.recommendedTherapies[].variants[]": ("", "MedicationRequest", "MedicationRequest.reasonReference", "supporting variants", "DRAFT", P),
+    "plan.recommendedStudies[].name": ("", "ResearchStudy", "ResearchStudy.title", "", "MAPPED", MTB),
+    "plan.recommendedStudies[].register": ("", "ResearchStudy", "ResearchStudy.identifier.system", "register", "MAPPED", MTB),
+    "plan.recommendedStudies[].id": ("", "ResearchStudy", "ResearchStudy.identifier.value", "", "MAPPED", MTB),
+    "plan.recommendedStudies[].identifier": ("", "ResearchStudy", "ResearchStudy.identifier", "", "MAPPED", MTB),
+    "plan.recommendedStudies[].variants[]": ("", "ResearchStudy", "ResearchStudy.extension", "supporting variants", "DRAFT", MTB),
+}
+
+MODULE_RD_PREFIX = [
+    ("case.diagnosisRd.diagnoses", "Diagnose", DIAG, "Condition.code", None,
+     "RD diagnosis on ONE multi-coded Condition: ICD-10-GM + ORPHA (http://www.orpha.net LOCKED) + AlphaID (http://fhir.de/CodeSystem/bfarm/alpha-id LOCKED)", "MAPPED", RDML),
+    ("case.diagnosisRd.phenotypes", "MolGen", MOLG + "/...phaenotyp", "Observation.valueCodeableConcept", None,
+     "HPO phenotype; system http://human-phenotype-ontology.org (LOCKED)", "MAPPED", RDML),
+    ("followUp.followUpRds[].phenotypes", "MolGen", MOLG + "/...phaenotyp", "Observation.valueCodeableConcept", None,
+     "HPO at follow-up (LOCKED)", "MAPPED", RDML),
+    ("molecular.smallVariants[].genes", "MolGen", VAR, cmp("gene-studied"), None,
+     "gene-studied 48018-6; HGNC http://www.genenames.org (LOCKED)", "MAPPED", RDML),
+    ("molecular.copyNumberVariants[].genes", "MolGen", CNVP, cmp("gene-studied"), None,
+     "gene-studied 48018-6; HGNC (LOCKED)", "MAPPED", RDML),
+    ("molecular.structuralVariants[].genes", "MolGen", SVP, cmp("gene-studied"), None,
+     "gene-studied 48018-6; HGNC (LOCKED)", "MAPPED", RDML),
+    ("molecular.smallVariants[].localization", "MolGen", VAR, cmp("transcript-ref-seq"), None,
+     "variant localization (transcript/region); verify component", "DRAFT", RDM),
+    ("molecular.copyNumberVariants[].localization", "MolGen", CNVP, "Observation.component", None,
+     "localization; verify component", "DRAFT", RDM),
+    ("molecular.structuralVariants[].localization", "MolGen", SVP, "Observation.component", None,
+     "localization; verify component", "DRAFT", RDM),
+]
+
 PREFIX_MODULES = {
     "case.diagnosisOd (Diagnose/Onkologie)": MODULE_DIAG_ONC,
     "molecular (MolGen) — oncology": MODULE_MOLGEN_ONC_PREFIX,
     "oncology treatment/plan/followUp": MODULE_ONC_TX_PREFIX,
+    "rare diseases": MODULE_RD_PREFIX,
 }
 
 MODULES["molecular (MolGen) — oncology"] = MODULE_MOLGEN_ONC
 MODULES["oncology treatment/plan/followUp"] = MODULE_ONC_TX
+MODULES["rare diseases"] = MODULE_RD
 
 CC_PARTS = ("code", "system", "display", "version")
 
