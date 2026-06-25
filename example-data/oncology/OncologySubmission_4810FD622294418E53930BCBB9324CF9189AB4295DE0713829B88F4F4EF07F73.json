@@ -1,0 +1,1385 @@
+{
+  "metaData" : {
+    "submission" : {
+      "date" : "2026-04-21",
+      "type" : "test",
+      "submitterId" : "260840108",
+      "clinicalDataNodeId" : "KDKTUE005",
+      "genomicDataCenterId" : "GRZTUE002",
+      "diseaseType" : "oncological"
+    },
+    "coverageType" : "GKV",
+    "mvConsent" : {
+      "presentationDate" : "2026-03-23",
+      "version" : "Patient Info TE Consent MVGenomSeq vers01",
+      "scope" : [ {
+        "date" : "2026-03-24",
+        "domain" : "mvSequencing",
+        "type" : "permit"
+      }, {
+        "date" : "2026-03-24",
+        "domain" : "reIdentification",
+        "type" : "permit"
+      }, {
+        "date" : "2026-03-24",
+        "domain" : "caseIdentification",
+        "type" : "permit"
+      } ]
+    },
+    "researchConsents" : [ ],
+    "tanC" : "4810FD622294418E53930BCBB9324CF9189AB4295DE0713829B88F4F4EF07F73",
+    "gender" : "female",
+    "birthDate" : "1984-04",
+    "addressAGS" : "12345",
+    "decisionToInclude" : true,
+    "molecularBoardDecisionDate" : "2026-04-07"
+  },
+  "case" : {
+    "diagnosisOd" : {
+      "mainDiagnosis" : {
+        "code" : "C69.4",
+        "display" : "Bösartige Neubildung: Ziliarkörper",
+        "system" : "http://fhir.de/CodeSystem/bfarm/icd-10-gm",
+        "version" : "2026",
+        "date" : "2015-01-02"
+      },
+      "ecogPerformanceStatusScore" : "1",
+      "germlineDiagnosisConfirmed" : false,
+      "histology" : {
+        "code" : "9817/3",
+        "display" : "B-lymphoblastische/s Leukämie/Lymphom mit t(5;14)(q31;q32); IL3-IGH",
+        "system" : "urn:oid:2.16.840.1.113883.6.43.1",
+        "version" : "Zweite Revision"
+      },
+      "topography" : {
+        "code" : "C69.4",
+        "display" : "Bulbus oculi",
+        "system" : "urn:oid:2.16.840.1.113883.6.43.1",
+        "version" : "Zweite Revision"
+      },
+      "grading" : "L",
+      "tnmClassifications" : [ {
+        "code" : "T2",
+        "display" : "T2",
+        "system" : "UICC",
+        "version" : "8th ed."
+      }, {
+        "code" : "N3",
+        "display" : "N3",
+        "system" : "UICC",
+        "version" : "8th ed."
+      }, {
+        "code" : "M0",
+        "display" : "M0",
+        "system" : "UICC",
+        "version" : "8th ed."
+      } ],
+      "additionalClassification" : [ {
+        "key" : "unknown",
+        "system" : "dnpm-dip/mtb/diagnosis/kds-tumor-spread"
+      } ],
+      "libraryType" : "panel"
+    },
+    "priorDiagnostic" : {
+      "type" : "genomeShortRead",
+      "date" : "2026-04-21"
+    },
+    "priorProcedures" : [ {
+      "treatmentType" : "A",
+      "intention" : "K",
+      "therapyStartDate" : "2024-11-21",
+      "therapyEndDate" : "2025-03-20",
+      "substances" : [ {
+        "code" : {
+          "code" : "L01XX80",
+          "display" : "Imetelstat",
+          "system" : "http://fhir.de/CodeSystem/bfarm/atc",
+          "version" : "2025"
+        }
+      } ],
+      "terminationReasonOBDS" : "P"
+    } ]
+  },
+  "molecular" : {
+    "smallVariants" : [ {
+      "identifier" : "a451e176-8509-45d0-a4fa-d0a66f1a0ac9",
+      "genomicSource" : "somatic",
+      "chromosome" : "1",
+      "gene" : {
+        "code" : "HGNC:3690",
+        "display" : "FGFR3",
+        "system" : "https://www.genenames.org/"
+      },
+      "localization" : "notInCodingAndNotInRegulatoryElements",
+      "startPosition" : 147,
+      "endPosition" : 147,
+      "ref" : "C",
+      "alt" : "A",
+      "dnaChange" : "c.147C>A",
+      "proteinChange" : "p.Cys28_Lys29delinsTrp",
+      "transcriptId" : {
+        "code" : "91508c0f-ec1f-4a5f-80ff-f090b7cdecfe",
+        "system" : "https://www.ensembl.org"
+      }
+    }, {
+      "identifier" : "9fc4c561-5dc0-4e63-9273-c5067e9713a6",
+      "genomicSource" : "somatic",
+      "chromosome" : "15",
+      "gene" : {
+        "code" : "HGNC:3689",
+        "display" : "FGFR2",
+        "system" : "https://www.genenames.org/"
+      },
+      "localization" : "inRegulatoryElements",
+      "startPosition" : 231,
+      "endPosition" : 231,
+      "ref" : "C",
+      "alt" : "T",
+      "dnaChange" : "c.231C>T",
+      "proteinChange" : "p.Cys28delinsTrpVal",
+      "transcriptId" : {
+        "code" : "742c0640-6499-4cc4-9a1b-3e37bca5bc52",
+        "system" : "https://www.ensembl.org"
+      }
+    }, {
+      "identifier" : "8774d99a-0a95-4fbe-bd65-ac796171e46e",
+      "genomicSource" : "somatic",
+      "chromosome" : "22",
+      "gene" : {
+        "code" : "HGNC:3236",
+        "display" : "EGFR",
+        "system" : "https://www.genenames.org/"
+      },
+      "localization" : "coding",
+      "startPosition" : 130,
+      "endPosition" : 130,
+      "ref" : "T",
+      "alt" : "G",
+      "dnaChange" : "c.130T>G",
+      "proteinChange" : "p.(Gly56Ala^Ser^Cys)",
+      "transcriptId" : {
+        "code" : "dd1375d2-f694-474e-af71-a0bc5710e153",
+        "system" : "https://www.ncbi.nlm.nih.gov/refseq"
+      }
+    }, {
+      "identifier" : "84f2264d-15d5-49cc-a455-531447b6a40a",
+      "genomicSource" : "somatic",
+      "chromosome" : "1",
+      "gene" : {
+        "code" : "HGNC:6973",
+        "display" : "MDM2",
+        "system" : "https://www.genenames.org/"
+      },
+      "localization" : "notInCodingAndNotInRegulatoryElements",
+      "startPosition" : 549,
+      "endPosition" : 549,
+      "ref" : "T",
+      "alt" : "C",
+      "dnaChange" : "c.549T>C",
+      "proteinChange" : "p.(Glu125_Ala132delinsGlyLeuHisArgPheIleValLeu)",
+      "transcriptId" : {
+        "code" : "87a92dfd-27cd-44d1-8115-bc3b6c82bbcd",
+        "system" : "https://www.ncbi.nlm.nih.gov/refseq"
+      }
+    }, {
+      "identifier" : "f54196ec-0329-42f0-a136-7bf5374dac61",
+      "genomicSource" : "somatic",
+      "chromosome" : "20",
+      "gene" : {
+        "code" : "HGNC:25829",
+        "display" : "ABRAXAS1",
+        "system" : "https://www.genenames.org/"
+      },
+      "localization" : "coding",
+      "startPosition" : 477,
+      "endPosition" : 477,
+      "ref" : "G",
+      "alt" : "T",
+      "dnaChange" : "c.477G>T",
+      "proteinChange" : "p.His4_Gln5insAla",
+      "transcriptId" : {
+        "code" : "29f80457-d488-4bdd-b89d-d98e2d96bbe3",
+        "system" : "https://www.ncbi.nlm.nih.gov/refseq"
+      }
+    }, {
+      "identifier" : "fc0f23f6-096c-4d2f-93b5-3e64bd3aabf8",
+      "genomicSource" : "somatic",
+      "chromosome" : "9",
+      "gene" : {
+        "code" : "HGNC:76",
+        "display" : "ABL1",
+        "system" : "https://www.genenames.org/"
+      },
+      "localization" : "notInCodingAndNotInRegulatoryElements",
+      "startPosition" : 92,
+      "endPosition" : 92,
+      "ref" : "C",
+      "alt" : "A",
+      "dnaChange" : "c.92C>A",
+      "proteinChange" : "p.(Pro578_Lys579delinsLeuTer)",
+      "transcriptId" : {
+        "code" : "7a81b497-4ee3-42c4-b4c3-f928281eac91",
+        "system" : "https://www.ensembl.org"
+      }
+    }, {
+      "identifier" : "38f175a7-35ff-4fa7-8d02-94abce48819c",
+      "genomicSource" : "somatic",
+      "chromosome" : "12",
+      "gene" : {
+        "code" : "HGNC:3689",
+        "display" : "FGFR2",
+        "system" : "https://www.genenames.org/"
+      },
+      "localization" : "notInCodingAndNotInRegulatoryElements",
+      "startPosition" : 518,
+      "endPosition" : 518,
+      "ref" : "A",
+      "alt" : "T",
+      "dnaChange" : "c.518A>T",
+      "proteinChange" : "p.Gly2_Met46del",
+      "transcriptId" : {
+        "code" : "e7beb009-b283-414d-94a7-25fe9bcc4ace",
+        "system" : "https://www.ncbi.nlm.nih.gov/refseq"
+      }
+    }, {
+      "identifier" : "3520b83f-48b8-41ae-86d0-9302ef25e371",
+      "genomicSource" : "somatic",
+      "chromosome" : "5",
+      "gene" : {
+        "code" : "HGNC:1097",
+        "display" : "BRAF",
+        "system" : "https://www.genenames.org/"
+      },
+      "localization" : "notInCodingAndNotInRegulatoryElements",
+      "startPosition" : 27,
+      "endPosition" : 27,
+      "ref" : "A",
+      "alt" : "T",
+      "dnaChange" : "c.27A>T",
+      "proteinChange" : "p.Val7del",
+      "transcriptId" : {
+        "code" : "fea62de0-89d5-45e1-97cf-f7ffa882bfa2",
+        "system" : "https://www.ensembl.org"
+      }
+    } ],
+    "copyNumberVariants" : [ {
+      "identifier" : "da855cc8-24f9-45c2-9dc0-d3cfdf80a1c0_FGFR2",
+      "genomicSource" : "somatic",
+      "gene" : {
+        "code" : "HGNC:3689",
+        "display" : "FGFR2",
+        "system" : "https://www.genenames.org/"
+      },
+      "localization" : "notInCodingAndNotInRegulatoryElements",
+      "cnvType" : "highLevelGain",
+      "chromosome" : "9",
+      "startPosition" : 32309,
+      "endPosition" : 33134
+    }, {
+      "identifier" : "da855cc8-24f9-45c2-9dc0-d3cfdf80a1c0_ACAD10",
+      "genomicSource" : "somatic",
+      "gene" : {
+        "code" : "HGNC:21597",
+        "display" : "ACAD10",
+        "system" : "https://www.genenames.org/"
+      },
+      "localization" : "notInCodingAndNotInRegulatoryElements",
+      "cnvType" : "highLevelGain",
+      "chromosome" : "9",
+      "startPosition" : 32309,
+      "endPosition" : 33134
+    }, {
+      "identifier" : "da855cc8-24f9-45c2-9dc0-d3cfdf80a1c0_AACS",
+      "genomicSource" : "somatic",
+      "gene" : {
+        "code" : "HGNC:21298",
+        "display" : "AACS",
+        "system" : "https://www.genenames.org/"
+      },
+      "localization" : "notInCodingAndNotInRegulatoryElements",
+      "cnvType" : "highLevelGain",
+      "chromosome" : "9",
+      "startPosition" : 32309,
+      "endPosition" : 33134
+    }, {
+      "identifier" : "da855cc8-24f9-45c2-9dc0-d3cfdf80a1c0_EGFR",
+      "genomicSource" : "somatic",
+      "gene" : {
+        "code" : "HGNC:3236",
+        "display" : "EGFR",
+        "system" : "https://www.genenames.org/"
+      },
+      "localization" : "notInCodingAndNotInRegulatoryElements",
+      "cnvType" : "highLevelGain",
+      "chromosome" : "9",
+      "startPosition" : 32309,
+      "endPosition" : 33134
+    }, {
+      "identifier" : "da855cc8-24f9-45c2-9dc0-d3cfdf80a1c0_FGFR3",
+      "genomicSource" : "somatic",
+      "gene" : {
+        "code" : "HGNC:3690",
+        "display" : "FGFR3",
+        "system" : "https://www.genenames.org/"
+      },
+      "localization" : "notInCodingAndNotInRegulatoryElements",
+      "cnvType" : "highLevelGain",
+      "chromosome" : "9",
+      "startPosition" : 32309,
+      "endPosition" : 33134
+    }, {
+      "identifier" : "da855cc8-24f9-45c2-9dc0-d3cfdf80a1c0_TP53",
+      "genomicSource" : "somatic",
+      "gene" : {
+        "code" : "HGNC:11998",
+        "display" : "TP53",
+        "system" : "https://www.genenames.org/"
+      },
+      "localization" : "notInCodingAndNotInRegulatoryElements",
+      "cnvType" : "highLevelGain",
+      "chromosome" : "9",
+      "startPosition" : 32309,
+      "endPosition" : 33134
+    }, {
+      "identifier" : "da855cc8-24f9-45c2-9dc0-d3cfdf80a1c0_CDK6",
+      "genomicSource" : "somatic",
+      "gene" : {
+        "code" : "HGNC:1777",
+        "display" : "CDK6",
+        "system" : "https://www.genenames.org/"
+      },
+      "localization" : "notInCodingAndNotInRegulatoryElements",
+      "cnvType" : "highLevelGain",
+      "chromosome" : "9",
+      "startPosition" : 32309,
+      "endPosition" : 33134
+    }, {
+      "identifier" : "da855cc8-24f9-45c2-9dc0-d3cfdf80a1c0_AAGAB",
+      "genomicSource" : "somatic",
+      "gene" : {
+        "code" : "HGNC:25662",
+        "display" : "AAGAB",
+        "system" : "https://www.genenames.org/"
+      },
+      "localization" : "notInCodingAndNotInRegulatoryElements",
+      "cnvType" : "highLevelGain",
+      "chromosome" : "9",
+      "startPosition" : 32309,
+      "endPosition" : 33134
+    }, {
+      "identifier" : "da855cc8-24f9-45c2-9dc0-d3cfdf80a1c0_ABCA3",
+      "genomicSource" : "somatic",
+      "gene" : {
+        "code" : "HGNC:33",
+        "display" : "ABCA3",
+        "system" : "https://www.genenames.org/"
+      },
+      "localization" : "notInCodingAndNotInRegulatoryElements",
+      "cnvType" : "highLevelGain",
+      "chromosome" : "9",
+      "startPosition" : 32309,
+      "endPosition" : 33134
+    }, {
+      "identifier" : "da855cc8-24f9-45c2-9dc0-d3cfdf80a1c0_CDH13",
+      "genomicSource" : "somatic",
+      "gene" : {
+        "code" : "HGNC:1753",
+        "display" : "CDH13",
+        "system" : "https://www.genenames.org/"
+      },
+      "localization" : "notInCodingAndNotInRegulatoryElements",
+      "cnvType" : "highLevelGain",
+      "chromosome" : "9",
+      "startPosition" : 32309,
+      "endPosition" : 33134
+    }, {
+      "identifier" : "6e15f3a1-2ea0-4c7c-ab32-0ec1f4a353e2_AACS",
+      "genomicSource" : "somatic",
+      "gene" : {
+        "code" : "HGNC:21298",
+        "display" : "AACS",
+        "system" : "https://www.genenames.org/"
+      },
+      "localization" : "notInCodingAndNotInRegulatoryElements",
+      "cnvType" : "lowLevelGain",
+      "chromosome" : "4",
+      "startPosition" : 19440,
+      "endPosition" : 19647
+    }, {
+      "identifier" : "6e15f3a1-2ea0-4c7c-ab32-0ec1f4a353e2_HRAS",
+      "genomicSource" : "somatic",
+      "gene" : {
+        "code" : "HGNC:5173",
+        "display" : "HRAS",
+        "system" : "https://www.genenames.org/"
+      },
+      "localization" : "notInCodingAndNotInRegulatoryElements",
+      "cnvType" : "lowLevelGain",
+      "chromosome" : "4",
+      "startPosition" : 19440,
+      "endPosition" : 19647
+    }, {
+      "identifier" : "6e15f3a1-2ea0-4c7c-ab32-0ec1f4a353e2_AKT1",
+      "genomicSource" : "somatic",
+      "gene" : {
+        "code" : "HGNC:391",
+        "display" : "AKT1",
+        "system" : "https://www.genenames.org/"
+      },
+      "localization" : "notInCodingAndNotInRegulatoryElements",
+      "cnvType" : "lowLevelGain",
+      "chromosome" : "4",
+      "startPosition" : 19440,
+      "endPosition" : 19647
+    }, {
+      "identifier" : "6e15f3a1-2ea0-4c7c-ab32-0ec1f4a353e2_TP53",
+      "genomicSource" : "somatic",
+      "gene" : {
+        "code" : "HGNC:11998",
+        "display" : "TP53",
+        "system" : "https://www.genenames.org/"
+      },
+      "localization" : "notInCodingAndNotInRegulatoryElements",
+      "cnvType" : "lowLevelGain",
+      "chromosome" : "4",
+      "startPosition" : 19440,
+      "endPosition" : 19647
+    }, {
+      "identifier" : "187885ee-002a-490d-a99c-2b036c559935_ABRAXAS1",
+      "genomicSource" : "somatic",
+      "gene" : {
+        "code" : "HGNC:25829",
+        "display" : "ABRAXAS1",
+        "system" : "https://www.genenames.org/"
+      },
+      "localization" : "inRegulatoryElements",
+      "cnvType" : "lowLevelGain",
+      "chromosome" : "X",
+      "startPosition" : 33335,
+      "endPosition" : 33684
+    }, {
+      "identifier" : "187885ee-002a-490d-a99c-2b036c559935_BRAF",
+      "genomicSource" : "somatic",
+      "gene" : {
+        "code" : "HGNC:1097",
+        "display" : "BRAF",
+        "system" : "https://www.genenames.org/"
+      },
+      "localization" : "inRegulatoryElements",
+      "cnvType" : "lowLevelGain",
+      "chromosome" : "X",
+      "startPosition" : 33335,
+      "endPosition" : 33684
+    }, {
+      "identifier" : "187885ee-002a-490d-a99c-2b036c559935_AACS",
+      "genomicSource" : "somatic",
+      "gene" : {
+        "code" : "HGNC:21298",
+        "display" : "AACS",
+        "system" : "https://www.genenames.org/"
+      },
+      "localization" : "inRegulatoryElements",
+      "cnvType" : "lowLevelGain",
+      "chromosome" : "X",
+      "startPosition" : 33335,
+      "endPosition" : 33684
+    }, {
+      "identifier" : "187885ee-002a-490d-a99c-2b036c559935_AAGAB",
+      "genomicSource" : "somatic",
+      "gene" : {
+        "code" : "HGNC:25662",
+        "display" : "AAGAB",
+        "system" : "https://www.genenames.org/"
+      },
+      "localization" : "inRegulatoryElements",
+      "cnvType" : "lowLevelGain",
+      "chromosome" : "X",
+      "startPosition" : 33335,
+      "endPosition" : 33684
+    }, {
+      "identifier" : "187885ee-002a-490d-a99c-2b036c559935_EGFR",
+      "genomicSource" : "somatic",
+      "gene" : {
+        "code" : "HGNC:3236",
+        "display" : "EGFR",
+        "system" : "https://www.genenames.org/"
+      },
+      "localization" : "inRegulatoryElements",
+      "cnvType" : "lowLevelGain",
+      "chromosome" : "X",
+      "startPosition" : 33335,
+      "endPosition" : 33684
+    }, {
+      "identifier" : "187885ee-002a-490d-a99c-2b036c559935_HRAS",
+      "genomicSource" : "somatic",
+      "gene" : {
+        "code" : "HGNC:5173",
+        "display" : "HRAS",
+        "system" : "https://www.genenames.org/"
+      },
+      "localization" : "inRegulatoryElements",
+      "cnvType" : "lowLevelGain",
+      "chromosome" : "X",
+      "startPosition" : 33335,
+      "endPosition" : 33684
+    }, {
+      "identifier" : "187885ee-002a-490d-a99c-2b036c559935_AKT1",
+      "genomicSource" : "somatic",
+      "gene" : {
+        "code" : "HGNC:391",
+        "display" : "AKT1",
+        "system" : "https://www.genenames.org/"
+      },
+      "localization" : "inRegulatoryElements",
+      "cnvType" : "lowLevelGain",
+      "chromosome" : "X",
+      "startPosition" : 33335,
+      "endPosition" : 33684
+    }, {
+      "identifier" : "187885ee-002a-490d-a99c-2b036c559935_ATRX",
+      "genomicSource" : "somatic",
+      "gene" : {
+        "code" : "HGNC:886",
+        "display" : "ATRX",
+        "system" : "https://www.genenames.org/"
+      },
+      "localization" : "inRegulatoryElements",
+      "cnvType" : "lowLevelGain",
+      "chromosome" : "X",
+      "startPosition" : 33335,
+      "endPosition" : 33684
+    }, {
+      "identifier" : "187885ee-002a-490d-a99c-2b036c559935_MTOR",
+      "genomicSource" : "somatic",
+      "gene" : {
+        "code" : "HGNC:3942",
+        "display" : "MTOR",
+        "system" : "https://www.genenames.org/"
+      },
+      "localization" : "inRegulatoryElements",
+      "cnvType" : "lowLevelGain",
+      "chromosome" : "X",
+      "startPosition" : 33335,
+      "endPosition" : 33684
+    }, {
+      "identifier" : "187885ee-002a-490d-a99c-2b036c559935_CDK6",
+      "genomicSource" : "somatic",
+      "gene" : {
+        "code" : "HGNC:1777",
+        "display" : "CDK6",
+        "system" : "https://www.genenames.org/"
+      },
+      "localization" : "inRegulatoryElements",
+      "cnvType" : "lowLevelGain",
+      "chromosome" : "X",
+      "startPosition" : 33335,
+      "endPosition" : 33684
+    }, {
+      "identifier" : "187885ee-002a-490d-a99c-2b036c559935_RET",
+      "genomicSource" : "somatic",
+      "gene" : {
+        "code" : "HGNC:9967",
+        "display" : "RET",
+        "system" : "https://www.genenames.org/"
+      },
+      "localization" : "inRegulatoryElements",
+      "cnvType" : "lowLevelGain",
+      "chromosome" : "X",
+      "startPosition" : 33335,
+      "endPosition" : 33684
+    }, {
+      "identifier" : "187885ee-002a-490d-a99c-2b036c559935_CDH13",
+      "genomicSource" : "somatic",
+      "gene" : {
+        "code" : "HGNC:1753",
+        "display" : "CDH13",
+        "system" : "https://www.genenames.org/"
+      },
+      "localization" : "inRegulatoryElements",
+      "cnvType" : "lowLevelGain",
+      "chromosome" : "X",
+      "startPosition" : 33335,
+      "endPosition" : 33684
+    }, {
+      "identifier" : "8d14caf1-ceba-46b4-a22a-a8b0268dd3e0_AAGAB",
+      "genomicSource" : "somatic",
+      "gene" : {
+        "code" : "HGNC:25662",
+        "display" : "AAGAB",
+        "system" : "https://www.genenames.org/"
+      },
+      "localization" : "inRegulatoryElements",
+      "cnvType" : "lowLevelGain",
+      "chromosome" : "2",
+      "startPosition" : 40023,
+      "endPosition" : 40141
+    }, {
+      "identifier" : "8d14caf1-ceba-46b4-a22a-a8b0268dd3e0_HRAS",
+      "genomicSource" : "somatic",
+      "gene" : {
+        "code" : "HGNC:5173",
+        "display" : "HRAS",
+        "system" : "https://www.genenames.org/"
+      },
+      "localization" : "inRegulatoryElements",
+      "cnvType" : "lowLevelGain",
+      "chromosome" : "2",
+      "startPosition" : 40023,
+      "endPosition" : 40141
+    }, {
+      "identifier" : "8d14caf1-ceba-46b4-a22a-a8b0268dd3e0_CDH13",
+      "genomicSource" : "somatic",
+      "gene" : {
+        "code" : "HGNC:1753",
+        "display" : "CDH13",
+        "system" : "https://www.genenames.org/"
+      },
+      "localization" : "inRegulatoryElements",
+      "cnvType" : "lowLevelGain",
+      "chromosome" : "2",
+      "startPosition" : 40023,
+      "endPosition" : 40141
+    }, {
+      "identifier" : "8d14caf1-ceba-46b4-a22a-a8b0268dd3e0_BRAFP1",
+      "genomicSource" : "somatic",
+      "gene" : {
+        "code" : "HGNC:18615",
+        "display" : "BRAFP1",
+        "system" : "https://www.genenames.org/"
+      },
+      "localization" : "inRegulatoryElements",
+      "cnvType" : "lowLevelGain",
+      "chromosome" : "2",
+      "startPosition" : 40023,
+      "endPosition" : 40141
+    }, {
+      "identifier" : "8d14caf1-ceba-46b4-a22a-a8b0268dd3e0_RET",
+      "genomicSource" : "somatic",
+      "gene" : {
+        "code" : "HGNC:9967",
+        "display" : "RET",
+        "system" : "https://www.genenames.org/"
+      },
+      "localization" : "inRegulatoryElements",
+      "cnvType" : "lowLevelGain",
+      "chromosome" : "2",
+      "startPosition" : 40023,
+      "endPosition" : 40141
+    }, {
+      "identifier" : "8d14caf1-ceba-46b4-a22a-a8b0268dd3e0_TP53",
+      "genomicSource" : "somatic",
+      "gene" : {
+        "code" : "HGNC:11998",
+        "display" : "TP53",
+        "system" : "https://www.genenames.org/"
+      },
+      "localization" : "inRegulatoryElements",
+      "cnvType" : "lowLevelGain",
+      "chromosome" : "2",
+      "startPosition" : 40023,
+      "endPosition" : 40141
+    }, {
+      "identifier" : "8d14caf1-ceba-46b4-a22a-a8b0268dd3e0_ABL1",
+      "genomicSource" : "somatic",
+      "gene" : {
+        "code" : "HGNC:76",
+        "display" : "ABL1",
+        "system" : "https://www.genenames.org/"
+      },
+      "localization" : "inRegulatoryElements",
+      "cnvType" : "lowLevelGain",
+      "chromosome" : "2",
+      "startPosition" : 40023,
+      "endPosition" : 40141
+    }, {
+      "identifier" : "8d14caf1-ceba-46b4-a22a-a8b0268dd3e0_BRCA1",
+      "genomicSource" : "somatic",
+      "gene" : {
+        "code" : "HGNC:1100",
+        "display" : "BRCA1",
+        "system" : "https://www.genenames.org/"
+      },
+      "localization" : "inRegulatoryElements",
+      "cnvType" : "lowLevelGain",
+      "chromosome" : "2",
+      "startPosition" : 40023,
+      "endPosition" : 40141
+    }, {
+      "identifier" : "8d14caf1-ceba-46b4-a22a-a8b0268dd3e0_FGFR2",
+      "genomicSource" : "somatic",
+      "gene" : {
+        "code" : "HGNC:3689",
+        "display" : "FGFR2",
+        "system" : "https://www.genenames.org/"
+      },
+      "localization" : "inRegulatoryElements",
+      "cnvType" : "lowLevelGain",
+      "chromosome" : "2",
+      "startPosition" : 40023,
+      "endPosition" : 40141
+    }, {
+      "identifier" : "8d14caf1-ceba-46b4-a22a-a8b0268dd3e0_MDM2",
+      "genomicSource" : "somatic",
+      "gene" : {
+        "code" : "HGNC:6973",
+        "display" : "MDM2",
+        "system" : "https://www.genenames.org/"
+      },
+      "localization" : "inRegulatoryElements",
+      "cnvType" : "lowLevelGain",
+      "chromosome" : "2",
+      "startPosition" : 40023,
+      "endPosition" : 40141
+    }, {
+      "identifier" : "8d14caf1-ceba-46b4-a22a-a8b0268dd3e0_ACAD10",
+      "genomicSource" : "somatic",
+      "gene" : {
+        "code" : "HGNC:21597",
+        "display" : "ACAD10",
+        "system" : "https://www.genenames.org/"
+      },
+      "localization" : "inRegulatoryElements",
+      "cnvType" : "lowLevelGain",
+      "chromosome" : "2",
+      "startPosition" : 40023,
+      "endPosition" : 40141
+    }, {
+      "identifier" : "48dc19ce-371b-48f7-a472-74bb7aa2daf4_AKT1",
+      "genomicSource" : "somatic",
+      "gene" : {
+        "code" : "HGNC:391",
+        "display" : "AKT1",
+        "system" : "https://www.genenames.org/"
+      },
+      "localization" : "notInCodingAndNotInRegulatoryElements",
+      "cnvType" : "lowLevelGain",
+      "chromosome" : "6",
+      "startPosition" : 32118,
+      "endPosition" : 32720
+    }, {
+      "identifier" : "48dc19ce-371b-48f7-a472-74bb7aa2daf4_BRCA1",
+      "genomicSource" : "somatic",
+      "gene" : {
+        "code" : "HGNC:1100",
+        "display" : "BRCA1",
+        "system" : "https://www.genenames.org/"
+      },
+      "localization" : "notInCodingAndNotInRegulatoryElements",
+      "cnvType" : "lowLevelGain",
+      "chromosome" : "6",
+      "startPosition" : 32118,
+      "endPosition" : 32720
+    }, {
+      "identifier" : "48dc19ce-371b-48f7-a472-74bb7aa2daf4_ABCA4",
+      "genomicSource" : "somatic",
+      "gene" : {
+        "code" : "HGNC:34",
+        "display" : "ABCA4",
+        "system" : "https://www.genenames.org/"
+      },
+      "localization" : "notInCodingAndNotInRegulatoryElements",
+      "cnvType" : "lowLevelGain",
+      "chromosome" : "6",
+      "startPosition" : 32118,
+      "endPosition" : 32720
+    }, {
+      "identifier" : "48dc19ce-371b-48f7-a472-74bb7aa2daf4_ATRX",
+      "genomicSource" : "somatic",
+      "gene" : {
+        "code" : "HGNC:886",
+        "display" : "ATRX",
+        "system" : "https://www.genenames.org/"
+      },
+      "localization" : "notInCodingAndNotInRegulatoryElements",
+      "cnvType" : "lowLevelGain",
+      "chromosome" : "6",
+      "startPosition" : 32118,
+      "endPosition" : 32720
+    }, {
+      "identifier" : "48dc19ce-371b-48f7-a472-74bb7aa2daf4_BRAF",
+      "genomicSource" : "somatic",
+      "gene" : {
+        "code" : "HGNC:1097",
+        "display" : "BRAF",
+        "system" : "https://www.genenames.org/"
+      },
+      "localization" : "notInCodingAndNotInRegulatoryElements",
+      "cnvType" : "lowLevelGain",
+      "chromosome" : "6",
+      "startPosition" : 32118,
+      "endPosition" : 32720
+    }, {
+      "identifier" : "48dc19ce-371b-48f7-a472-74bb7aa2daf4_EGFR",
+      "genomicSource" : "somatic",
+      "gene" : {
+        "code" : "HGNC:3236",
+        "display" : "EGFR",
+        "system" : "https://www.genenames.org/"
+      },
+      "localization" : "notInCodingAndNotInRegulatoryElements",
+      "cnvType" : "lowLevelGain",
+      "chromosome" : "6",
+      "startPosition" : 32118,
+      "endPosition" : 32720
+    }, {
+      "identifier" : "48dc19ce-371b-48f7-a472-74bb7aa2daf4_KRAS",
+      "genomicSource" : "somatic",
+      "gene" : {
+        "code" : "HGNC:6407",
+        "display" : "KRAS",
+        "system" : "https://www.genenames.org/"
+      },
+      "localization" : "notInCodingAndNotInRegulatoryElements",
+      "cnvType" : "lowLevelGain",
+      "chromosome" : "6",
+      "startPosition" : 32118,
+      "endPosition" : 32720
+    }, {
+      "identifier" : "48dc19ce-371b-48f7-a472-74bb7aa2daf4_ABL1",
+      "genomicSource" : "somatic",
+      "gene" : {
+        "code" : "HGNC:76",
+        "display" : "ABL1",
+        "system" : "https://www.genenames.org/"
+      },
+      "localization" : "notInCodingAndNotInRegulatoryElements",
+      "cnvType" : "lowLevelGain",
+      "chromosome" : "6",
+      "startPosition" : 32118,
+      "endPosition" : 32720
+    }, {
+      "identifier" : "48dc19ce-371b-48f7-a472-74bb7aa2daf4_HRAS",
+      "genomicSource" : "somatic",
+      "gene" : {
+        "code" : "HGNC:5173",
+        "display" : "HRAS",
+        "system" : "https://www.genenames.org/"
+      },
+      "localization" : "notInCodingAndNotInRegulatoryElements",
+      "cnvType" : "lowLevelGain",
+      "chromosome" : "6",
+      "startPosition" : 32118,
+      "endPosition" : 32720
+    }, {
+      "identifier" : "48dc19ce-371b-48f7-a472-74bb7aa2daf4_ACAD10",
+      "genomicSource" : "somatic",
+      "gene" : {
+        "code" : "HGNC:21597",
+        "display" : "ACAD10",
+        "system" : "https://www.genenames.org/"
+      },
+      "localization" : "notInCodingAndNotInRegulatoryElements",
+      "cnvType" : "lowLevelGain",
+      "chromosome" : "6",
+      "startPosition" : 32118,
+      "endPosition" : 32720
+    }, {
+      "identifier" : "48dc19ce-371b-48f7-a472-74bb7aa2daf4_FGFR2",
+      "genomicSource" : "somatic",
+      "gene" : {
+        "code" : "HGNC:3689",
+        "display" : "FGFR2",
+        "system" : "https://www.genenames.org/"
+      },
+      "localization" : "notInCodingAndNotInRegulatoryElements",
+      "cnvType" : "lowLevelGain",
+      "chromosome" : "6",
+      "startPosition" : 32118,
+      "endPosition" : 32720
+    }, {
+      "identifier" : "dc56ea2a-558c-45a9-bbe6-cad980e31f4e_TP53",
+      "genomicSource" : "somatic",
+      "gene" : {
+        "code" : "HGNC:11998",
+        "display" : "TP53",
+        "system" : "https://www.genenames.org/"
+      },
+      "localization" : "inRegulatoryElements",
+      "cnvType" : "highLevelGain",
+      "chromosome" : "5",
+      "startPosition" : 26902,
+      "endPosition" : 27506
+    }, {
+      "identifier" : "dc56ea2a-558c-45a9-bbe6-cad980e31f4e_AAGAB",
+      "genomicSource" : "somatic",
+      "gene" : {
+        "code" : "HGNC:25662",
+        "display" : "AAGAB",
+        "system" : "https://www.genenames.org/"
+      },
+      "localization" : "inRegulatoryElements",
+      "cnvType" : "highLevelGain",
+      "chromosome" : "5",
+      "startPosition" : 26902,
+      "endPosition" : 27506
+    }, {
+      "identifier" : "dc56ea2a-558c-45a9-bbe6-cad980e31f4e_ABL1",
+      "genomicSource" : "somatic",
+      "gene" : {
+        "code" : "HGNC:76",
+        "display" : "ABL1",
+        "system" : "https://www.genenames.org/"
+      },
+      "localization" : "inRegulatoryElements",
+      "cnvType" : "highLevelGain",
+      "chromosome" : "5",
+      "startPosition" : 26902,
+      "endPosition" : 27506
+    }, {
+      "identifier" : "dc56ea2a-558c-45a9-bbe6-cad980e31f4e_ACAD10",
+      "genomicSource" : "somatic",
+      "gene" : {
+        "code" : "HGNC:21597",
+        "display" : "ACAD10",
+        "system" : "https://www.genenames.org/"
+      },
+      "localization" : "inRegulatoryElements",
+      "cnvType" : "highLevelGain",
+      "chromosome" : "5",
+      "startPosition" : 26902,
+      "endPosition" : 27506
+    }, {
+      "identifier" : "dc56ea2a-558c-45a9-bbe6-cad980e31f4e_MDM2",
+      "genomicSource" : "somatic",
+      "gene" : {
+        "code" : "HGNC:6973",
+        "display" : "MDM2",
+        "system" : "https://www.genenames.org/"
+      },
+      "localization" : "inRegulatoryElements",
+      "cnvType" : "highLevelGain",
+      "chromosome" : "5",
+      "startPosition" : 26902,
+      "endPosition" : 27506
+    }, {
+      "identifier" : "dc56ea2a-558c-45a9-bbe6-cad980e31f4e_HRAS",
+      "genomicSource" : "somatic",
+      "gene" : {
+        "code" : "HGNC:5173",
+        "display" : "HRAS",
+        "system" : "https://www.genenames.org/"
+      },
+      "localization" : "inRegulatoryElements",
+      "cnvType" : "highLevelGain",
+      "chromosome" : "5",
+      "startPosition" : 26902,
+      "endPosition" : 27506
+    }, {
+      "identifier" : "dc56ea2a-558c-45a9-bbe6-cad980e31f4e_KRAS",
+      "genomicSource" : "somatic",
+      "gene" : {
+        "code" : "HGNC:6407",
+        "display" : "KRAS",
+        "system" : "https://www.genenames.org/"
+      },
+      "localization" : "inRegulatoryElements",
+      "cnvType" : "highLevelGain",
+      "chromosome" : "5",
+      "startPosition" : 26902,
+      "endPosition" : 27506
+    }, {
+      "identifier" : "dc56ea2a-558c-45a9-bbe6-cad980e31f4e_ABRAXAS1",
+      "genomicSource" : "somatic",
+      "gene" : {
+        "code" : "HGNC:25829",
+        "display" : "ABRAXAS1",
+        "system" : "https://www.genenames.org/"
+      },
+      "localization" : "inRegulatoryElements",
+      "cnvType" : "highLevelGain",
+      "chromosome" : "5",
+      "startPosition" : 26902,
+      "endPosition" : 27506
+    }, {
+      "identifier" : "dc56ea2a-558c-45a9-bbe6-cad980e31f4e_AKT1",
+      "genomicSource" : "somatic",
+      "gene" : {
+        "code" : "HGNC:391",
+        "display" : "AKT1",
+        "system" : "https://www.genenames.org/"
+      },
+      "localization" : "inRegulatoryElements",
+      "cnvType" : "highLevelGain",
+      "chromosome" : "5",
+      "startPosition" : 26902,
+      "endPosition" : 27506
+    }, {
+      "identifier" : "dc56ea2a-558c-45a9-bbe6-cad980e31f4e_ABCA3",
+      "genomicSource" : "somatic",
+      "gene" : {
+        "code" : "HGNC:33",
+        "display" : "ABCA3",
+        "system" : "https://www.genenames.org/"
+      },
+      "localization" : "inRegulatoryElements",
+      "cnvType" : "highLevelGain",
+      "chromosome" : "5",
+      "startPosition" : 26902,
+      "endPosition" : 27506
+    }, {
+      "identifier" : "fecee64f-ce59-4a22-91d4-5b8bcb4dfb02_CDK6",
+      "genomicSource" : "somatic",
+      "gene" : {
+        "code" : "HGNC:1777",
+        "display" : "CDK6",
+        "system" : "https://www.genenames.org/"
+      },
+      "localization" : "inRegulatoryElements",
+      "cnvType" : "highLevelGain",
+      "chromosome" : "12",
+      "startPosition" : 6215,
+      "endPosition" : 6303
+    }, {
+      "identifier" : "fecee64f-ce59-4a22-91d4-5b8bcb4dfb02_FGFR3",
+      "genomicSource" : "somatic",
+      "gene" : {
+        "code" : "HGNC:3690",
+        "display" : "FGFR3",
+        "system" : "https://www.genenames.org/"
+      },
+      "localization" : "inRegulatoryElements",
+      "cnvType" : "highLevelGain",
+      "chromosome" : "12",
+      "startPosition" : 6215,
+      "endPosition" : 6303
+    }, {
+      "identifier" : "fecee64f-ce59-4a22-91d4-5b8bcb4dfb02_AAGAB",
+      "genomicSource" : "somatic",
+      "gene" : {
+        "code" : "HGNC:25662",
+        "display" : "AAGAB",
+        "system" : "https://www.genenames.org/"
+      },
+      "localization" : "inRegulatoryElements",
+      "cnvType" : "highLevelGain",
+      "chromosome" : "12",
+      "startPosition" : 6215,
+      "endPosition" : 6303
+    }, {
+      "identifier" : "fecee64f-ce59-4a22-91d4-5b8bcb4dfb02_FGFR2",
+      "genomicSource" : "somatic",
+      "gene" : {
+        "code" : "HGNC:3689",
+        "display" : "FGFR2",
+        "system" : "https://www.genenames.org/"
+      },
+      "localization" : "inRegulatoryElements",
+      "cnvType" : "highLevelGain",
+      "chromosome" : "12",
+      "startPosition" : 6215,
+      "endPosition" : 6303
+    }, {
+      "identifier" : "fecee64f-ce59-4a22-91d4-5b8bcb4dfb02_HRAS",
+      "genomicSource" : "somatic",
+      "gene" : {
+        "code" : "HGNC:5173",
+        "display" : "HRAS",
+        "system" : "https://www.genenames.org/"
+      },
+      "localization" : "inRegulatoryElements",
+      "cnvType" : "highLevelGain",
+      "chromosome" : "12",
+      "startPosition" : 6215,
+      "endPosition" : 6303
+    }, {
+      "identifier" : "fecee64f-ce59-4a22-91d4-5b8bcb4dfb02_ATRX",
+      "genomicSource" : "somatic",
+      "gene" : {
+        "code" : "HGNC:886",
+        "display" : "ATRX",
+        "system" : "https://www.genenames.org/"
+      },
+      "localization" : "inRegulatoryElements",
+      "cnvType" : "highLevelGain",
+      "chromosome" : "12",
+      "startPosition" : 6215,
+      "endPosition" : 6303
+    }, {
+      "identifier" : "fecee64f-ce59-4a22-91d4-5b8bcb4dfb02_AACS",
+      "genomicSource" : "somatic",
+      "gene" : {
+        "code" : "HGNC:21298",
+        "display" : "AACS",
+        "system" : "https://www.genenames.org/"
+      },
+      "localization" : "inRegulatoryElements",
+      "cnvType" : "highLevelGain",
+      "chromosome" : "12",
+      "startPosition" : 6215,
+      "endPosition" : 6303
+    }, {
+      "identifier" : "fecee64f-ce59-4a22-91d4-5b8bcb4dfb02_ABCA3",
+      "genomicSource" : "somatic",
+      "gene" : {
+        "code" : "HGNC:33",
+        "display" : "ABCA3",
+        "system" : "https://www.genenames.org/"
+      },
+      "localization" : "inRegulatoryElements",
+      "cnvType" : "highLevelGain",
+      "chromosome" : "12",
+      "startPosition" : 6215,
+      "endPosition" : 6303
+    }, {
+      "identifier" : "fecee64f-ce59-4a22-91d4-5b8bcb4dfb02_ABL1",
+      "genomicSource" : "somatic",
+      "gene" : {
+        "code" : "HGNC:76",
+        "display" : "ABL1",
+        "system" : "https://www.genenames.org/"
+      },
+      "localization" : "inRegulatoryElements",
+      "cnvType" : "highLevelGain",
+      "chromosome" : "12",
+      "startPosition" : 6215,
+      "endPosition" : 6303
+    }, {
+      "identifier" : "fecee64f-ce59-4a22-91d4-5b8bcb4dfb02_ABRAXAS1",
+      "genomicSource" : "somatic",
+      "gene" : {
+        "code" : "HGNC:25829",
+        "display" : "ABRAXAS1",
+        "system" : "https://www.genenames.org/"
+      },
+      "localization" : "inRegulatoryElements",
+      "cnvType" : "highLevelGain",
+      "chromosome" : "12",
+      "startPosition" : 6215,
+      "endPosition" : 6303
+    }, {
+      "identifier" : "fecee64f-ce59-4a22-91d4-5b8bcb4dfb02_ABCA4",
+      "genomicSource" : "somatic",
+      "gene" : {
+        "code" : "HGNC:34",
+        "display" : "ABCA4",
+        "system" : "https://www.genenames.org/"
+      },
+      "localization" : "inRegulatoryElements",
+      "cnvType" : "highLevelGain",
+      "chromosome" : "12",
+      "startPosition" : 6215,
+      "endPosition" : 6303
+    }, {
+      "identifier" : "fecee64f-ce59-4a22-91d4-5b8bcb4dfb02_RET",
+      "genomicSource" : "somatic",
+      "gene" : {
+        "code" : "HGNC:9967",
+        "display" : "RET",
+        "system" : "https://www.genenames.org/"
+      },
+      "localization" : "inRegulatoryElements",
+      "cnvType" : "highLevelGain",
+      "chromosome" : "12",
+      "startPosition" : 6215,
+      "endPosition" : 6303
+    }, {
+      "identifier" : "fecee64f-ce59-4a22-91d4-5b8bcb4dfb02_MTOR",
+      "genomicSource" : "somatic",
+      "gene" : {
+        "code" : "HGNC:3942",
+        "display" : "MTOR",
+        "system" : "https://www.genenames.org/"
+      },
+      "localization" : "inRegulatoryElements",
+      "cnvType" : "highLevelGain",
+      "chromosome" : "12",
+      "startPosition" : 6215,
+      "endPosition" : 6303
+    }, {
+      "identifier" : "fecee64f-ce59-4a22-91d4-5b8bcb4dfb02_EGFR",
+      "genomicSource" : "somatic",
+      "gene" : {
+        "code" : "HGNC:3236",
+        "display" : "EGFR",
+        "system" : "https://www.genenames.org/"
+      },
+      "localization" : "inRegulatoryElements",
+      "cnvType" : "highLevelGain",
+      "chromosome" : "12",
+      "startPosition" : 6215,
+      "endPosition" : 6303
+    }, {
+      "identifier" : "fecee64f-ce59-4a22-91d4-5b8bcb4dfb02_BRAF",
+      "genomicSource" : "somatic",
+      "gene" : {
+        "code" : "HGNC:1097",
+        "display" : "BRAF",
+        "system" : "https://www.genenames.org/"
+      },
+      "localization" : "inRegulatoryElements",
+      "cnvType" : "highLevelGain",
+      "chromosome" : "12",
+      "startPosition" : 6215,
+      "endPosition" : 6303
+    }, {
+      "identifier" : "65fe5981-5797-4789-8cf3-0703ce961b1f_KRAS",
+      "genomicSource" : "somatic",
+      "gene" : {
+        "code" : "HGNC:6407",
+        "display" : "KRAS",
+        "system" : "https://www.genenames.org/"
+      },
+      "localization" : "coding",
+      "cnvType" : "lowLevelGain",
+      "chromosome" : "20",
+      "startPosition" : 32140,
+      "endPosition" : 32451
+    }, {
+      "identifier" : "65fe5981-5797-4789-8cf3-0703ce961b1f_EGFR",
+      "genomicSource" : "somatic",
+      "gene" : {
+        "code" : "HGNC:3236",
+        "display" : "EGFR",
+        "system" : "https://www.genenames.org/"
+      },
+      "localization" : "coding",
+      "cnvType" : "lowLevelGain",
+      "chromosome" : "20",
+      "startPosition" : 32140,
+      "endPosition" : 32451
+    }, {
+      "identifier" : "65fe5981-5797-4789-8cf3-0703ce961b1f_BRAF",
+      "genomicSource" : "somatic",
+      "gene" : {
+        "code" : "HGNC:1097",
+        "display" : "BRAF",
+        "system" : "https://www.genenames.org/"
+      },
+      "localization" : "coding",
+      "cnvType" : "lowLevelGain",
+      "chromosome" : "20",
+      "startPosition" : 32140,
+      "endPosition" : 32451
+    }, {
+      "identifier" : "65fe5981-5797-4789-8cf3-0703ce961b1f_ABCA4",
+      "genomicSource" : "somatic",
+      "gene" : {
+        "code" : "HGNC:34",
+        "display" : "ABCA4",
+        "system" : "https://www.genenames.org/"
+      },
+      "localization" : "coding",
+      "cnvType" : "lowLevelGain",
+      "chromosome" : "20",
+      "startPosition" : 32140,
+      "endPosition" : 32451
+    }, {
+      "identifier" : "65fe5981-5797-4789-8cf3-0703ce961b1f_MTOR",
+      "genomicSource" : "somatic",
+      "gene" : {
+        "code" : "HGNC:3942",
+        "display" : "MTOR",
+        "system" : "https://www.genenames.org/"
+      },
+      "localization" : "coding",
+      "cnvType" : "lowLevelGain",
+      "chromosome" : "20",
+      "startPosition" : 32140,
+      "endPosition" : 32451
+    }, {
+      "identifier" : "65fe5981-5797-4789-8cf3-0703ce961b1f_ABCA3",
+      "genomicSource" : "somatic",
+      "gene" : {
+        "code" : "HGNC:33",
+        "display" : "ABCA3",
+        "system" : "https://www.genenames.org/"
+      },
+      "localization" : "coding",
+      "cnvType" : "lowLevelGain",
+      "chromosome" : "20",
+      "startPosition" : 32140,
+      "endPosition" : 32451
+    }, {
+      "identifier" : "65fe5981-5797-4789-8cf3-0703ce961b1f_MDM2",
+      "genomicSource" : "somatic",
+      "gene" : {
+        "code" : "HGNC:6973",
+        "display" : "MDM2",
+        "system" : "https://www.genenames.org/"
+      },
+      "localization" : "coding",
+      "cnvType" : "lowLevelGain",
+      "chromosome" : "20",
+      "startPosition" : 32140,
+      "endPosition" : 32451
+    }, {
+      "identifier" : "65fe5981-5797-4789-8cf3-0703ce961b1f_BRCA1",
+      "genomicSource" : "somatic",
+      "gene" : {
+        "code" : "HGNC:1100",
+        "display" : "BRCA1",
+        "system" : "https://www.genenames.org/"
+      },
+      "localization" : "coding",
+      "cnvType" : "lowLevelGain",
+      "chromosome" : "20",
+      "startPosition" : 32140,
+      "endPosition" : 32451
+    } ],
+    "complexBiomarkers" : [ {
+      "identifier" : "d4b97009-4c9b-448e-a4c7-9dfc71ba563c",
+      "tmb" : 236738
+    } ]
+  },
+  "plan" : {
+    "carePlanOd" : {
+      "molecularBoardDecisionDate" : "2026-04-07",
+      "studyRecommended" : true,
+      "counsellingRecommended" : true,
+      "reEvaluationRecommended" : true,
+      "interventionRecommended" : false,
+      "otherRecommendations" : [ "OP" ]
+    },
+    "recommendedSystemicTherapies" : [ {
+      "identifier" : "fd06106f-b431-4c36-b642-b444d3c6c178",
+      "type" : "unknown",
+      "substances" : [ {
+        "code" : {
+          "code" : "L01XX57",
+          "display" : "Plitidepsin",
+          "system" : "http://fhir.de/CodeSystem/bfarm/atc",
+          "version" : "2025"
+        }
+      } ],
+      "evidenceLevel" : "m1C",
+      "evidenceLevelDetails" : [ "is" ],
+      "priority" : 2,
+      "variants" : [ "8774d99a-0a95-4fbe-bd65-ac796171e46e" ],
+      "therapeuticStrategy" : "SO"
+    } ],
+    "recommendedStudies" : [ {
+      "identifier" : "a5f480ed-8a40-4875-8006-db55654c53cf",
+      "register" : "NCT",
+      "name" : "N/A",
+      "id" : "NCT78676428",
+      "evidenceLevel" : "m1C",
+      "evidenceLevelDetails" : [ "is" ],
+      "priority" : 1,
+      "variants" : [ "8774d99a-0a95-4fbe-bd65-ac796171e46e" ]
+    } ]
+  },
+  "followUp" : {
+    "followUpOds" : [ {
+      "followUpDate" : "2018-01-01",
+      "metachroneDiagnoses" : false,
+      "ecogPerformanceStatusScore" : "1",
+      "vitalStatus" : "deceased",
+      "deathDate" : "2018-04-02",
+      "therapies" : [ {
+        "reference" : "fd06106f-b431-4c36-b642-b444d3c6c178",
+        "therapyStartDate" : "2017-11-06",
+        "therapyEndDate" : "2018-04-02",
+        "substances" : [ {
+          "code" : {
+            "code" : "L01XX57",
+            "display" : "Plitidepsin",
+            "system" : "http://fhir.de/CodeSystem/bfarm/atc",
+            "version" : "2025"
+          }
+        } ],
+        "therapyResponseDate" : "2018-01-01",
+        "therapyResponse" : "PD"
+      } ]
+    } ]
+  }
+}
