@@ -122,3 +122,38 @@ See `scripts/apply_final_review.py` for the exact audit trail.
 8. **MolGen variant component paths** (vibe) — localization / diagnosticSignificance /
    segregationAnalysis / publications: verify exact component slices against the pinned
    MolGen package (else DRAFT).
+
+## Population-weighted priorities (vs SE/MTB example JSONs: 42 onc + 42 rd + 6 grz)
+
+Coverage of *actually-populated* leaves: **oncology** MAPPED 98 / DRAFT 17 / NOMAP 8 /
+MISSING-from-table 2; **rare-disease** MAPPED 91 / DRAFT 13 / NOMAP 8 / MISSING-from-table 21.
+
+### #0 (NEW, biggest) — schema-version mismatch: example data ≠ mapping-table schema
+The examples populate field names the table doesn't have, because the table was extracted
+from `schemas/kdk` (1.7.1) but the examples follow a different KDK version. All 42/42:
+- RD `case.priorRd.*` (singular object: zseContactDate, hospitalization{Periods,Duration},
+  genomic{Test,Study}Type, diagnostic{Date,Result}) — table has `case.priorRds` (array).
+- RD `plan.recommended{Therapies,Studies}[].variantReferences[]` — table has `…variants[]`.
+- onc `case.priorDiagnostic.{type,date}` (singular) — table has `case.priorDiagnostics`.
+- RD coding arrays `*.genes[].{system,display}` and `*.localization[].{system,display}` —
+  table only emitted `.code`.
+**Impact:** a mapper built on the current table would silently miss these 100%-populated
+fields. **Action:** decide which KDK version production uses (per the BfArM-MVH repo / the
+LMU/Tübingen contacts), re-extract leaves, then re-run the alignment passes.
+
+### Population-ranked content issues (already tracked, now prioritized by frequency)
+1. **Molecular variant DRAFT fields — 42/42 every RD case:** `*.localization`,
+   `*.diagnosticSignificance`, `*.segregationAnalysis`, `*.publications` →
+   MolGen component-path verification (open #P0). Highest-volume content gap.
+2. **Recommendation DRAFT fields — 42/42 every onc case:** `recommendedSystemicTherapies`
+   type/therapeuticStrategy/evidenceLevel/variants, `recommendedStudies`,
+   `carePlanOd.otherRecommendations` → MTB recommendation canonical/element verification.
+3. **GMFCS — 42/42 every RD case (DRAFT):** local CodeSystem needed.
+4. **`germlineDiagnosisConfirmed`, `additionalClassification` — 42/42 onc (DRAFT).**
+5. **GRZ sequencing Device/QC — 4/6 (DRAFT):** whole `sequenceData` QC block populated.
+6. **`researchConsents[].scope` embedded MII Consent — 24-25/42:** treated as one verbatim
+   passthrough leaf (~25 sub-fields); validate the passthrough round-trips.
+
+### Lower priority (real but rarely/never populated in the examples)
+AlphaID-SE-vs-AlphaID, EpisodeOfCare-vs-Encounter semantics, `barcode="na"` sentinel,
+Consent 3rd category coding — correctness items, but not high-frequency in the corpus.
