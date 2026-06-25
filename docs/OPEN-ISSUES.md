@@ -166,3 +166,27 @@ II→LA15151-6, III→LA15150-8, IV→LA16556-5, V→LA16558-1} — by severity,
 Residual caveat: 62782-8 is the **6-12y** age band; the source level is age-agnostic —
 confirm the band (or that a single code is acceptable). No MII Seltene GMFCS profile, so
 this is a base `Observation` with standard LOINC binding.
+
+## Update — GRZ sequencing QC resolved (research: knowledge/research/fhir-sequencing-qc.md)
+Adversarial research (cross-checked vs DNPM/bwhc, which omits raw QC) → sequencing act =
+Procedure **`mii-pr-mtb-genomic-study-analysis`** (mtb@2026.0.0), with device-function CS
+`mii-cs-mtb-genomicanalysis-devicefunction` (sequencing-device / library-prep), genome-build
+ext (LOINC **62374-4**; GRCh37=LA14029-5, GRCh38=LA26806-2), method-type ext, and QC ext
+`mii-ex-mtb-genomic-study-analysis-qc` (read-depth + sequencing-coverage, uncoded).
+Promoted: sequencer/kit/libraryPrep devices, referenceGenome, libraryType/sequenceType/
+Subtype, meanDepthOfCoverage, targetedRegionsAboveMinCoverage, callerUsed, pipeline.
+**GRZ MAPPED 27→41, DRAFT 20→6.**
+
+Still DRAFT — **no standard clinical-FHIR home** (HL7 Genomics Reporting metrics covers only
+read-depth + coverage; DNPM/bwhc omits these): `percentBasesAboveQualityThreshold` (%≥Q30),
+`minCoverage`, `nonCodingVariants`, `sequencingLayout`, `fragmentationMethod`. → local code /
+DeviceMetric / omit. GRZ `sequenceData.files[]` stay NOMAP (raw genomic data; DocumentReference
+is the option if ever ingested). researchConsents[].scope = verbatim MII Consent passthrough (resolved).
+
+## Robustness snapshot — current
+| Branch | MAPPED | DRAFT | NOMAP | Total |
+|--------|-------:|------:|------:|------:|
+| KDK oncology | 166 | 53 | 10 | 229 |
+| KDK rare diseases | 108 | 14 | 10 | 132 |
+| GRZ | 41 | 6 | 20 | 67 |
+| **Total** | **315** | **73** | **40** | **428** |
