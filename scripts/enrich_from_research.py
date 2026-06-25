@@ -373,6 +373,68 @@ MODULE_RD_PREFIX = [
      "localization; verify component", "DRAFT", RDM),
 ]
 
+# ---- GRZ (donors -> Patient/FamilyMemberHistory; labData -> Specimen/Device; sequenceData -> MolGen) ----
+SPEC = "https://www.medizininformatik-initiative.de/fhir/ext/modul-biobank/StructureDefinition/Specimen"
+B = "[[mii-molgen-biobank]]"
+GZ = "[[kdk-grz-schema-details]] [[stream-isolation]]"
+
+MODULE_GRZ = {
+    # donor demographics / linkage (GRZ stream — tanG pseudonym, never co-mingle with tanC)
+    "donors[].donorPseudonym": ("Person", PAT, "Patient.identifier:PseudonymisierterIdentifier", "GRZ donor pseudonym; type.coding=PSEUDED; GRZ-stream (tanG)", "MAPPED", GZ),
+    "donors[].gender": ("Person", PAT, "Patient.gender", "ConceptMap->administrative-gender", "MAPPED", M),
+    "donors[].relation": ("Person", "FamilyMemberHistory", "FamilyMemberHistory.relationship", "trio: index=the Patient; mother/father/sibling -> FamilyMemberHistory", "MAPPED", GZ),
+    "submission.coverageType": ("Fall", COVB, "Coverage.type", "GKV/PKV... versicherungsart-de-basis (same as KDK)", "MAPPED", M),
+    "submission.localCaseId": ("Person", PAT, "Patient.identifier:pid", "index-patient local case id; type MR", "MAPPED", M),
+    "submission.tanG": ("Person", PAT, "Patient.identifier:PseudonymisierterIdentifier", "GRZ genomic pseudonym (VNg); GRZ-stream", "MAPPED", GZ),
+    # MV consent (mirror of metaData.mvConsent)
+    "donors[].mvConsent.scope[].domain": ("Consent", CONS, "Consent.provision.provision.code", "domain->broad-consent code (...24.5.3.{8,2,6})", "MAPPED", MC),
+    "donors[].mvConsent.scope[].type": ("Consent", CONS, "Consent.provision.provision.type", "permit/deny", "MAPPED", MC),
+    "donors[].mvConsent.scope[].date": ("Consent", CONS, "Consent.provision.provision.period.start", "", "MAPPED", MC),
+    "donors[].mvConsent.presentationDate": ("Consent", CONS, "Consent.dateTime", "", "MAPPED", MC),
+    "donors[].mvConsent.version": ("Consent", CONS, "Consent.policy.uri", "policy.uri urn:oid:2.16.840.1.113883.3.1937.777.24.2.2079", "MAPPED", MC),
+    "donors[].researchConsents[].scope": ("Consent", CONS, "(whole Consent resource)", "embedded MII Consent — lift verbatim", "MAPPED", MC),
+    "donors[].researchConsents[].presentationDate": ("Consent", CONS, "Consent.dateTime", "", "MAPPED", MC),
+    "donors[].researchConsents[].noScopeJustification": ("", "", "", "provenance only; no clinical KDS element", "NOMAP", MC),
+    "donors[].researchConsents[].schemaVersion": ("", "", "", "consent KDS package version; metadata", "NOMAP", MC),
+    # labData -> Biobank Specimen
+    "donors[].labData[].barcode": ("Biobank", SPEC, "Specimen.accessionIdentifier", "sample barcode ('na' if none)", "MAPPED", B),
+    "donors[].labData[].labDataName": ("Biobank", SPEC, "Specimen.identifier", "biospecimen name/id", "MAPPED", B),
+    "donors[].labData[].sampleConservation": ("Biobank", SPEC, "Specimen.processing.method", "fresh/cryo/ffpe; SPREC", "MAPPED", B),
+    "donors[].labData[].sampleDate": ("Biobank", SPEC, "Specimen.collection.collectedDateTime", "", "MAPPED", B),
+    "donors[].labData[].tissueOntology.name": ("Biobank", SPEC, "Specimen.type.coding.system", "tissue ontology system (BTO http://purl.obolibrary.org/obo/bto.owl / SCT)", "MAPPED", B),
+    "donors[].labData[].tissueOntology.version": ("Biobank", SPEC, "Specimen.type.coding.version", "", "MAPPED", B),
+    "donors[].labData[].tissueTypeId": ("Biobank", SPEC, "Specimen.type.coding.code", "tissue code (MIIUP-04: SCT slice required but KDK has only BTO)", "MAPPED", B),
+    "donors[].labData[].tissueTypeName": ("Biobank", SPEC, "Specimen.type.coding.display", "", "MAPPED", B),
+    "donors[].labData[].tumorCellCount[].count": ("Onkologie", "Observation", "Observation.valueQuantity.value", "tumour cell content %; UCUM %", "MAPPED", B),
+    "donors[].labData[].tumorCellCount[].method": ("Onkologie", "Observation", "Observation.method", "pathology/bioinformatics", "MAPPED", B),
+    "donors[].labData[].libraryType": ("Biobank", SPEC, "Specimen.extension(Probenart)", "DNA/RNA on Probenart ext (NOT Specimen.type)", "MAPPED", B),
+    "donors[].labData[].sequenceType": ("Biobank", SPEC, "Specimen.extension(Probenart)", "DNA/RNA", "MAPPED", B),
+    "donors[].labData[].sequenceSubtype": ("MolGen", VAR, cmp("genomic-source-class"), "germline/somatic -> variant genomic-source-class 48002-0", "MAPPED", B),
+    # labData -> sequencing Device / Procedure (NOT Specimen.type)
+    "donors[].labData[].sequencingLayout": ("MolGen", "Device", "Device / Procedure(sequencing)", "single/paired-end", "MAPPED", B),
+    "donors[].labData[].fragmentationMethod": ("MolGen", "Device", "Device", "fragmentation method", "MAPPED", B),
+    "donors[].labData[].enrichmentKitDescription": ("MolGen", "Device", "Device.deviceName", "enrichment kit", "MAPPED", B),
+    "donors[].labData[].enrichmentKitManufacturer": ("MolGen", "Device", "Device.manufacturer", "", "MAPPED", B),
+    "donors[].labData[].libraryPrepKit": ("MolGen", "Device", "Device.deviceName", "library prep kit", "MAPPED", B),
+    "donors[].labData[].libraryPrepKitManufacturer": ("MolGen", "Device", "Device.manufacturer", "", "MAPPED", B),
+    "donors[].labData[].kitName": ("MolGen", "Device", "Device.deviceName", "sequencing kit", "MAPPED", B),
+    "donors[].labData[].kitManufacturer": ("MolGen", "Device", "Device.manufacturer", "", "MAPPED", B),
+    "donors[].labData[].sequencerManufacturer": ("MolGen", "Device", "Device.manufacturer", "sequencer", "MAPPED", B),
+    "donors[].labData[].sequencerModel": ("MolGen", "Device", "Device.deviceName", "sequencer model", "MAPPED", B),
+    # sequenceData -> MolGen run metadata (software Device + QC)
+    "donors[].labData[].sequenceData.bioinformaticsPipelineName": ("MolGen", "Device", "Device(software).deviceName", "pipeline", "MAPPED", B),
+    "donors[].labData[].sequenceData.bioinformaticsPipelineVersion": ("MolGen", "Device", "Device(software).version", "", "MAPPED", B),
+    "donors[].labData[].sequenceData.callerUsed[].name": ("MolGen", "Device", "Device(software).deviceName", "variant caller", "MAPPED", B),
+    "donors[].labData[].sequenceData.callerUsed[].version": ("MolGen", "Device", "Device(software).version", "", "MAPPED", B),
+    "donors[].labData[].sequenceData.referenceGenome": ("MolGen", VAR, "Observation.component(reference-sequence-assembly)", "GRCh37/38 genomic build for variant coords", "MAPPED", B),
+    "donors[].labData[].sequenceData.meanDepthOfCoverage": ("MolGen", "Observation", "Observation.valueQuantity", "QC mean coverage; GRZ-internal QC, MII home uncertain", "DRAFT", B),
+    "donors[].labData[].sequenceData.minCoverage": ("MolGen", "Observation", "Observation.valueQuantity", "QC min coverage", "DRAFT", B),
+    "donors[].labData[].sequenceData.targetedRegionsAboveMinCoverage": ("MolGen", "Observation", "Observation.valueQuantity", "QC fraction above min coverage", "DRAFT", B),
+    "donors[].labData[].sequenceData.percentBasesAboveQualityThreshold.minimumQuality": ("MolGen", "Observation", "Observation.component", "QC quality threshold", "DRAFT", B),
+    "donors[].labData[].sequenceData.percentBasesAboveQualityThreshold.percent": ("MolGen", "Observation", "Observation.component", "QC % bases above quality", "DRAFT", B),
+    "donors[].labData[].sequenceData.nonCodingVariants": ("MolGen", "ServiceRequest", "ServiceRequest.extension / Observation", "analysis includes non-coding variants (flag)", "DRAFT", B),
+}
+
 PREFIX_MODULES = {
     "case.diagnosisOd (Diagnose/Onkologie)": MODULE_DIAG_ONC,
     "molecular (MolGen) — oncology": MODULE_MOLGEN_ONC_PREFIX,
@@ -383,6 +445,7 @@ PREFIX_MODULES = {
 MODULES["molecular (MolGen) — oncology"] = MODULE_MOLGEN_ONC
 MODULES["oncology treatment/plan/followUp"] = MODULE_ONC_TX
 MODULES["rare diseases"] = MODULE_RD
+MODULES["GRZ (Patient/Specimen/Device/Consent)"] = MODULE_GRZ
 
 CC_PARTS = ("code", "system", "display", "version")
 
