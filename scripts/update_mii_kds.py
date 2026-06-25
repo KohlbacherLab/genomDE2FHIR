@@ -39,15 +39,30 @@ def slug(url):
     s = re.sub(r"[^A-Za-z0-9]+", "_", s).strip("_")
     return s[:180] or "index"
 
-def fetch(url):
-    r = requests.get(url, headers=UA, timeout=30)
-    r.raise_for_status()
-    ct = r.headers.get("content-type", "")
-    if "html" not in ct and "xml" not in ct:
-        raise ValueError(f"non-html ({ct})")
-    if "charset" not in ct.lower():  # header omits charset -> requests guesses latin-1
-        r.encoding = r.apparent_encoding or "utf-8"
-    return r.text
+def fetch(url, retries=4):
+    """GET with retry/backoff on transient failures (timeouts, dropped
+    connections, DNS hiccups, 429/5xx). 4xx (real misses) are not retried."""
+    last = None
+    for attempt in range(retries):
+        try:
+            r = requests.get(url, headers=UA, timeout=45)
+        except requests.RequestException as e:
+            last = e
+            time.sleep(0.5 * (2 ** attempt))
+            continue
+        if 400 <= r.status_code < 500 and r.status_code != 429:
+            r.raise_for_status()  # real client error -> don't retry
+        if r.status_code == 429 or r.status_code >= 500:
+            last = requests.HTTPError(f"{r.status_code} for {url}")
+            time.sleep(0.5 * (2 ** attempt))
+            continue
+        ct = r.headers.get("content-type", "")
+        if "html" not in ct and "xml" not in ct:
+            raise ValueError(f"non-html ({ct})")
+        if "charset" not in ct.lower():  # header omits charset -> requests guesses latin-1
+            r.encoding = r.apparent_encoding or "utf-8"
+        return r.text
+    raise last
 
 def to_markdown(html):
     soup = BeautifulSoup(html, "html.parser")
@@ -204,7 +219,7 @@ def main():
     ap.add_argument("--max-pages", type=int, default=1200)
     ap.add_argument("--depth", type=int, default=4)
     ap.add_argument("--delay", type=float, default=0.05, help="per-request politeness delay (s)")
-    ap.add_argument("--workers", type=int, default=12, help="concurrent fetch threads (max 24)")
+    ap.add_argument("--workers", type=int, default=8, help="concurrent fetch threads (max 24; MII server drops connections above ~8)")
     ap.add_argument("--only", choices=["mii", "simplifier"], help="crawl one source only")
     a = ap.parse_args()
     workers = max(1, min(a.workers, 24))
