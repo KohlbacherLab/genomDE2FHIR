@@ -14,7 +14,7 @@ Usage:
   python3 scripts/update_mii_kds.py [--max-pages N] [--depth D] [--delay S]
 """
 import argparse, re, sys, time, json
-from collections import deque
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from urllib.parse import urljoin, urlparse
 import requests
@@ -80,41 +80,60 @@ def write_note(subdir, url, title, body, extra=None):
     (d / f"{slug(url)}.md").write_text(
         "---\n" + "\n".join(fm) + "\n---\n\n" + body + f"\n\n---\n[Source]({url})\n")
 
-def crawl_mii(max_pages, depth, delay):
-    seen, ok, errors, order = set(), 0, [], []
-    q = deque((u, 0) for u in MII_SEEDS)
-    truncated = False
-    while q:
-        url, d = q.popleft()
-        url = url.split("#")[0].rstrip("/")
-        if url in seen:
-            continue
-        seen.add(url)
-        if ok >= max_pages:
-            truncated = True
-            break
-        try:
-            html = fetch(url)
-            title, body = to_markdown(html)
-            write_note("mii-website", url, title, body, {"depth": d})
-            order.append((title, url))
-            ok += 1
-            sys.stderr.write(f"[mii {ok}] d{d} {title[:60]}\n")
-            if d < depth:
-                soup = BeautifulSoup(html, "html.parser")
-                for a in soup.find_all("a", href=True):
-                    nxt = urljoin(url, a["href"]).split("#")[0].rstrip("/")
-                    if nxt not in seen and in_scope_mii(nxt):
-                        q.append((nxt, d + 1))
-            time.sleep(delay)
-        except Exception as e:
-            errors.append((url, str(e)))
+def process_mii(url, d, delay):
+    """Worker: fetch + convert + extract in-scope links. Returns (title, body, links)."""
+    if delay:
+        time.sleep(delay)
+    html = fetch(url)
+    title, body = to_markdown(html)
+    links = []
+    if d < 9999:
+        soup = BeautifulSoup(html, "html.parser")
+        for a in soup.find_all("a", href=True):
+            nxt = urljoin(url, a["href"]).split("#")[0].rstrip("/")
+            if in_scope_mii(nxt):
+                links.append(nxt)
+    return title, body, links
+
+def crawl_mii(max_pages, depth, delay, workers):
+    """Level-by-level parallel BFS. Each depth level is fetched concurrently."""
+    seen = set(u.split("#")[0].rstrip("/") for u in MII_SEEDS)
+    frontier = [(u.split("#")[0].rstrip("/"), 0) for u in MII_SEEDS]
+    ok, errors, order, truncated = 0, [], [], False
+    with ThreadPoolExecutor(max_workers=workers) as ex:
+        while frontier and not truncated:
+            batch = frontier[: max(0, max_pages - ok)]
+            if len(batch) < len(frontier):
+                truncated = True
+            futs = {ex.submit(process_mii, u, d, delay): (u, d) for u, d in batch}
+            nxt_level = []
+            for fut in as_completed(futs):
+                url, d = futs[fut]
+                try:
+                    title, body, links = fut.result()
+                    write_note("mii-website", url, title, body, {"depth": d})
+                    order.append((title, url))
+                    ok += 1
+                    sys.stderr.write(f"[mii {ok}] d{d} {title[:60]}\n")
+                    if d < depth:
+                        for nl in links:
+                            if nl not in seen:
+                                seen.add(nl)
+                                nxt_level.append((nl, d + 1))
+                except Exception as e:
+                    errors.append((url, str(e)))
+            frontier = nxt_level
     write_moc("mii-website", "MII KDS — Website & IGs", order, errors, truncated, max_pages)
     return ok, errors, truncated
 
-def crawl_simplifier(max_pages, delay):
-    seen, ok, errors, order = set(), 0, [], []
-    truncated = False
+def _simplifier_fetch(url, delay):
+    if delay:
+        time.sleep(delay)
+    t, b = to_markdown(fetch(url))
+    return url, t, b
+
+def crawl_simplifier(max_pages, delay, workers):
+    ok, errors, order, truncated = 0, [], [], False
     try:
         html = fetch(SIMPLIFIER_SEED)
         title, body = to_markdown(html)
@@ -122,7 +141,7 @@ def crawl_simplifier(max_pages, delay):
         order.append((title, SIMPLIFIER_SEED))
         ok += 1
         soup = BeautifulSoup(html, "html.parser")
-        # project links: simplifier.net/<project> and /packages/<id>
+        # project links: simplifier.net/<project> and /packages|guides/<id>
         cand = set()
         for a in soup.find_all("a", href=True):
             full = urljoin(SIMPLIFIER_SEED, a["href"]).split("#")[0].split("?")[0].rstrip("/")
@@ -134,22 +153,20 @@ def crawl_simplifier(max_pages, delay):
                 cand.add(full)
             elif len(parts) >= 2 and parts[0] in ("packages", "guides"):
                 cand.add(full)
-        for url in sorted(cand):
-            if ok >= max_pages:
-                truncated = True
-                break
-            if url in seen:
-                continue
-            seen.add(url)
-            try:
-                t, b = to_markdown(fetch(url))
-                write_note("simplifier", url, t, b)
-                order.append((t, url))
-                ok += 1
-                sys.stderr.write(f"[simplifier {ok}] {t[:60]}\n")
-                time.sleep(delay)
-            except Exception as e:
-                errors.append((url, str(e)))
+        targets = sorted(cand)[: max(0, max_pages - ok)]
+        if len(targets) < len(cand):
+            truncated = True
+        with ThreadPoolExecutor(max_workers=workers) as ex:
+            futs = {ex.submit(_simplifier_fetch, u, delay): u for u in targets}
+            for fut in as_completed(futs):
+                try:
+                    url, t, b = fut.result()
+                    write_note("simplifier", url, t, b)
+                    order.append((t, url))
+                    ok += 1
+                    sys.stderr.write(f"[simplifier {ok}] {t[:60]}\n")
+                except Exception as e:
+                    errors.append((futs[fut], str(e)))
     except Exception as e:
         errors.append((SIMPLIFIER_SEED, str(e)))
     write_moc("simplifier", "MII on Simplifier", order, errors, truncated, max_pages)
@@ -179,16 +196,18 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--max-pages", type=int, default=1200)
     ap.add_argument("--depth", type=int, default=4)
-    ap.add_argument("--delay", type=float, default=0.4)
+    ap.add_argument("--delay", type=float, default=0.05, help="per-request politeness delay (s)")
+    ap.add_argument("--workers", type=int, default=12, help="concurrent fetch threads (max 24)")
     ap.add_argument("--only", choices=["mii", "simplifier"], help="crawl one source only")
     a = ap.parse_args()
+    workers = max(1, min(a.workers, 24))
 
-    stats = {"max_pages": a.max_pages, "depth": a.depth}
+    stats = {"max_pages": a.max_pages, "depth": a.depth, "workers": workers}
     if a.only != "simplifier":
-        n, err, trunc = crawl_mii(a.max_pages, a.depth, a.delay)
+        n, err, trunc = crawl_mii(a.max_pages, a.depth, a.delay, workers)
         stats["mii"] = {"pages": n, "errors": len(err), "truncated": trunc}
     if a.only != "mii":
-        n, err, trunc = crawl_simplifier(a.max_pages, a.delay)
+        n, err, trunc = crawl_simplifier(a.max_pages, a.delay, workers)
         stats["simplifier"] = {"pages": n, "errors": len(err), "truncated": trunc}
     write_root_index(stats)
     sys.stderr.write(f"\nDONE: {json.dumps(stats)}\nVault: {VAULT}\n")
