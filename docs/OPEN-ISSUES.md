@@ -10,9 +10,13 @@ kohlbacherlab, bih-cei, dnpm-datenmodell, MolGen paper). Supersedes
 | Branch | MAPPED | DRAFT | NOMAP | Total |
 |--------|-------:|------:|------:|------:|
 | KDK oncology | 166 | 53 | 10 | 229 |
-| KDK rare diseases | 100 | 22 | 10 | 132 |
+| KDK rare diseases | 106 | 16 | 10 | 132 |
 | GRZ | 27 | 20 | 20 | 67 |
-| **Total** | **293** | **95** | **40** | **428** |
+| **Total** | **299** | **89** | **40** | **428** |
+
+_RD updated after ingesting the canonical DNPM SE Data Model + SE Implementierungs-
+leitfaden and promoting RD rows to crawl-verified Seltene profiles (`seltene@2026.0.0`):
+`mii-pr-seltene-{genetic-diagnosis, therapieplan, therapieempfehlung, studieneinschluss-anfrage, studie, clinical-impression, hpo-assessment}`._
 
 The final pass deliberately *lowered* MAPPED (318→293) to be honest: rows with
 wrong/unverified targets were downgraded rather than left green.
@@ -88,3 +92,33 @@ wrong/unverified targets were downgraded rather than left green.
   `diagnosticAssessment` placeholder (1), GRZ sequencing Device rows (14).
 
 See `scripts/apply_final_review.py` for the exact audit trail.
+
+## RD addendum — after SE Data Model ingest + Seltene-profile alignment (round: SE docs)
+
+**Resolved / improved:**
+- `diagnosticAssessment` → `Condition.verificationStatus` on `mii-pr-seltene-genetic-diagnosis` (was DRAFT placeholder).
+- RD diagnosis/recommendation rows promoted from generic base FHIR to concrete Seltene
+  profiles (genetic-diagnosis, therapieplan, therapieempfehlung, studieneinschluss-anfrage, studie).
+- Value sets pinned from the SE model: diagnosticExtent (Family Control Level), CNV type
+  {gain,loss}, Therapy Category/Type, Clinical Management Type (TNAMSE), HPO status history.
+- **hospitalization fixed**: banded count/day codes → `Observation.valueCodeableConcept`
+  (was wrongly `Encounter.period/length`); now DRAFT (no MII profile for the bands).
+
+**RD open issues remaining (codex + vibe round on SE docs):**
+1. **ClinicalDiagnosis vs GeneticDiagnosis split** — we target `mii-pr-seltene-genetic-diagnosis`
+   for all RD diagnoses; should switch to `mii-pr-seltene-clinical-diagnosis` when not
+   genetically confirmed. Needs a verification-status-driven profile selection rule.
+2. **`furtherGeneticDiagnosticRecommended`** — this KDK enum value has NO
+   `condition-ver-status` target in the SE model; needs a fallback (note/extension).
+3. **AlphaID-SE vs AlphaID** (persistent) — SE source emits Alpha-ID-SE; MII Seltene IG
+   uses system `bfarm/alpha-id`. Confirm the diagnosis slice accepts Alpha-ID-SE content.
+4. **GMFCS** — still no MII/DNPM CodeSystem; DRAFT. Needs a local CS + repeating
+   effective-dated Observation.
+5. **`genomicStudyType` hardcoded `single`** upstream (DNPM //TODO) — unreliable source value.
+6. **Board model** — indication-board vs therapy-board: the two `molecularBoardDecisionDate`
+   values map to first vs latest `mii-pr-seltene-therapieplan`; board-type marking unmodeled.
+7. **Therapieempfehlung sub-profiles** — split `-nicht-medikamentoes` / `-kombination` by
+   Therapy Type (currently the base `-therapieempfehlung` with a note).
+8. **MolGen variant component paths** (vibe) — localization / diagnosticSignificance /
+   segregationAnalysis / publications: verify exact component slices against the pinned
+   MolGen package (else DRAFT).
