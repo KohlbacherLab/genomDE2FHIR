@@ -9,9 +9,11 @@ A second mapping target (alongside FHIR/MII-KDS). Tables: `mapping/mapping_omop_
 | Target | MAPPED | DRAFT | NOMAP |
 |--------|-------:|------:|------:|
 | **FHIR / MII KDS** | **315** | 73 | 40 |
-| **OMOP CDM** | **89** | 229 | 110 |
+| **OMOP CDM** | **79** | 237 | 112 |
 
-Per branch (OMOP): oncology 60/117/52 · rare-disease 20/86/26 · GRZ 9/26/32.
+Per branch (OMOP): oncology 54/121/54 · rare-disease 16/90/26 · GRZ 9/26/32.
+(MAPPED lowered 89→79 after the real-world-adoption review — see below — corrected
+over-grading: regimen-episode demoted, RECIST/intent/termination de-MAPPED.)
 
 The gap is the headline result: OMOP cleanly captures **~21%** of leaves vs **~74%** for
 FHIR. OMOP is strong on the analytic clinical *core* and weak on genomics, oncology
@@ -74,3 +76,44 @@ Standard-OMOP clinical spine, all with a real vocabulary path:
 _Status semantics: MAPPED = clean standard-OMOP home; DRAFT = mappable but lossy / immature
 extension / unverified concept / local-concept-only; NOMAP = no OMOP home. Concept ids tagged
 [VERIFY] in the per-row notes need Athena confirmation (the OMOP analogue of the FHIR P0)._
+
+## Real-world adoption review (Belenkaya 2021 + npj 2025 scoping review + RD-CDM/RareLink)
+
+Deep adversarial research on *actual* OMOP use for precision oncology + rare disease
+(`knowledge/omop/omop-oncology-realworld.md`, `omop-rare-disease-realworld.md`):
+
+- **Model-defined ≠ deployed.** Our first pass encoded what the OMOP Oncology Extension
+  *defines*; the npj 2025 scoping review (49 studies) shows those structures are barely
+  adopted and independently re-derives our gap list — its "cannot represent without
+  extension" set = **staging/TNM, ECOG, histological grade, treatment intent, lines of
+  therapy, biomarkers, genetic/molecular variants**. Even **DEATH and Visit_occurrence are
+  "minimally used"**; the **Cancer Modifier isn't named in any study**; **no MTB-on-OMOP
+  project exists**. → these stay DRAFT/GAP with a "real-world non-adoption" note, not promoted.
+- **Belenkaya 2021** is a design paper: only **SEER-observed ICD-O-3 combos** precoordinated,
+  grade/stage modifiers for **breast & prostate only**, episodes "rarely available in
+  structured form", genomics **deferred**, RECIST/intent **never mentioned**.
+- **Over-grading corrected:** `priorProcedures[].{therapyResponse,therapyResponseDate}` →
+  measurement/DRAFT (no OMOP RECIST concept); `intention`, `terminationReasonOBDS` → NOMAP
+  (no concept; lost when folded into a procedure); regimen `treatmentType` episode → DRAFT
+  (low adoption). `libraryType` → procedure_occurrence (the test is a procedure).
+- **Rare disease — the decisive finding:** the community **RD-CDM (Graefe et al., Sci Data
+  2025; RareLink, npj Genomic Med 2025) is deliberately NOT OMOP** — it is ERDRI-CDS + **HL7
+  FHIR + GA4GH Phenopackets**, and RareLink ships **no OMOP path** because "a representation
+  purely in OMOP cannot retain the full semantic/structural precision." A separate
+  "OMOP-based RD-CDM" (TU Dresden) is feasibility scaffolding (HPO via SOURCE_TO_CONCEPT_MAP
+  = "temporary", no onset/verification-status field).
+- **ORPHA `VERIFY` flag resolved:** ORPHA is **confirmed NOT in Athena** (2026) → local
+  vocab (concept_id >2bn) + Usagi + SNOMED standard; long-tail RD loss; **Alpha-ID-SE has no
+  OMOP target** (source-value only). **HPO** is a *source* vocab only → not cohort-queryable;
+  **excluded/refuted phenotypes are structurally unmapped** (OMOP absence convention).
+- **RD genomics:** OMOP Genomic vocab + VRS/KOIOS (OHDSI 2025, bioRxiv 2026) are **cancer-
+  scoped**; germline ACMG class/criteria, zygosity, inheritance, de-novo, segregation, trio
+  are **unmodelled** (ACMG appears only as a gene-list filter). Pedigree only via fact_relationship.
+
+**Strengthened recommendation:** this now rests on published evidence, not just model
+inspection — **FHIR MII KDS is authoritative; OMOP is a lossy secondary analytic export.**
+For rare disease specifically, the field's own RD-CDM is FHIR+Phenopackets *by design*, so
+do not over-invest in an OMOP RD representation beyond the analytic clinical core.
+
+_References: Belenkaya 2021 [PMC8140810]; npj scoping review 2025 [PMC11973147]; Graefe
+RD-CDM (Sci Data 2025); RareLink (npj Genomic Med 2025)._
