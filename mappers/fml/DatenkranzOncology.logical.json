@@ -1,0 +1,40 @@
+{
+  "resourceType": "StructureDefinition",
+  "url": "https://www.medizininformatik-initiative.de/fhir/StructureDefinition/DatenkranzOncology",
+  "name": "DatenkranzOncology",
+  "title": "genomDE KDK Oncology Datenkranz (logical source model)",
+  "status": "draft",
+  "kind": "logical",
+  "abstract": false,
+  "type": "https://www.medizininformatik-initiative.de/fhir/StructureDefinition/DatenkranzOncology",
+  "baseDefinition": "http://hl7.org/fhir/StructureDefinition/Base",
+  "derivation": "specialization",
+  "_comment": "Minimal logical model declaring the source paths the StructureMap navigates (fml-edit-safe Q6). Extend element[] as you extend the .map. A 'Coding' backbone (code/system/version/display) is reused for every coded leaf.",
+  "differential": {
+    "element": [
+      {"id": "DatenkranzOncology", "path": "DatenkranzOncology", "min": 1, "max": "1"},
+
+      {"id": "DatenkranzOncology.metaData", "path": "DatenkranzOncology.metaData", "min": 0, "max": "1", "type": [{"code": "BackboneElement"}]},
+      {"id": "DatenkranzOncology.metaData.gender", "path": "DatenkranzOncology.metaData.gender", "min": 0, "max": "1", "type": [{"code": "string"}]},
+      {"id": "DatenkranzOncology.metaData.birthDate", "path": "DatenkranzOncology.metaData.birthDate", "min": 0, "max": "1", "type": [{"code": "string"}]},
+      {"id": "DatenkranzOncology.metaData.tanC", "path": "DatenkranzOncology.metaData.tanC", "min": 0, "max": "1", "type": [{"code": "string"}]},
+      {"id": "DatenkranzOncology.metaData.localCaseId", "path": "DatenkranzOncology.metaData.localCaseId", "min": 0, "max": "1", "type": [{"code": "string"}]},
+      {"id": "DatenkranzOncology.metaData.coverageType", "path": "DatenkranzOncology.metaData.coverageType", "min": 0, "max": "1", "type": [{"code": "string"}]},
+
+      {"id": "DatenkranzOncology.case", "path": "DatenkranzOncology.case", "min": 0, "max": "1", "type": [{"code": "BackboneElement"}]},
+      {"id": "DatenkranzOncology.case.diagnosisOd", "path": "DatenkranzOncology.case.diagnosisOd", "min": 0, "max": "1", "type": [{"code": "BackboneElement"}]},
+      {"id": "DatenkranzOncology.case.diagnosisOd.ecogPerformanceStatusScore", "path": "DatenkranzOncology.case.diagnosisOd.ecogPerformanceStatusScore", "min": 0, "max": "1", "type": [{"code": "string"}]},
+
+      {"id": "DatenkranzOncology.case.diagnosisOd.mainDiagnosis", "path": "DatenkranzOncology.case.diagnosisOd.mainDiagnosis", "min": 0, "max": "1", "contentReference": "#DatenkranzOncology.Coding"},
+      {"id": "DatenkranzOncology.case.diagnosisOd.topography", "path": "DatenkranzOncology.case.diagnosisOd.topography", "min": 0, "max": "1", "contentReference": "#DatenkranzOncology.Coding"},
+      {"id": "DatenkranzOncology.case.diagnosisOd.histology", "path": "DatenkranzOncology.case.diagnosisOd.histology", "min": 0, "max": "1", "contentReference": "#DatenkranzOncology.Coding"},
+
+      {"id": "DatenkranzOncology.Coding", "path": "DatenkranzOncology.Coding", "min": 0, "max": "*", "type": [{"code": "BackboneElement"}], "_comment": "reusable coded-leaf shape (mainDiagnosis/topography/histology/etc.)"},
+      {"id": "DatenkranzOncology.Coding.code", "path": "DatenkranzOncology.Coding.code", "min": 0, "max": "1", "type": [{"code": "string"}]},
+      {"id": "DatenkranzOncology.Coding.system", "path": "DatenkranzOncology.Coding.system", "min": 0, "max": "1", "type": [{"code": "string"}]},
+      {"id": "DatenkranzOncology.Coding.version", "path": "DatenkranzOncology.Coding.version", "min": 0, "max": "1", "type": [{"code": "string"}]},
+      {"id": "DatenkranzOncology.Coding.display", "path": "DatenkranzOncology.Coding.display", "min": 0, "max": "1", "type": [{"code": "string"}]},
+      {"id": "DatenkranzOncology.Coding.date", "path": "DatenkranzOncology.Coding.date", "min": 0, "max": "1", "type": [{"code": "string"}], "_comment": "mainDiagnosis.date"}
+    ]
+  }
+}

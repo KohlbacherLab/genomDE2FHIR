@@ -1,0 +1,61 @@
+/// url = 'https://www.medizininformatik-initiative.de/fhir/StructureMap/GenomDeOncologyToMii'
+/// name = 'GenomDeOncologyToMii'
+/// title = 'genomDE KDK Oncology Datenkranz -> MII KDS FHIR'
+/// status = 'draft'
+
+// Structural mapping for a HAPI/Matchbox $transform: genomDE oncology Datenkranz JSON
+// (validated against the DatenkranzOncology logical model) -> a transaction Bundle of
+// MII KDS resources. Covers the high-confidence spine (Patient + primary Condition) as
+// the runnable, matchbox-trap-safe pattern; extend group-by-group per mapping_kdk_oncology.csv.
+//
+// Trap-safe (fml-edit-safe): single-step source paths only (Q5) — descend via sub-groups;
+// no `where !=` (Q1); bind each target once per chain (Q4); no literal-string sources (Q3).
+
+uses "https://www.medizininformatik-initiative.de/fhir/StructureDefinition/DatenkranzOncology" alias DatenkranzOncology as source
+uses "http://hl7.org/fhir/StructureDefinition/Bundle" alias Bundle as target
+
+group main(source src : DatenkranzOncology, target bundle : Bundle) {
+  src -> bundle.type = 'transaction' "set-type";
+  // Create the Patient first, then build the Condition inside its scope so the
+  // subject reference resolves (reference(pat)).
+  src.metaData as meta -> bundle.entry as pe, pe.resource = create('Patient') as pat then {
+    meta -> pat.meta as m, m.profile = 'https://www.medizininformatik-initiative.de/fhir/core/modul-person/StructureDefinition/PatientPseudonymisiert' "pat-prof";
+    meta.gender as g -> pat.gender = g "pat-gender";
+    meta.birthDate as bd -> pat.birthDate = bd "pat-bd";
+    meta.tanC as t -> pat.identifier as id then TanIdentifier(t, id) "pat-tan";
+    src.case as case -> bundle.entry as ce, ce.resource = create('Condition') as cond, cond.subject = reference(pat) then PrimaryDiagnosis(case, cond) "case-dx";
+  } "patient";
+}
+
+group TanIdentifier(source t, target id : Identifier) {
+  t -> id.system = 'https://www.medizininformatik-initiative.de/fhir/sid/mvh-tan-c' "tan-sys";
+  t -> id.value = t "tan-val";
+}
+
+group PrimaryDiagnosis(source case, target cond : Condition) {
+  case -> cond.meta as m, m.profile = 'https://www.medizininformatik-initiative.de/fhir/ext/modul-mtb/StructureDefinition/mii-pr-mtb-diagnose-primaertumor' "dx-prof";
+  case -> cond.clinicalStatus as cs, cs.coding as c, c.system = 'http://terminology.hl7.org/CodeSystem/condition-clinical', c.code = 'active' "dx-clin";
+  case.diagnosisOd as diag then DiagnosisOd(diag, cond) "diag";
+}
+
+group DiagnosisOd(source diag, target cond : Condition) {
+  diag.mainDiagnosis as md then MainDiagnosis(md, cond) "main";
+  diag.topography as topo -> cond.bodySite as bs then Coding(topo, bs) "topo";
+}
+
+group MainDiagnosis(source md, target cond : Condition) {
+  md.date as d -> cond.recordedDate = d "dx-date";
+  md -> cond.code as cc then Coding(md, cc) "dx-code";
+}
+
+// Generic source-coding {code,system,version,display} -> CodeableConcept.
+group Coding(source srcCoding, target cc : CodeableConcept) {
+  srcCoding -> cc.coding as c then CodingInner(srcCoding, c) "cc-coding";
+}
+
+group CodingInner(source s, target c : Coding) {
+  s.system as sys -> c.system = sys "ci-sys";
+  s.code as code -> c.code = code "ci-code";
+  s.version as v -> c.version = v "ci-ver";
+  s.display as disp -> c.display = disp "ci-disp";
+}
