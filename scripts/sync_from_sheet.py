@@ -5,13 +5,16 @@ Only the TARGET columns (mii_module, mii_profile, fhir_element, transform, statu
 notes) are pulled, matched by `path`. The schema-derived source columns (A-G) are
 LEFT UNTOUCHED — they are owned by scripts/regen-mapping.sh, not the sheet.
 
-The sheet must be link-shared ("anyone with the link can view"). No auth needed.
+Pulls via the XLSX export (NOT the CSV/gviz export): CSV export silently drops cell
+comments, XLSX preserves them. The sheet must be link-shared ("anyone with the link
+can view"). No auth needed. (Comments themselves: scripts/ingest_sheet_comments.py.)
 
 Usage:
   python3 scripts/sync_from_sheet.py [--dry-run] [--id <sheetId>]
 """
-import sys, csv, io, urllib.request, urllib.parse
+import sys, io, csv, urllib.request
 from pathlib import Path
+from openpyxl import load_workbook
 
 ROOT = Path(__file__).resolve().parent.parent
 SHEET_ID = "1vqPsLLaV6pMCDFXAReqczompNTnTPEqN"   # KohlbacherLab genomDE2FHIR mapping table
@@ -20,16 +23,34 @@ TABS = {
     "KDK rare diseases": "mapping_kdk_rarediseases.csv",
     "GRZ": "mapping_grz.csv",
 }
-TARGET = ["mii_module", "mii_profile", "fhir_element", "transform", "status", "notes"]
+# NB: `notes` is intentionally NOT pulled — it is repo-managed (CLIN-REVIEW comment
+# annotations come from scripts/ingest_sheet_comments.py + alignment-script provenance).
+# Reviewer feedback flows via the sheet's native cell COMMENTS, not the notes column.
+TARGET = ["mii_module", "mii_profile", "fhir_element", "transform", "status"]
+_WB = {}
+
+def _workbook(sheet_id):
+    if sheet_id not in _WB:
+        url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=xlsx"
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 genomDE2FHIR-sync/1.0"})
+        data = urllib.request.urlopen(req, timeout=40).read()
+        if data[:2] != b"PK":
+            raise RuntimeError("got non-xlsx — is the sheet link-shared (anyone-with-link viewer)?")
+        _WB[sheet_id] = load_workbook(io.BytesIO(data), read_only=True, data_only=True)
+    return _WB[sheet_id]
 
 def fetch_tab(sheet_id, tab):
-    url = (f"https://docs.google.com/spreadsheets/d/{sheet_id}/gviz/tq"
-           f"?tqx=out:csv&sheet=" + urllib.parse.quote(tab))
-    req = urllib.request.Request(url, headers={"User-Agent": "genomDE2FHIR-sync/1.0"})
-    txt = urllib.request.urlopen(req, timeout=30).read().decode("utf-8")
-    if txt.lstrip().startswith("<"):
-        raise RuntimeError(f"got HTML not CSV for '{tab}' — is the sheet link-shared (anyone-with-link viewer)?")
-    return list(csv.DictReader(io.StringIO(txt)))
+    ws = _workbook(sheet_id)[tab]
+    rows = list(ws.iter_rows(values_only=True))
+    if not rows:
+        return []
+    hdr = [str(c) if c is not None else "" for c in rows[0]]
+    out = []
+    for r in rows[1:]:
+        d = {hdr[i]: ("" if v is None else str(v)) for i, v in enumerate(r) if i < len(hdr)}
+        if d.get("path"):
+            out.append(d)
+    return out
 
 def main():
     args = sys.argv[1:]

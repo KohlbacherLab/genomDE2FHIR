@@ -13,9 +13,14 @@ python3 scripts/sync_from_sheet.py $ARGUMENTS
 ```
 
 - The Sheet is the working copy; the `mapping/*.csv` in git are the source of truth.
-- Pull updates ONLY the target columns (mii_module, mii_profile, fhir_element,
-  transform, status, notes), matched by `path`. Schema-derived columns A–G are
-  never touched (they belong to `scripts/regen-mapping.sh`).
+- Pulls via the **XLSX export** (`export?format=xlsx`), NOT CSV — CSV silently drops
+  cell comments; XLSX preserves them. [[feedback-pull-sheet-as-xlsx]]
+- Pull updates ONLY the mapping columns (mii_module, mii_profile, fhir_element,
+  transform, status), matched by `path`. Schema-derived columns A–G belong to
+  `scripts/regen-mapping.sh`; the `notes` column is repo-managed (CLIN-REVIEW
+  annotations come from `scripts/ingest_sheet_comments.py`) — neither is pulled.
+- Reviewer feedback flows via the sheet's native cell COMMENTS → pull them with
+  `python3 scripts/ingest_sheet_comments.py` (also XLSX-based).
 - Add `--dry-run` to preview. After a real pull, review `git diff mapping/` and commit.
 - To push the current CSVs back out for editing, regenerate the workbook with
   `python3 scripts/export_xlsx.py` (→ mapping/mapping-table.xlsx) and re-upload to Drive,
