@@ -42,6 +42,14 @@ P = {  # crawl-verified canonicals (see mapping table / terminology-locks)
  "med_stmt": "fhir/ext/modul-mtb/StructureDefinition/mii-pr-mtb-systemtherapie-medication-statement".replace("fhir/", ""),
 }
 HISTOLOGY_EXT = "https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-ex-onko-histology-morphology-behavior-icdo3"
+ASSERTED_DATE_EXT = "http://hl7.org/fhir/StructureDefinition/condition-assertedDate"  # Feststellungsdatum (min 1)
+INTENTION_EXT = "https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-ex-onko-systemische-therapie-intention"  # min 1
+ICDO3 = "http://terminology.hl7.org/CodeSystem/icd-o-3"      # profile fixes histology/topography to this (not the source OID)
+ECOG_CS = "https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/CodeSystem/mii-cs-onko-allgemeiner-leistungszustand-ecog"
+INTENTION_CS = "https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/CodeSystem/mii-cs-onko-intention"
+VITALSTATUS_CS = "https://www.medizininformatik-initiative.de/fhir/core/modul-person/CodeSystem/Vitalstatus"
+CONSENT_PROVISION_CS = "urn:oid:2.16.840.1.113883.3.1937.777.24.5.3"
+CONSENT_POLICY_OID = "urn:oid:2.16.840.1.113883.3.1937.777.24.2.2079"
 GENDER_MAP = {"male": "male", "female": "female", "other": "other", "unknown": "unknown",
               "divers": "other", "unbestimmt": "unknown"}
 
@@ -52,14 +60,15 @@ def prof(key):  # full profile canonical
 def uid(*parts):
     return "urn:uuid:" + str(uuid.uuid5(uuid.NAMESPACE_URL, "genomde:" + ":".join(str(p) for p in parts if p)))
 
-def cc(src, default_system=None):
-    """source coding dict {code,system,version,display} -> CodeableConcept dict."""
+def cc(src, default_system=None, override_system=None):
+    """source coding dict {code,system,version,display} -> CodeableConcept dict.
+    override_system wins over the source system (for profile-fixed systems, e.g. ICD-O-3)."""
     if not src or not src.get("code"):
         return None
     coding = {"code": src["code"]}
-    if src.get("system") or default_system:
-        coding["system"] = src.get("system") or default_system
-    if src.get("version"):
+    if override_system or src.get("system") or default_system:
+        coding["system"] = override_system or src.get("system") or default_system
+    if src.get("version") and not override_system:
         coding["version"] = src["version"]
     if src.get("display"):
         coding["display"] = src["display"]
@@ -84,11 +93,13 @@ def map_oncology(dk):
 
     # --- Patient (PatientPseudonymisiert) ---
     pat_id = uid("patient", meta.get("tanC") or meta.get("localCaseId") or "anon")
+    PSEUDED = {"coding": [{"system": "http://terminology.hl7.org/CodeSystem/v3-ObservationValue", "code": "PSEUDED"}]}
+    MR = {"coding": [{"system": "http://terminology.hl7.org/CodeSystem/v2-0203", "code": "MR"}]}
     ident = []
     if meta.get("tanC"):
-        ident.append({"system": "https://www.medizininformatik-initiative.de/fhir/sid/mvh-tan-c", "value": meta["tanC"]})
+        ident.append({"type": PSEUDED, "system": "https://www.medizininformatik-initiative.de/fhir/sid/mvh-tan-c", "value": meta["tanC"]})
     if meta.get("localCaseId"):
-        ident.append({"system": "urn:local:case-id", "value": meta["localCaseId"]})
+        ident.append({"type": MR, "system": "urn:local:case-id", "value": meta["localCaseId"]})
     pat_kwargs = {"meta": {"profile": [prof("patient")]}, "identifier": ident or None}
     if meta.get("gender"):
         pat_kwargs["gender"] = GENDER_MAP.get(meta["gender"], "unknown")
@@ -114,31 +125,35 @@ def map_oncology(dk):
         for sc in mvc.get("scope", []):
             provisions.append(ConsentProvision(
                 type=sc.get("type", "permit"),
-                code=[{"coding": [{"system": "https://www.medizininformatik-initiative.de/fhir/modul-consent/CodeSystem/mii-cs-consent-mvh-domain",
-                                    "code": sc.get("domain")}]}] if sc.get("domain") else None))
+                period={"start": sc["date"]} if sc.get("date") else None,
+                code=[{"coding": [{"system": CONSENT_PROVISION_CS, "code": sc.get("domain")}]}] if sc.get("domain") else None))
         consent = Consent(
             status="active", scope={"coding": [{"system": "http://terminology.hl7.org/CodeSystem/consentscope", "code": "research"}]},
-            category=[{"coding": [{"system": "http://loinc.org", "code": "57016-8"}]}],
+            category=[{"coding": [{"system": "http://loinc.org", "code": "57016-8"}]},
+                      {"coding": [{"system": "https://www.medizininformatik-initiative.de/fhir/modul-consent/CodeSystem/mii-cs-consent-consent_category", "code": "2.16.840.1.113883.3.1937.777.24.2.184"}]}],
             patient=subj, dateTime=mvc.get("presentationDate"),
             meta={"profile": [prof("consent")]},
-            policy=[{"uri": mvc.get("version")}] if mvc.get("version") else None,
+            policy=[{"uri": CONSENT_POLICY_OID}],
             provision={"type": "deny", "provision": provisions} if provisions else None)
         b.add(consent, uid("consent", pat_id))
 
     # --- Primary diagnosis (mii-pr-mtb-diagnose-primaertumor) ---
     md = diag.get("mainDiagnosis")
     if md and md.get("code"):
-        ext = None
+        ext = []
+        if md.get("date"):  # Feststellungsdatum (condition-assertedDate) — profile min=1
+            ext.append({"url": ASSERTED_DATE_EXT, "valueDateTime": md["date"]})
         histo = diag.get("histology")
-        if histo and histo.get("code"):
-            ext = [{"url": HISTOLOGY_EXT, "valueCodeableConcept": cc(histo)}]
+        if histo and histo.get("code"):  # ICD-O-3 morphology -> fixed system icd-o-3
+            ext.append({"url": HISTOLOGY_EXT, "valueCodeableConcept": cc(histo, override_system=ICDO3)})
         cond = Condition(
             subject=subj, recordedDate=md.get("date"),
             meta={"profile": [prof("primaertumor")]},
             clinicalStatus={"coding": [{"system": "http://terminology.hl7.org/CodeSystem/condition-clinical", "code": "active"}]},
             verificationStatus={"coding": [{"system": "http://terminology.hl7.org/CodeSystem/condition-ver-status", "code": "confirmed"}]},
-            code=cc(md), bodySite=[cc(diag["topography"])] if diag.get("topography", {}).get("code") else None,
-            extension=ext)
+            code=cc(md),  # ICD-10-GM (source system already http://fhir.de/CodeSystem/bfarm/icd-10-gm)
+            bodySite=[cc(diag["topography"], override_system=ICDO3)] if diag.get("topography", {}).get("code") else None,
+            extension=ext or None)
         b.add(cond, uid("cond-primary", pat_id, md.get("code")))
 
     # --- Additional diagnoses (core Diagnose) ---
@@ -154,9 +169,10 @@ def map_oncology(dk):
         return Observation(
             status="final", subject=subj, effectiveDateTime=date,
             meta={"profile": [prof("ecog")]},
+            category=[{"coding": [{"system": "http://terminology.hl7.org/CodeSystem/observation-category", "code": "survey"}]}],
             code={"coding": [{"system": "http://loinc.org", "code": "89262-0"},
                               {"system": "http://snomed.info/sct", "code": "423740007"}]},
-            valueCodeableConcept={"coding": [{"system": "https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/CodeSystem/mii-cs-onko-ecog", "code": str(score)}]})
+            valueCodeableConcept={"coding": [{"system": ECOG_CS, "code": str(score)}]})
     if diag.get("ecogPerformanceStatusScore"):
         b.add(ecog_obs(diag["ecogPerformanceStatusScore"], None, "dx"), uid("ecog-dx", pat_id))
 
@@ -166,8 +182,11 @@ def map_oncology(dk):
         period = {}
         if pp.get("therapyStartDate"): period["start"] = pp["therapyStartDate"]
         if pp.get("therapyEndDate"): period["end"] = pp["therapyEndDate"]
+        intention_code = pp.get("intention") or "X"   # profile requires Intention (min 1)
         b.add(Procedure(status="completed", subject=subj,
                         meta={"profile": [prof("vortherapie")]},
+                        extension=[{"url": INTENTION_EXT,
+                                    "valueCodeableConcept": {"coding": [{"system": INTENTION_CS, "code": intention_code}]}}],
                         code={"coding": [{"system": "http://snomed.info/sct", "code": "277132007", "display": "Therapeutic procedure"}]},
                         performedPeriod=period or None), proc_url)
         for j, sub in enumerate(pp.get("substances", []) or []):
@@ -185,10 +204,12 @@ def map_oncology(dk):
         if fu.get("ecogPerformanceStatusScore"):
             b.add(ecog_obs(fu["ecogPerformanceStatusScore"], fu.get("followUpDate"), f"fu{k}"), uid("ecog-fu", pat_id, k))
         if fu.get("vitalStatus"):
+            vmap = {"living": "lebend", "deceased": "verstorben", "alive": "lebend"}
             b.add(Observation(status="final", subject=subj, effectiveDateTime=fu.get("followUpDate"),
                               meta={"profile": [prof("vitalstatus")]},
+                              category=[{"coding": [{"system": "http://terminology.hl7.org/CodeSystem/observation-category", "code": "survey"}]}],
                               code={"coding": [{"system": "http://loinc.org", "code": "67162-8"}]},
-                              valueCodeableConcept={"coding": [{"system": "https://www.medizininformatik-initiative.de/fhir/core/modul-person/CodeSystem/Vitalstatus", "code": fu["vitalStatus"]}]}),
+                              valueCodeableConcept={"coding": [{"system": VITALSTATUS_CS, "code": vmap.get(fu["vitalStatus"], fu["vitalStatus"])}]}),
                   uid("vital", pat_id, k))
     # TODO (per mapping table / open issues): TNM, grading, molecular MTB variants,
     # complexBiomarkers, carePlan/recommendations, studyInclusion, RNA-seq.
