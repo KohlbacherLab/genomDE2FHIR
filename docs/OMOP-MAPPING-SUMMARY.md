@@ -117,3 +117,33 @@ do not over-invest in an OMOP RD representation beyond the analytic clinical cor
 
 _References: Belenkaya 2021 [PMC8140810]; npj scoping review 2025 [PMC11973147]; Graefe
 RD-CDM (Sci Data 2025); RareLink (npj Genomic Med 2025)._
+
+## FHIR→OMOP tooling deep-dive — HL7 IG + mihubx/MIRACUM ETL (additional insights)
+
+Analysed the HL7 FHIR-to-OMOP IG (v1.0.0) and downloaded/analysed the mihubx "fhir-to-omop"
+tool — engine = the deployed **MIRACUM `org.miracum.etl.fhirtoomop`** ETL
+(`knowledge/research/fhir-to-omop-mihubx-etl.md`). Applied as row annotations to the OMOP table:
+
+- **"Map once via FHIR" is real for the clinical core** — the ETL handles Patient/Condition/
+  Observation/Procedure/Medication(+Statement/Admin)/Encounter. Our OMOP spine rows
+  (diagnoses→condition_occurrence, procedures→procedure_occurrence, substances→drug_exposure,
+  death, visits) are now tagged **VALIDATED by a deployed ETL** (genomDE→MII-KDS-FHIR→ETL→OMOP).
+- **Domain-driven routing** — the ETL chooses condition/measurement/observation/procedure by the
+  *standard concept's `domain_id`*, not a fixed rule. Coded-finding rows (grade/TNM/ECOG/HPO/
+  biomarkers) annotated "table = concept domain", matching the HL7 IG's Value-as-Concept pattern.
+- **RD diagnoses gain a concrete ORPHA→SNOMED bridge** — the ETL ships `orpha_snomed_mapping.csv`
+  (5,906 ORPHA→SNOMED Condition maps), applied by its ConditionMapper. Cited on the RD diagnosis
+  rows (still DRAFT: long-tail coverage loss; Alpha-ID-SE has no target).
+- **TNM/grade/stage have a concrete implementation path** — the ETL's `post_process_stage.sql` /
+  `post_process_severity.sql` link a stage/severity finding to the diagnosis Condition via
+  `post_process_map` + fact_relationship. Annotated on grading/TNM (status stays DRAFT — npj 2025
+  real-world non-adoption still holds; this is *how* to do it, not evidence it's done).
+- **Diagnosesicherheit / verificationStatus** handled by the ETL (SOURCE_TO_CONCEPT_MAP
+  diagnostic-confidence) — informs germlineDiagnosisConfirmed / RD verification rows.
+- **Genomics has NO FHIR→OMOP path** — no Specimen/variant mapper in the ETL (matches the HL7 IG
+  excluding genomics). Variant/CNV/fusion/QC/ref-genome rows annotated "direct-to-OMOP-Genomic-CDM
+  only" — unchanged conclusion, now confirmed from the deployed tool's source.
+
+Net: this **strengthens the hybrid build recommendation** with a concrete, deployed reference
+implementation for the clinical core (and a ready ORPHA→SNOMED + stage-linkage pattern), while
+re-confirming genomics/oncology-attributes/RD-specifics as the direct-mapping frontier.
