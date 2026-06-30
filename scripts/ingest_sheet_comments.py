@@ -56,7 +56,7 @@ def main():
             c = pmap.get(r["path"])
             if not c:
                 continue
-            base = re.sub(r"\s*\|\s*" + re.escape(MARK) + r".*$", "", r["notes"]).strip()  # idempotent
+            base = re.sub(r"(\s*\|\s*)?" + re.escape(MARK) + r".*$", "", r["notes"]).strip()  # idempotent
             r["notes"] = (base + " | " if base else "") + f"{MARK} ({c['author']}) {c['comment']}"
             n += 1
         if not dry:
