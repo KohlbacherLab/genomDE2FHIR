@@ -14,13 +14,12 @@ from openpyxl.formatting.rule import CellIsRule
 from openpyxl.utils import get_column_letter
 
 ROOT = Path(__file__).resolve().parent.parent
-SHEETS = [  # (tab title, csv) — FHIR target first, then OMOP target
+SHEETS = [  # (tab title, csv) — FHIR/MII-KDS tabs ONLY in the shared sheet.
+    # OMOP tables are kept OUT of the Google Sheet by request (they live in git:
+    # mapping/mapping_omop_*.csv). Do not add OMOP tabs here.
     ("KDK oncology", "mapping_kdk_oncology.csv"),
     ("KDK rare diseases", "mapping_kdk_rarediseases.csv"),
     ("GRZ", "mapping_grz.csv"),
-    ("OMOP KDK oncology", "mapping_omop_kdk_oncology.csv"),
-    ("OMOP KDK rare diseases", "mapping_omop_kdk_rarediseases.csv"),
-    ("OMOP GRZ", "mapping_omop_grz.csv"),
 ]
 SRC = ["path", "type", "required", "array", "enum", "format", "description"]
 STATUS = ["MAPPED", "DRAFT", "NOMAP", "TODO", "REMOVED?"]
@@ -35,10 +34,10 @@ wb = Workbook()
 lg = wb.active; lg.title = "README"
 lg["A1"] = "genomDE Datenkranz → mapping tables (FHIR/MII-KDS + OMOP CDM)"; lg["A1"].font = Font(bold=True, size=14)
 for i, t in enumerate([
- "", "Six data tabs: 3 FHIR/MII-KDS targets + 3 OMOP-CDM targets (GRZ & KDK kept separate).",
- "Columns A–G (grey) = schema-derived skeleton, identical across both targets: DO NOT EDIT.",
- "FHIR tabs target cols: mii_module, mii_profile, fhir_element, transform, status, notes.",
- "OMOP tabs target cols: omop_table, omop_field, omop_vocab, omop_transform, status, notes.",
+ "", "Three FHIR/MII-KDS mapping tabs (GRZ & KDK kept separate). The OMOP-CDM tables are",
+ "kept OUT of this sheet by request — they live in git (mapping/mapping_omop_*.csv).",
+ "Columns A–G (grey) = schema-derived skeleton: DO NOT EDIT.",
+ "Target cols: mii_module, mii_profile, fhir_element, transform, status, notes.",
  "status dropdown: MAPPED / DRAFT / NOMAP / TODO / REMOVED?  (colour-coded).",
  "",
  "Authoritative source of truth = the CSVs in git (KohlbacherLab/genomDE2FHIR, mapping/).",
