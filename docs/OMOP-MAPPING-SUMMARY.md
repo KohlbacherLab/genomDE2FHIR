@@ -19,7 +19,7 @@ The gap is the headline result: OMOP cleanly captures **~21%** of leaves vs **~7
 FHIR. OMOP is strong on the analytic clinical *core* and weak on genomics, oncology
 attributes, rare-disease specifics, and anything recommendation-shaped.
 
-## What maps cleanly (MAPPED, 89)
+## What maps cleanly (MAPPED, 79)
 Standard-OMOP clinical spine, all with a real vocabulary path:
 - **Demographics** → `person` (+ `location` for AGS); **death/vital status** → `death`.
 - **Diagnoses** (ICD-10-GM, ICD-O-3) → `condition_occurrence` (source concept + SNOMED standard);
@@ -27,7 +27,7 @@ Standard-OMOP clinical spine, all with a real vocabulary path:
 - **Procedures** (OPS) → `procedure_occurrence`; **substances** (ATC) → `drug_exposure` (→RxNorm).
 - **Hospitalizations / follow-up visits** → `visit_occurrence`; **specimen/tissue** → `specimen`.
 
-## What maps only with loss / immaturity (DRAFT, 229)
+## What maps only with loss / immaturity (DRAFT, 237)
 - **Oncology attributes** — grading & TNM → `measurement` via the OHDSI **Cancer Modifier** /
   **AJCC** vocabularies (Ed.7 loaded, Ed.8 contested); ECOG → measurement [concept_id to verify].
 - **Therapy regimen / episode** — systemic therapy → `episode` (Treatment Regimen 32531) +
@@ -41,7 +41,7 @@ Standard-OMOP clinical spine, all with a real vocabulary path:
 - **GMFCS / trio** → local concept / `fact_relationship` (no blessed pattern).
 - **GRZ sequencing QC / reference-genome build** → `measurement` with local concepts (no home).
 
-## What has no OMOP home (NOMAP, 110)
+## What has no OMOP home (NOMAP, 112)
 - **Care-plan recommendations** (therapy / study / clinical-management, both branches) — OMOP is
   an *observational* model; there is no recommendation table. **Biggest semantic loss.**
 - **Treatment intent** and **RECIST response** — no standard OMOP concept.
