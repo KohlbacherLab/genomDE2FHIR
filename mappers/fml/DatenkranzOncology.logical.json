@@ -9,7 +9,7 @@
   "type": "https://www.medizininformatik-initiative.de/fhir/StructureDefinition/DatenkranzOncology",
   "baseDefinition": "http://hl7.org/fhir/StructureDefinition/Base",
   "derivation": "specialization",
-  "_comment": "Minimal logical model declaring the source paths the StructureMap navigates (fml-edit-safe Q6). Extend element[] as you extend the .map. A 'Coding' backbone (code/system/version/display) is reused for every coded leaf.",
+  "_comment": "Declares the source paths the StructureMap navigates (fml-edit-safe Q6). A reusable 'Coding' backbone (code/system/version/display/date) is referenced by every coded leaf.",
   "differential": {
     "element": [
       {"id": "DatenkranzOncology", "path": "DatenkranzOncology", "min": 1, "max": "1"},
@@ -20,21 +20,41 @@
       {"id": "DatenkranzOncology.metaData.tanC", "path": "DatenkranzOncology.metaData.tanC", "min": 0, "max": "1", "type": [{"code": "string"}]},
       {"id": "DatenkranzOncology.metaData.localCaseId", "path": "DatenkranzOncology.metaData.localCaseId", "min": 0, "max": "1", "type": [{"code": "string"}]},
       {"id": "DatenkranzOncology.metaData.coverageType", "path": "DatenkranzOncology.metaData.coverageType", "min": 0, "max": "1", "type": [{"code": "string"}]},
+      {"id": "DatenkranzOncology.metaData.mvConsent", "path": "DatenkranzOncology.metaData.mvConsent", "min": 0, "max": "1", "type": [{"code": "BackboneElement"}]},
+      {"id": "DatenkranzOncology.metaData.mvConsent.presentationDate", "path": "DatenkranzOncology.metaData.mvConsent.presentationDate", "min": 0, "max": "1", "type": [{"code": "string"}]},
+      {"id": "DatenkranzOncology.metaData.mvConsent.version", "path": "DatenkranzOncology.metaData.mvConsent.version", "min": 0, "max": "1", "type": [{"code": "string"}]},
+      {"id": "DatenkranzOncology.metaData.mvConsent.scope", "path": "DatenkranzOncology.metaData.mvConsent.scope", "min": 0, "max": "*", "type": [{"code": "BackboneElement"}]},
+      {"id": "DatenkranzOncology.metaData.mvConsent.scope.type", "path": "DatenkranzOncology.metaData.mvConsent.scope.type", "min": 0, "max": "1", "type": [{"code": "string"}]},
+      {"id": "DatenkranzOncology.metaData.mvConsent.scope.domain", "path": "DatenkranzOncology.metaData.mvConsent.scope.domain", "min": 0, "max": "1", "type": [{"code": "string"}]},
+      {"id": "DatenkranzOncology.metaData.mvConsent.scope.date", "path": "DatenkranzOncology.metaData.mvConsent.scope.date", "min": 0, "max": "1", "type": [{"code": "string"}]},
 
       {"id": "DatenkranzOncology.case", "path": "DatenkranzOncology.case", "min": 0, "max": "1", "type": [{"code": "BackboneElement"}]},
       {"id": "DatenkranzOncology.case.diagnosisOd", "path": "DatenkranzOncology.case.diagnosisOd", "min": 0, "max": "1", "type": [{"code": "BackboneElement"}]},
       {"id": "DatenkranzOncology.case.diagnosisOd.ecogPerformanceStatusScore", "path": "DatenkranzOncology.case.diagnosisOd.ecogPerformanceStatusScore", "min": 0, "max": "1", "type": [{"code": "string"}]},
-
       {"id": "DatenkranzOncology.case.diagnosisOd.mainDiagnosis", "path": "DatenkranzOncology.case.diagnosisOd.mainDiagnosis", "min": 0, "max": "1", "contentReference": "#DatenkranzOncology.Coding"},
       {"id": "DatenkranzOncology.case.diagnosisOd.topography", "path": "DatenkranzOncology.case.diagnosisOd.topography", "min": 0, "max": "1", "contentReference": "#DatenkranzOncology.Coding"},
       {"id": "DatenkranzOncology.case.diagnosisOd.histology", "path": "DatenkranzOncology.case.diagnosisOd.histology", "min": 0, "max": "1", "contentReference": "#DatenkranzOncology.Coding"},
+      {"id": "DatenkranzOncology.case.diagnosisOd.additionalDiagnoses", "path": "DatenkranzOncology.case.diagnosisOd.additionalDiagnoses", "min": 0, "max": "*", "contentReference": "#DatenkranzOncology.Coding"},
 
-      {"id": "DatenkranzOncology.Coding", "path": "DatenkranzOncology.Coding", "min": 0, "max": "*", "type": [{"code": "BackboneElement"}], "_comment": "reusable coded-leaf shape (mainDiagnosis/topography/histology/etc.)"},
+      {"id": "DatenkranzOncology.case.priorProcedures", "path": "DatenkranzOncology.case.priorProcedures", "min": 0, "max": "*", "type": [{"code": "BackboneElement"}]},
+      {"id": "DatenkranzOncology.case.priorProcedures.therapyStartDate", "path": "DatenkranzOncology.case.priorProcedures.therapyStartDate", "min": 0, "max": "1", "type": [{"code": "string"}]},
+      {"id": "DatenkranzOncology.case.priorProcedures.therapyEndDate", "path": "DatenkranzOncology.case.priorProcedures.therapyEndDate", "min": 0, "max": "1", "type": [{"code": "string"}]},
+      {"id": "DatenkranzOncology.case.priorProcedures.substances", "path": "DatenkranzOncology.case.priorProcedures.substances", "min": 0, "max": "*", "type": [{"code": "BackboneElement"}]},
+      {"id": "DatenkranzOncology.case.priorProcedures.substances.code", "path": "DatenkranzOncology.case.priorProcedures.substances.code", "min": 0, "max": "1", "contentReference": "#DatenkranzOncology.Coding"},
+      {"id": "DatenkranzOncology.case.priorProcedures.substances.name", "path": "DatenkranzOncology.case.priorProcedures.substances.name", "min": 0, "max": "1", "type": [{"code": "string"}]},
+
+      {"id": "DatenkranzOncology.followUp", "path": "DatenkranzOncology.followUp", "min": 0, "max": "1", "type": [{"code": "BackboneElement"}]},
+      {"id": "DatenkranzOncology.followUp.followUpOds", "path": "DatenkranzOncology.followUp.followUpOds", "min": 0, "max": "*", "type": [{"code": "BackboneElement"}]},
+      {"id": "DatenkranzOncology.followUp.followUpOds.followUpDate", "path": "DatenkranzOncology.followUp.followUpOds.followUpDate", "min": 0, "max": "1", "type": [{"code": "string"}]},
+      {"id": "DatenkranzOncology.followUp.followUpOds.ecogPerformanceStatusScore", "path": "DatenkranzOncology.followUp.followUpOds.ecogPerformanceStatusScore", "min": 0, "max": "1", "type": [{"code": "string"}]},
+      {"id": "DatenkranzOncology.followUp.followUpOds.vitalStatus", "path": "DatenkranzOncology.followUp.followUpOds.vitalStatus", "min": 0, "max": "1", "type": [{"code": "string"}]},
+
+      {"id": "DatenkranzOncology.Coding", "path": "DatenkranzOncology.Coding", "min": 0, "max": "*", "type": [{"code": "BackboneElement"}]},
       {"id": "DatenkranzOncology.Coding.code", "path": "DatenkranzOncology.Coding.code", "min": 0, "max": "1", "type": [{"code": "string"}]},
       {"id": "DatenkranzOncology.Coding.system", "path": "DatenkranzOncology.Coding.system", "min": 0, "max": "1", "type": [{"code": "string"}]},
       {"id": "DatenkranzOncology.Coding.version", "path": "DatenkranzOncology.Coding.version", "min": 0, "max": "1", "type": [{"code": "string"}]},
       {"id": "DatenkranzOncology.Coding.display", "path": "DatenkranzOncology.Coding.display", "min": 0, "max": "1", "type": [{"code": "string"}]},
-      {"id": "DatenkranzOncology.Coding.date", "path": "DatenkranzOncology.Coding.date", "min": 0, "max": "1", "type": [{"code": "string"}], "_comment": "mainDiagnosis.date"}
+      {"id": "DatenkranzOncology.Coding.date", "path": "DatenkranzOncology.Coding.date", "min": 0, "max": "1", "type": [{"code": "string"}]}
     ]
   }
 }

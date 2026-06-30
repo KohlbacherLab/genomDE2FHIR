@@ -3,27 +3,26 @@
 /// title = 'genomDE KDK Oncology Datenkranz -> MII KDS FHIR'
 /// status = 'draft'
 
-// Structural mapping for a HAPI/Matchbox $transform: genomDE oncology Datenkranz JSON
-// (validated against the DatenkranzOncology logical model) -> a transaction Bundle of
-// MII KDS resources. Covers the high-confidence spine (Patient + primary Condition) as
-// the runnable, matchbox-trap-safe pattern; extend group-by-group per mapping_kdk_oncology.csv.
-//
-// Trap-safe (fml-edit-safe): single-step source paths only (Q5) — descend via sub-groups;
+// genomDE oncology Datenkranz JSON (typed by the DatenkranzOncology logical model)
+// -> transaction Bundle of MII KDS resources. Covers the high-confidence spine.
+// Trap-safe (fml-edit-safe v4.0.12): single-step source paths via sub-groups (Q5);
 // no `where !=` (Q1); bind each target once per chain (Q4); no literal-string sources (Q3).
+// The Patient target is passed into sub-groups so child resources can reference(pat).
 
 uses "https://www.medizininformatik-initiative.de/fhir/StructureDefinition/DatenkranzOncology" alias DatenkranzOncology as source
 uses "http://hl7.org/fhir/StructureDefinition/Bundle" alias Bundle as target
 
 group main(source src : DatenkranzOncology, target bundle : Bundle) {
   src -> bundle.type = 'transaction' "set-type";
-  // Create the Patient first, then build the Condition inside its scope so the
-  // subject reference resolves (reference(pat)).
   src.metaData as meta -> bundle.entry as pe, pe.resource = create('Patient') as pat then {
     meta -> pat.meta as m, m.profile = 'https://www.medizininformatik-initiative.de/fhir/core/modul-person/StructureDefinition/PatientPseudonymisiert' "pat-prof";
     meta.gender as g -> pat.gender = g "pat-gender";
     meta.birthDate as bd -> pat.birthDate = bd "pat-bd";
     meta.tanC as t -> pat.identifier as id then TanIdentifier(t, id) "pat-tan";
-    src.case as case -> bundle.entry as ce, ce.resource = create('Condition') as cond, cond.subject = reference(pat) then PrimaryDiagnosis(case, cond) "case-dx";
+    meta.coverageType as ct -> bundle.entry as cve, cve.resource = create('Coverage') as cov then Coverage(ct, cov, pat) "coverage";
+    meta.mvConsent as mvc -> bundle.entry as coe, coe.resource = create('Consent') as con then Consent(mvc, con, pat) "consent";
+    src.case as case then CaseBlock(case, bundle, pat) "case";
+    src.followUp as fu then FollowUpBlock(fu, bundle, pat) "followup";
   } "patient";
 }
 
@@ -32,13 +31,33 @@ group TanIdentifier(source t, target id : Identifier) {
   t -> id.value = t "tan-val";
 }
 
-group PrimaryDiagnosis(source case, target cond : Condition) {
-  case -> cond.meta as m, m.profile = 'https://www.medizininformatik-initiative.de/fhir/ext/modul-mtb/StructureDefinition/mii-pr-mtb-diagnose-primaertumor' "dx-prof";
-  case -> cond.clinicalStatus as cs, cs.coding as c, c.system = 'http://terminology.hl7.org/CodeSystem/condition-clinical', c.code = 'active' "dx-clin";
-  case.diagnosisOd as diag then DiagnosisOd(diag, cond) "diag";
+group Coverage(source ct, target cov : Coverage, source pat : Patient) {
+  ct -> cov.status = 'active' "cov-status";
+  ct -> cov.beneficiary = reference(pat) "cov-benef";
+  ct -> cov.payor = reference(pat) "cov-payor";
+  ct -> cov.type as cc, cc.coding as c, c.system = 'http://fhir.de/CodeSystem/versicherungsart-de-basis', c.code = ct "cov-type";
 }
 
-group DiagnosisOd(source diag, target cond : Condition) {
+group Consent(source mvc, target con : Consent, source pat : Patient) {
+  mvc -> con.meta as m, m.profile = 'https://www.medizininformatik-initiative.de/fhir/core/modul-consent/StructureDefinition/mii-pr-consent-einwilligung' "con-prof";
+  mvc -> con.status = 'active' "con-status";
+  mvc -> con.patient = reference(pat) "con-pat";
+  mvc -> con.scope as cc, cc.coding as c, c.system = 'http://terminology.hl7.org/CodeSystem/consentscope', c.code = 'research' "con-scope";
+  mvc.presentationDate as pd -> con.dateTime = pd "con-date";
+  mvc.version as v -> con.policy as pol, pol.uri = v "con-policy";
+}
+
+group CaseBlock(source case, target bundle : Bundle, source pat : Patient) {
+  case.diagnosisOd as diag -> bundle.entry as e, e.resource = create('Condition') as cond then PrimaryDiagnosis(diag, cond, pat) "primary";
+  case.diagnosisOd as diag then EcogFromDiag(diag, bundle, pat) "ecog-dx";
+  case.diagnosisOd as diag then AdditionalDiagnoses(diag, bundle, pat) "add-dx";
+  case.priorProcedures as pp -> bundle.entry as e, e.resource = create('Procedure') as proc then PriorProcedure(pp, proc, bundle, pat) "prior-proc";
+}
+
+group PrimaryDiagnosis(source diag, target cond : Condition, source pat : Patient) {
+  diag -> cond.subject = reference(pat) "dx-subj";
+  diag -> cond.meta as m, m.profile = 'https://www.medizininformatik-initiative.de/fhir/ext/modul-mtb/StructureDefinition/mii-pr-mtb-diagnose-primaertumor' "dx-prof";
+  diag -> cond.clinicalStatus as cs, cs.coding as c, c.system = 'http://terminology.hl7.org/CodeSystem/condition-clinical', c.code = 'active' "dx-clin";
   diag.mainDiagnosis as md then MainDiagnosis(md, cond) "main";
   diag.topography as topo -> cond.bodySite as bs then Coding(topo, bs) "topo";
 }
@@ -48,11 +67,67 @@ group MainDiagnosis(source md, target cond : Condition) {
   md -> cond.code as cc then Coding(md, cc) "dx-code";
 }
 
+group AdditionalDiagnoses(source diag, target bundle : Bundle, source pat : Patient) {
+  diag.additionalDiagnoses as ad -> bundle.entry as e, e.resource = create('Condition') as cond then AdditionalDx(ad, cond, pat) "add";
+}
+
+group AdditionalDx(source ad, target cond : Condition, source pat : Patient) {
+  ad -> cond.subject = reference(pat) "adx-subj";
+  ad -> cond.meta as m, m.profile = 'https://www.medizininformatik-initiative.de/fhir/core/modul-diagnose/StructureDefinition/Diagnose' "adx-prof";
+  ad -> cond.clinicalStatus as cs, cs.coding as c, c.system = 'http://terminology.hl7.org/CodeSystem/condition-clinical', c.code = 'active' "adx-clin";
+  ad.date as d -> cond.recordedDate = d "adx-date";
+  ad -> cond.code as cc then Coding(ad, cc) "adx-code";
+}
+
+group EcogFromDiag(source diag, target bundle : Bundle, source pat : Patient) {
+  diag.ecogPerformanceStatusScore as s -> bundle.entry as e, e.resource = create('Observation') as obs then Ecog(s, obs, pat) "ecog";
+}
+
+group Ecog(source s, target obs : Observation, source pat : Patient) {
+  s -> obs.status = 'final' "ecog-status";
+  s -> obs.subject = reference(pat) "ecog-subj";
+  s -> obs.meta as m, m.profile = 'https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-pr-onko-allgemeiner-leistungszustand-ecog' "ecog-prof";
+  s -> obs.code as cc, cc.coding as c, c.system = 'http://loinc.org', c.code = '89262-0' "ecog-code";
+  s -> obs.value = create('CodeableConcept') as vcc, vcc.coding as vc, vc.system = 'https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/CodeSystem/mii-cs-onko-ecog', vc.code = s "ecog-val";
+}
+
+group PriorProcedure(source pp, target proc : Procedure, target bundle : Bundle, source pat : Patient) {
+  pp -> proc.status = 'completed' "pp-status";
+  pp -> proc.subject = reference(pat) "pp-subj";
+  pp -> proc.meta as m, m.profile = 'https://www.medizininformatik-initiative.de/fhir/ext/modul-mtb/StructureDefinition/mii-pr-mtb-systemische-vortherapie' "pp-prof";
+  pp -> proc.code as cc, cc.coding as c, c.system = 'http://snomed.info/sct', c.code = '277132007' "pp-code";
+  pp.therapyStartDate as st -> proc.performed = create('Period') as per, per.start = st "pp-start";
+  pp.substances as sub -> bundle.entry as e, e.resource = create('MedicationStatement') as ms then PriorMedication(sub, ms, pat) "pp-med";
+}
+
+group PriorMedication(source sub, target ms : MedicationStatement, source pat : Patient) {
+  sub -> ms.status = 'completed' "ms-status";
+  sub -> ms.subject = reference(pat) "ms-subj";
+  sub -> ms.meta as m, m.profile = 'https://www.medizininformatik-initiative.de/fhir/ext/modul-mtb/StructureDefinition/mii-pr-mtb-systemtherapie-medication-statement' "ms-prof";
+  sub.code as code -> ms.medication = create('CodeableConcept') as cc then Coding(code, cc) "ms-code";
+}
+
+group FollowUpBlock(source fu, target bundle : Bundle, source pat : Patient) {
+  fu.followUpOds as f then FollowUpItem(f, bundle, pat) "fu-item";
+}
+
+group FollowUpItem(source f, target bundle : Bundle, source pat : Patient) {
+  f.ecogPerformanceStatusScore as s -> bundle.entry as e, e.resource = create('Observation') as obs then Ecog(s, obs, pat) "fu-ecog";
+  f.vitalStatus as vs -> bundle.entry as e, e.resource = create('Observation') as obs then VitalStatus(vs, obs, pat) "fu-vital";
+}
+
+group VitalStatus(source vs, target obs : Observation, source pat : Patient) {
+  vs -> obs.status = 'final' "vs-status";
+  vs -> obs.subject = reference(pat) "vs-subj";
+  vs -> obs.meta as m, m.profile = 'https://www.medizininformatik-initiative.de/fhir/core/modul-person/StructureDefinition/mii-pr-person-vitalstatus' "vs-prof";
+  vs -> obs.code as cc, cc.coding as c, c.system = 'http://loinc.org', c.code = '67162-8' "vs-code";
+  vs -> obs.value = create('CodeableConcept') as vcc, vcc.coding as vc, vc.system = 'https://www.medizininformatik-initiative.de/fhir/core/modul-person/CodeSystem/Vitalstatus', vc.code = vs "vs-val";
+}
+
 // Generic source-coding {code,system,version,display} -> CodeableConcept.
 group Coding(source srcCoding, target cc : CodeableConcept) {
   srcCoding -> cc.coding as c then CodingInner(srcCoding, c) "cc-coding";
 }
-
 group CodingInner(source s, target c : Coding) {
   s.system as sys -> c.system = sys "ci-sys";
   s.code as code -> c.code = code "ci-code";
