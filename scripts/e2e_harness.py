@@ -52,6 +52,10 @@ ENV_MARKERS = [
     "a definition for codesystem", "the code cannot be validated",
     "could not be found, so the code",
     "could not validate profile", "engine configured, but validation for profile",
+    # German BfArM terminologies aren't on tx.fhir.org (the configured tx server) — they need
+    # https://terminologieserver.bfarm.de/fhir. Codes against these systems can't be checked
+    # here, so their VS-membership errors are environmental in THIS setup, not mapper bugs.
+    "bfarm/icd-10-gm", "bfarm/ops", "bfarm/atc", "codesystem/icd-o-3",
 ]
 
 
