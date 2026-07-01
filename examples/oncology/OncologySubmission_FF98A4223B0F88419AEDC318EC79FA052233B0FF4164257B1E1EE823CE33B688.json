@@ -1,0 +1,1211 @@
+{
+  "metaData" : {
+    "submission" : {
+      "date" : "2026-04-21",
+      "type" : "test",
+      "submitterId" : "260840108",
+      "clinicalDataNodeId" : "KDKTUE005",
+      "genomicDataCenterId" : "GRZTUE002",
+      "diseaseType" : "oncological"
+    },
+    "coverageType" : "GKV",
+    "mvConsent" : {
+      "presentationDate" : "2026-03-23",
+      "version" : "Patient Info TE Consent MVGenomSeq vers01",
+      "scope" : [ {
+        "date" : "2026-03-24",
+        "domain" : "mvSequencing",
+        "type" : "permit"
+      }, {
+        "date" : "2026-03-24",
+        "domain" : "reIdentification",
+        "type" : "permit"
+      }, {
+        "date" : "2026-03-24",
+        "domain" : "caseIdentification",
+        "type" : "permit"
+      } ]
+    },
+    "researchConsents" : [ {
+      "schemaVersion" : "2025.0.1",
+      "presentationDate" : "2025-02-11",
+      "scope" : {
+        "resourceType" : "Consent",
+        "id" : "549706a7-ac34-4b1c-a14b-fe8d3f38837b",
+        "meta" : {
+          "lastUpdated" : "2025-02-11T21:50:46.037+01:00",
+          "profile" : [ "https://www.medizininformatik-initiative.de/fhir/modul-consent/StructureDefinition/mii-pr-consent-einwilligung" ]
+        },
+        "extension" : [ {
+          "url" : "http://fhir.de/ConsentManagement/StructureDefinition/DomainReference",
+          "extension" : [ {
+            "url" : "domain",
+            "valueReference" : {
+              "reference" : "ResearchStudy/c946ae17-e3e6-4178-b5ea-15f95aaeeeb4"
+            }
+          }, {
+            "url" : "status",
+            "valueCoding" : {
+              "system" : "http://hl7.org/fhir/publication-status",
+              "code" : "active"
+            }
+          } ]
+        } ],
+        "status" : "active",
+        "scope" : {
+          "coding" : [ {
+            "system" : "http://terminology.hl7.org/CodeSystem/consentscope",
+            "code" : "research"
+          } ]
+        },
+        "category" : [ {
+          "coding" : [ {
+            "system" : "http://loinc.org",
+            "code" : "57016-8"
+          } ]
+        }, {
+          "coding" : [ {
+            "system" : "http://fhir.de/ConsentManagement/CodeSystem/ResultType",
+            "code" : "consent-status"
+          } ]
+        }, {
+          "coding" : [ {
+            "system" : "https://www.medizininformatik-initiative.de/fhir/modul-consent/CodeSystem/mii-cs-consent-consent_category",
+            "code" : "2.16.840.1.113883.3.1937.777.24.2.184"
+          } ]
+        } ],
+        "patient" : {
+          "reference" : "Patient/c45a15ae-e8b8-11ef-9ddc-0242ac120002",
+          "display" : "Pseudonym xyz"
+        },
+        "dateTime" : "2025-02-11",
+        "organization" : [ {
+          "display" : "MII"
+        } ],
+        "policy" : [ {
+          "uri" : "2.16.840.1.113883.3.1937.777.24.2.2079"
+        } ],
+        "provision" : {
+          "type" : "deny",
+          "period" : {
+            "start" : "2025-02-11",
+            "end" : "2025-02-11"
+          },
+          "provision" : [ {
+            "type" : "permit",
+            "period" : {
+              "start" : "2025-02-11T00:00:00+01:00",
+              "end" : "2055-02-11T00:00:00+01:00"
+            },
+            "code" : [ {
+              "coding" : [ {
+                "system" : "urn:oid:2.16.840.1.113883.3.1937.777.24.5.3",
+                "code" : "2.16.840.1.113883.3.1937.777.24.5.3.2",
+                "display" : "IDAT erheben"
+              } ]
+            } ]
+          }, {
+            "type" : "deny",
+            "period" : {
+              "start" : "2025-02-11T00:00:00+01:00",
+              "end" : "2055-02-11T00:00:00+01:00"
+            },
+            "code" : [ {
+              "coding" : [ {
+                "system" : "urn:oid:2.16.840.1.113883.3.1937.777.24.5.3",
+                "code" : "2.16.840.1.113883.3.1937.777.24.5.3.12",
+                "display" : "KKDAT 5J retrospektiv speichern verarbeiten"
+              } ]
+            } ]
+          }, {
+            "type" : "deny",
+            "period" : {
+              "start" : "2025-02-11T00:00:00+01:00",
+              "end" : "2055-02-11T00:00:00+01:00"
+            },
+            "code" : [ {
+              "coding" : [ {
+                "system" : "urn:oid:2.16.840.1.113883.3.1937.777.24.5.3",
+                "code" : "2.16.840.1.113883.3.1937.777.24.5.3.22",
+                "display" : "BIOMAT wissenschaftlich nutzen EU DSGVO NIVEAU"
+              } ]
+            } ]
+          }, {
+            "type" : "deny",
+            "period" : {
+              "start" : "2025-02-11T00:00:00+01:00",
+              "end" : "2055-02-11T00:00:00+01:00"
+            },
+            "code" : [ {
+              "coding" : [ {
+                "system" : "urn:oid:2.16.840.1.113883.3.1937.777.24.5.3",
+                "code" : "2.16.840.1.113883.3.1937.777.24.5.3.13",
+                "display" : "KKDAT 5J retrospektiv wissenschaftlich nutzen"
+              } ]
+            } ]
+          }, {
+            "type" : "deny",
+            "period" : {
+              "start" : "2025-02-11T00:00:00+01:00",
+              "end" : "2055-02-11T00:00:00+01:00"
+            },
+            "code" : [ {
+              "coding" : [ {
+                "system" : "urn:oid:2.16.840.1.113883.3.1937.777.24.5.3",
+                "code" : "2.16.840.1.113883.3.1937.777.24.5.3.23",
+                "display" : "BIOMAT Analysedaten zusammenfuehren Dritte"
+              } ]
+            } ]
+          }, {
+            "type" : "permit",
+            "period" : {
+              "start" : "2025-02-11T00:00:00+01:00",
+              "end" : "2055-02-11T00:00:00+01:00"
+            },
+            "code" : [ {
+              "coding" : [ {
+                "system" : "urn:oid:2.16.840.1.113883.3.1937.777.24.5.3",
+                "code" : "2.16.840.1.113883.3.1937.777.24.5.3.31",
+                "display" : "Rekontaktierung Zusatzbefund"
+              } ]
+            } ]
+          }, {
+            "type" : "deny",
+            "period" : {
+              "start" : "2025-02-11T00:00:00+01:00",
+              "end" : "2055-02-11T00:00:00+01:00"
+            },
+            "code" : [ {
+              "coding" : [ {
+                "system" : "urn:oid:2.16.840.1.113883.3.1937.777.24.5.3",
+                "code" : "2.16.840.1.113883.3.1937.777.24.5.3.17",
+                "display" : "KKDAT 5J prospektiv wissenschaftlich nutzen"
+              } ]
+            } ]
+          }, {
+            "type" : "deny",
+            "period" : {
+              "start" : "2025-02-11T00:00:00+01:00",
+              "end" : "2055-02-11T00:00:00+01:00"
+            },
+            "code" : [ {
+              "coding" : [ {
+                "system" : "urn:oid:2.16.840.1.113883.3.1937.777.24.5.3",
+                "code" : "2.16.840.1.113883.3.1937.777.24.5.3.20",
+                "display" : "BIOMAT lagern verarbeiten"
+              } ]
+            } ]
+          }, {
+            "type" : "deny",
+            "period" : {
+              "start" : "2025-02-11T00:00:00+01:00",
+              "end" : "2055-02-11T00:00:00+01:00"
+            },
+            "code" : [ {
+              "coding" : [ {
+                "system" : "urn:oid:2.16.840.1.113883.3.1937.777.24.5.3",
+                "code" : "2.16.840.1.113883.3.1937.777.24.5.3.11",
+                "display" : "KKDAT 5J retrospektiv uebertragen"
+              } ]
+            } ]
+          }, {
+            "type" : "deny",
+            "period" : {
+              "start" : "2025-02-11T00:00:00+01:00",
+              "end" : "2055-02-11T00:00:00+01:00"
+            },
+            "code" : [ {
+              "coding" : [ {
+                "system" : "urn:oid:2.16.840.1.113883.3.1937.777.24.5.3",
+                "code" : "2.16.840.1.113883.3.1937.777.24.5.3.38",
+                "display" : "KKDAT 5J retrospektiv uebertragen KVNR"
+              } ]
+            } ]
+          }, {
+            "type" : "permit",
+            "period" : {
+              "start" : "2025-02-11T00:00:00+01:00",
+              "end" : "2030-02-11T00:00:00+01:00"
+            },
+            "code" : [ {
+              "coding" : [ {
+                "system" : "urn:oid:2.16.840.1.113883.3.1937.777.24.5.3",
+                "code" : "2.16.840.1.113883.3.1937.777.24.5.3.6",
+                "display" : "MDAT erheben"
+              } ]
+            } ]
+          }, {
+            "type" : "deny",
+            "period" : {
+              "start" : "2025-02-11T00:00:00+01:00",
+              "end" : "2055-02-11T00:00:00+01:00"
+            },
+            "code" : [ {
+              "coding" : [ {
+                "system" : "urn:oid:2.16.840.1.113883.3.1937.777.24.5.3",
+                "code" : "2.16.840.1.113883.3.1937.777.24.5.3.16",
+                "display" : "KKDAT 5J prospektiv speichern verarbeiten"
+              } ]
+            } ]
+          }, {
+            "type" : "permit",
+            "period" : {
+              "start" : "2025-02-11T00:00:00+01:00",
+              "end" : "2055-02-11T00:00:00+01:00"
+            },
+            "code" : [ {
+              "coding" : [ {
+                "system" : "urn:oid:2.16.840.1.113883.3.1937.777.24.5.3",
+                "code" : "2.16.840.1.113883.3.1937.777.24.5.3.8",
+                "display" : "MDAT wissenschaftlich nutzen EU DSGVO NIVEAU"
+              } ]
+            } ]
+          }, {
+            "type" : "deny",
+            "period" : {
+              "start" : "2025-02-11T00:00:00+01:00",
+              "end" : "2055-02-11T00:00:00+01:00"
+            },
+            "code" : [ {
+              "coding" : [ {
+                "system" : "urn:oid:2.16.840.1.113883.3.1937.777.24.5.3",
+                "code" : "2.16.840.1.113883.3.1937.777.24.5.3.27",
+                "display" : "Rekontaktierung Verknüpfung Datenbanken"
+              } ]
+            } ]
+          }, {
+            "type" : "deny",
+            "period" : {
+              "start" : "2025-02-11T00:00:00+01:00",
+              "end" : "2055-02-11T00:00:00+01:00"
+            },
+            "code" : [ {
+              "coding" : [ {
+                "system" : "urn:oid:2.16.840.1.113883.3.1937.777.24.5.3",
+                "code" : "2.16.840.1.113883.3.1937.777.24.5.3.29",
+                "display" : "Rekontaktierung weitere Studien"
+              } ]
+            } ]
+          }, {
+            "type" : "permit",
+            "period" : {
+              "start" : "2025-02-11T00:00:00+01:00",
+              "end" : "2055-02-11T00:00:00+01:00"
+            },
+            "code" : [ {
+              "coding" : [ {
+                "system" : "urn:oid:2.16.840.1.113883.3.1937.777.24.5.3",
+                "code" : "2.16.840.1.113883.3.1937.777.24.5.3.5",
+                "display" : "IDAT bereitstellen EU DSGVO NIVEAU"
+              } ]
+            } ]
+          }, {
+            "type" : "deny",
+            "period" : {
+              "start" : "2025-02-11T00:00:00+01:00",
+              "end" : "2030-02-11T00:00:00+01:00"
+            },
+            "code" : [ {
+              "coding" : [ {
+                "system" : "urn:oid:2.16.840.1.113883.3.1937.777.24.5.3",
+                "code" : "2.16.840.1.113883.3.1937.777.24.5.3.21",
+                "display" : "BIOMAT Eigentum übertragen"
+              } ]
+            } ]
+          }, {
+            "type" : "permit",
+            "period" : {
+              "start" : "2025-02-11T00:00:00+01:00",
+              "end" : "2055-02-11T00:00:00+01:00"
+            },
+            "code" : [ {
+              "coding" : [ {
+                "system" : "urn:oid:2.16.840.1.113883.3.1937.777.24.5.3",
+                "code" : "2.16.840.1.113883.3.1937.777.24.5.3.3",
+                "display" : "IDAT speichern, verarbeiten"
+              } ]
+            } ]
+          }, {
+            "type" : "permit",
+            "period" : {
+              "start" : "2025-02-11T00:00:00+01:00",
+              "end" : "2055-02-11T00:00:00+01:00"
+            },
+            "code" : [ {
+              "coding" : [ {
+                "system" : "urn:oid:2.16.840.1.113883.3.1937.777.24.5.3",
+                "code" : "2.16.840.1.113883.3.1937.777.24.5.3.7",
+                "display" : "MDAT speichern, verarbeiten"
+              } ]
+            } ]
+          }, {
+            "type" : "deny",
+            "period" : {
+              "start" : "2025-02-11T00:00:00+01:00",
+              "end" : "2030-02-11T00:00:00+01:00"
+            },
+            "code" : [ {
+              "coding" : [ {
+                "system" : "urn:oid:2.16.840.1.113883.3.1937.777.24.5.3",
+                "code" : "2.16.840.1.113883.3.1937.777.24.5.3.19",
+                "display" : "BIOMAT erheben"
+              } ]
+            } ]
+          }, {
+            "type" : "permit",
+            "period" : {
+              "start" : "2025-02-11T00:00:00+01:00",
+              "end" : "2055-02-11T00:00:00+01:00"
+            },
+            "code" : [ {
+              "coding" : [ {
+                "system" : "urn:oid:2.16.840.1.113883.3.1937.777.24.5.3",
+                "code" : "2.16.840.1.113883.3.1937.777.24.5.3.37",
+                "display" : "Rekontaktierung Ergebnisse erheblicher Bedeutung"
+              } ]
+            } ]
+          }, {
+            "type" : "deny",
+            "period" : {
+              "start" : "2025-02-11T00:00:00+01:00",
+              "end" : "2030-02-11T00:00:00+01:00"
+            },
+            "code" : [ {
+              "coding" : [ {
+                "system" : "urn:oid:2.16.840.1.113883.3.1937.777.24.5.3",
+                "code" : "2.16.840.1.113883.3.1937.777.24.5.3.39",
+                "display" : "KKDAT 5J prospektiv uebertragen KVNR"
+              } ]
+            } ]
+          }, {
+            "type" : "deny",
+            "period" : {
+              "start" : "2025-02-11T00:00:00+01:00",
+              "end" : "2030-02-11T00:00:00+01:00"
+            },
+            "code" : [ {
+              "coding" : [ {
+                "system" : "urn:oid:2.16.840.1.113883.3.1937.777.24.5.3",
+                "code" : "2.16.840.1.113883.3.1937.777.24.5.3.25",
+                "display" : "BIOMAT Zusatzmengen entnehmen"
+              } ]
+            } ]
+          }, {
+            "type" : "deny",
+            "period" : {
+              "start" : "2025-02-11T00:00:00+01:00",
+              "end" : "2055-02-11T00:00:00+01:00"
+            },
+            "code" : [ {
+              "coding" : [ {
+                "system" : "urn:oid:2.16.840.1.113883.3.1937.777.24.5.3",
+                "code" : "2.16.840.1.113883.3.1937.777.24.5.3.28",
+                "display" : "Rekontaktierung weitere Erhebung"
+              } ]
+            } ]
+          }, {
+            "type" : "permit",
+            "period" : {
+              "start" : "2025-02-11T00:00:00+01:00",
+              "end" : "2055-02-11T00:00:00+01:00"
+            },
+            "code" : [ {
+              "coding" : [ {
+                "system" : "urn:oid:2.16.840.1.113883.3.1937.777.24.5.3",
+                "code" : "2.16.840.1.113883.3.1937.777.24.5.3.4",
+                "display" : "IDAT zusammenfuehren Dritte"
+              } ]
+            } ]
+          }, {
+            "type" : "permit",
+            "period" : {
+              "start" : "2025-02-11T00:00:00+01:00",
+              "end" : "2055-02-11T00:00:00+01:00"
+            },
+            "code" : [ {
+              "coding" : [ {
+                "system" : "urn:oid:2.16.840.1.113883.3.1937.777.24.5.3",
+                "code" : "2.16.840.1.113883.3.1937.777.24.5.3.9",
+                "display" : "MDAT zusammenfuehren Dritte"
+              } ]
+            } ]
+          }, {
+            "type" : "deny",
+            "period" : {
+              "start" : "2025-02-11T00:00:00+01:00",
+              "end" : "2030-02-11T00:00:00+01:00"
+            },
+            "code" : [ {
+              "coding" : [ {
+                "system" : "urn:oid:2.16.840.1.113883.3.1937.777.24.5.3",
+                "code" : "2.16.840.1.113883.3.1937.777.24.5.3.15",
+                "display" : "KKDAT 5J prospektiv uebertragen"
+              } ]
+            } ]
+          } ]
+        }
+      }
+    } ],
+    "tanC" : "FF98A4223B0F88419AEDC318EC79FA052233B0FF4164257B1E1EE823CE33B688",
+    "gender" : "male",
+    "birthDate" : "1988-10",
+    "addressAGS" : "12345",
+    "decisionToInclude" : true,
+    "molecularBoardDecisionDate" : "2026-04-07"
+  },
+  "case" : {
+    "diagnosisOd" : {
+      "mainDiagnosis" : {
+        "code" : "C67.6",
+        "display" : "Bösartige Neubildung: Ostium ureteris",
+        "system" : "http://fhir.de/CodeSystem/bfarm/icd-10-gm",
+        "version" : "2026",
+        "date" : "2015-02-28"
+      },
+      "ecogPerformanceStatusScore" : "0",
+      "germlineDiagnosisConfirmed" : false,
+      "histology" : {
+        "code" : "8383/3",
+        "display" : "Endometrioides Adenokarzinom, Flimmerepithel-Variante",
+        "system" : "urn:oid:2.16.840.1.113883.6.43.1",
+        "version" : "Zweite Revision"
+      },
+      "topography" : {
+        "code" : "C67.6",
+        "display" : "Ostium ureteris",
+        "system" : "urn:oid:2.16.840.1.113883.6.43.1",
+        "version" : "Zweite Revision"
+      },
+      "grading" : "4",
+      "tnmClassifications" : [ {
+        "code" : "T4",
+        "display" : "T4",
+        "system" : "UICC",
+        "version" : "8th ed."
+      }, {
+        "code" : "NX",
+        "display" : "NX",
+        "system" : "UICC",
+        "version" : "8th ed."
+      }, {
+        "code" : "M0",
+        "display" : "M0",
+        "system" : "UICC",
+        "version" : "8th ed."
+      } ],
+      "additionalClassification" : [ {
+        "key" : "unknown",
+        "system" : "dnpm-dip/mtb/diagnosis/kds-tumor-spread"
+      } ],
+      "libraryType" : "panel"
+    },
+    "priorDiagnostic" : {
+      "type" : "genomeShortRead",
+      "date" : "2026-04-21"
+    },
+    "priorProcedures" : [ {
+      "treatmentType" : "O",
+      "intention" : "P",
+      "therapyStartDate" : "2024-06-21",
+      "therapyEndDate" : "2024-12-13",
+      "substances" : [ {
+        "code" : {
+          "code" : "L01XX40",
+          "display" : "Omacetaxinmepesuccinat",
+          "system" : "http://fhir.de/CodeSystem/bfarm/atc",
+          "version" : "2025"
+        }
+      } ],
+      "terminationReasonOBDS" : "P"
+    } ]
+  },
+  "molecular" : {
+    "smallVariants" : [ {
+      "identifier" : "901c0f5c-7189-4485-964f-9c61ad3b72eb",
+      "genomicSource" : "somatic",
+      "chromosome" : "5",
+      "gene" : {
+        "code" : "HGNC:3689",
+        "display" : "FGFR2",
+        "system" : "https://www.genenames.org/"
+      },
+      "localization" : "notInCodingAndNotInRegulatoryElements",
+      "startPosition" : 100,
+      "endPosition" : 100,
+      "ref" : "G",
+      "alt" : "T",
+      "dnaChange" : "c.100G>T",
+      "proteinChange" : "p.Lys23_Val25del",
+      "transcriptId" : {
+        "code" : "f2723c1e-f2c2-47d8-8117-d830f61b6cf1",
+        "system" : "https://www.ncbi.nlm.nih.gov/refseq"
+      }
+    }, {
+      "identifier" : "120fba3b-a5e9-42f4-9062-6ba6b1ae197c",
+      "genomicSource" : "somatic",
+      "chromosome" : "3",
+      "gene" : {
+        "code" : "HGNC:1097",
+        "display" : "BRAF",
+        "system" : "https://www.genenames.org/"
+      },
+      "localization" : "notInCodingAndNotInRegulatoryElements",
+      "startPosition" : 396,
+      "endPosition" : 396,
+      "ref" : "A",
+      "alt" : "T",
+      "dnaChange" : "c.396A>T",
+      "proteinChange" : "p.Cys28_Lys29delinsTrp",
+      "transcriptId" : {
+        "code" : "e4045a9c-60e4-4bd9-be00-b85ad984f1c2",
+        "system" : "https://www.ncbi.nlm.nih.gov/refseq"
+      }
+    }, {
+      "identifier" : "04db2a65-9c32-4f7b-add1-c0c1ee043df7",
+      "genomicSource" : "somatic",
+      "chromosome" : "13",
+      "gene" : {
+        "code" : "HGNC:3690",
+        "display" : "FGFR3",
+        "system" : "https://www.genenames.org/"
+      },
+      "localization" : "notInCodingAndNotInRegulatoryElements",
+      "startPosition" : 32,
+      "endPosition" : 32,
+      "ref" : "C",
+      "alt" : "T",
+      "dnaChange" : "c.32C>T",
+      "proteinChange" : "p.Lys23_Val25del",
+      "transcriptId" : {
+        "code" : "ec7b51a7-e042-4f09-b5e3-51162cb891c9",
+        "system" : "https://www.ensembl.org"
+      }
+    }, {
+      "identifier" : "3182cc94-8086-4fb4-a3c2-1b112cbb2295",
+      "genomicSource" : "somatic",
+      "chromosome" : "Y",
+      "gene" : {
+        "code" : "HGNC:34",
+        "display" : "ABCA4",
+        "system" : "https://www.genenames.org/"
+      },
+      "localization" : "inRegulatoryElements",
+      "startPosition" : 66,
+      "endPosition" : 66,
+      "ref" : "G",
+      "alt" : "A",
+      "dnaChange" : "c.66G>A",
+      "proteinChange" : "p.Lys2_Gly3insGlnSerLys",
+      "transcriptId" : {
+        "code" : "e303e262-435a-4501-b424-46d5f51b70e3",
+        "system" : "https://www.ensembl.org"
+      }
+    } ],
+    "copyNumberVariants" : [ {
+      "identifier" : "de5c3ba7-b0ad-41fb-ab0a-30d27ccbb812_ABL1",
+      "genomicSource" : "somatic",
+      "gene" : {
+        "code" : "HGNC:76",
+        "display" : "ABL1",
+        "system" : "https://www.genenames.org/"
+      },
+      "localization" : "notInCodingAndNotInRegulatoryElements",
+      "cnvType" : "lowLevelGain",
+      "chromosome" : "14",
+      "startPosition" : 18736,
+      "endPosition" : 19054
+    }, {
+      "identifier" : "de5c3ba7-b0ad-41fb-ab0a-30d27ccbb812_AACS",
+      "genomicSource" : "somatic",
+      "gene" : {
+        "code" : "HGNC:21298",
+        "display" : "AACS",
+        "system" : "https://www.genenames.org/"
+      },
+      "localization" : "notInCodingAndNotInRegulatoryElements",
+      "cnvType" : "lowLevelGain",
+      "chromosome" : "14",
+      "startPosition" : 18736,
+      "endPosition" : 19054
+    }, {
+      "identifier" : "de5c3ba7-b0ad-41fb-ab0a-30d27ccbb812_RET",
+      "genomicSource" : "somatic",
+      "gene" : {
+        "code" : "HGNC:9967",
+        "display" : "RET",
+        "system" : "https://www.genenames.org/"
+      },
+      "localization" : "notInCodingAndNotInRegulatoryElements",
+      "cnvType" : "lowLevelGain",
+      "chromosome" : "14",
+      "startPosition" : 18736,
+      "endPosition" : 19054
+    }, {
+      "identifier" : "de5c3ba7-b0ad-41fb-ab0a-30d27ccbb812_ATRX",
+      "genomicSource" : "somatic",
+      "gene" : {
+        "code" : "HGNC:886",
+        "display" : "ATRX",
+        "system" : "https://www.genenames.org/"
+      },
+      "localization" : "notInCodingAndNotInRegulatoryElements",
+      "cnvType" : "lowLevelGain",
+      "chromosome" : "14",
+      "startPosition" : 18736,
+      "endPosition" : 19054
+    }, {
+      "identifier" : "de5c3ba7-b0ad-41fb-ab0a-30d27ccbb812_CDK6",
+      "genomicSource" : "somatic",
+      "gene" : {
+        "code" : "HGNC:1777",
+        "display" : "CDK6",
+        "system" : "https://www.genenames.org/"
+      },
+      "localization" : "notInCodingAndNotInRegulatoryElements",
+      "cnvType" : "lowLevelGain",
+      "chromosome" : "14",
+      "startPosition" : 18736,
+      "endPosition" : 19054
+    }, {
+      "identifier" : "f9575c5c-260b-400d-b67b-35d5e78a8247_CDK6",
+      "genomicSource" : "somatic",
+      "gene" : {
+        "code" : "HGNC:1777",
+        "display" : "CDK6",
+        "system" : "https://www.genenames.org/"
+      },
+      "localization" : "notInCodingAndNotInRegulatoryElements",
+      "cnvType" : "highLevelGain",
+      "chromosome" : "1",
+      "startPosition" : 42446,
+      "endPosition" : 43416
+    }, {
+      "identifier" : "f9575c5c-260b-400d-b67b-35d5e78a8247_FGFR3",
+      "genomicSource" : "somatic",
+      "gene" : {
+        "code" : "HGNC:3690",
+        "display" : "FGFR3",
+        "system" : "https://www.genenames.org/"
+      },
+      "localization" : "notInCodingAndNotInRegulatoryElements",
+      "cnvType" : "highLevelGain",
+      "chromosome" : "1",
+      "startPosition" : 42446,
+      "endPosition" : 43416
+    }, {
+      "identifier" : "f9575c5c-260b-400d-b67b-35d5e78a8247_CDH13",
+      "genomicSource" : "somatic",
+      "gene" : {
+        "code" : "HGNC:1753",
+        "display" : "CDH13",
+        "system" : "https://www.genenames.org/"
+      },
+      "localization" : "notInCodingAndNotInRegulatoryElements",
+      "cnvType" : "highLevelGain",
+      "chromosome" : "1",
+      "startPosition" : 42446,
+      "endPosition" : 43416
+    }, {
+      "identifier" : "f9575c5c-260b-400d-b67b-35d5e78a8247_EGFR",
+      "genomicSource" : "somatic",
+      "gene" : {
+        "code" : "HGNC:3236",
+        "display" : "EGFR",
+        "system" : "https://www.genenames.org/"
+      },
+      "localization" : "notInCodingAndNotInRegulatoryElements",
+      "cnvType" : "highLevelGain",
+      "chromosome" : "1",
+      "startPosition" : 42446,
+      "endPosition" : 43416
+    }, {
+      "identifier" : "f9575c5c-260b-400d-b67b-35d5e78a8247_BRAFP1",
+      "genomicSource" : "somatic",
+      "gene" : {
+        "code" : "HGNC:18615",
+        "display" : "BRAFP1",
+        "system" : "https://www.genenames.org/"
+      },
+      "localization" : "notInCodingAndNotInRegulatoryElements",
+      "cnvType" : "highLevelGain",
+      "chromosome" : "1",
+      "startPosition" : 42446,
+      "endPosition" : 43416
+    }, {
+      "identifier" : "5f8b1d8b-1947-470e-922b-60fc143629d7_AKT1",
+      "genomicSource" : "somatic",
+      "gene" : {
+        "code" : "HGNC:391",
+        "display" : "AKT1",
+        "system" : "https://www.genenames.org/"
+      },
+      "localization" : "notInCodingAndNotInRegulatoryElements",
+      "cnvType" : "highLevelGain",
+      "chromosome" : "19",
+      "startPosition" : 2770,
+      "endPosition" : 3631
+    }, {
+      "identifier" : "5f8b1d8b-1947-470e-922b-60fc143629d7_BRAF",
+      "genomicSource" : "somatic",
+      "gene" : {
+        "code" : "HGNC:1097",
+        "display" : "BRAF",
+        "system" : "https://www.genenames.org/"
+      },
+      "localization" : "notInCodingAndNotInRegulatoryElements",
+      "cnvType" : "highLevelGain",
+      "chromosome" : "19",
+      "startPosition" : 2770,
+      "endPosition" : 3631
+    }, {
+      "identifier" : "5f8b1d8b-1947-470e-922b-60fc143629d7_HRAS",
+      "genomicSource" : "somatic",
+      "gene" : {
+        "code" : "HGNC:5173",
+        "display" : "HRAS",
+        "system" : "https://www.genenames.org/"
+      },
+      "localization" : "notInCodingAndNotInRegulatoryElements",
+      "cnvType" : "highLevelGain",
+      "chromosome" : "19",
+      "startPosition" : 2770,
+      "endPosition" : 3631
+    }, {
+      "identifier" : "5f8b1d8b-1947-470e-922b-60fc143629d7_MDM2",
+      "genomicSource" : "somatic",
+      "gene" : {
+        "code" : "HGNC:6973",
+        "display" : "MDM2",
+        "system" : "https://www.genenames.org/"
+      },
+      "localization" : "notInCodingAndNotInRegulatoryElements",
+      "cnvType" : "highLevelGain",
+      "chromosome" : "19",
+      "startPosition" : 2770,
+      "endPosition" : 3631
+    }, {
+      "identifier" : "5f8b1d8b-1947-470e-922b-60fc143629d7_EGFR",
+      "genomicSource" : "somatic",
+      "gene" : {
+        "code" : "HGNC:3236",
+        "display" : "EGFR",
+        "system" : "https://www.genenames.org/"
+      },
+      "localization" : "notInCodingAndNotInRegulatoryElements",
+      "cnvType" : "highLevelGain",
+      "chromosome" : "19",
+      "startPosition" : 2770,
+      "endPosition" : 3631
+    }, {
+      "identifier" : "5f8b1d8b-1947-470e-922b-60fc143629d7_FGFR3",
+      "genomicSource" : "somatic",
+      "gene" : {
+        "code" : "HGNC:3690",
+        "display" : "FGFR3",
+        "system" : "https://www.genenames.org/"
+      },
+      "localization" : "notInCodingAndNotInRegulatoryElements",
+      "cnvType" : "highLevelGain",
+      "chromosome" : "19",
+      "startPosition" : 2770,
+      "endPosition" : 3631
+    }, {
+      "identifier" : "5f8b1d8b-1947-470e-922b-60fc143629d7_BRCA1",
+      "genomicSource" : "somatic",
+      "gene" : {
+        "code" : "HGNC:1100",
+        "display" : "BRCA1",
+        "system" : "https://www.genenames.org/"
+      },
+      "localization" : "notInCodingAndNotInRegulatoryElements",
+      "cnvType" : "highLevelGain",
+      "chromosome" : "19",
+      "startPosition" : 2770,
+      "endPosition" : 3631
+    }, {
+      "identifier" : "5f8b1d8b-1947-470e-922b-60fc143629d7_CDH13",
+      "genomicSource" : "somatic",
+      "gene" : {
+        "code" : "HGNC:1753",
+        "display" : "CDH13",
+        "system" : "https://www.genenames.org/"
+      },
+      "localization" : "notInCodingAndNotInRegulatoryElements",
+      "cnvType" : "highLevelGain",
+      "chromosome" : "19",
+      "startPosition" : 2770,
+      "endPosition" : 3631
+    }, {
+      "identifier" : "5f8b1d8b-1947-470e-922b-60fc143629d7_FGFR2",
+      "genomicSource" : "somatic",
+      "gene" : {
+        "code" : "HGNC:3689",
+        "display" : "FGFR2",
+        "system" : "https://www.genenames.org/"
+      },
+      "localization" : "notInCodingAndNotInRegulatoryElements",
+      "cnvType" : "highLevelGain",
+      "chromosome" : "19",
+      "startPosition" : 2770,
+      "endPosition" : 3631
+    }, {
+      "identifier" : "5f8b1d8b-1947-470e-922b-60fc143629d7_ABRAXAS1",
+      "genomicSource" : "somatic",
+      "gene" : {
+        "code" : "HGNC:25829",
+        "display" : "ABRAXAS1",
+        "system" : "https://www.genenames.org/"
+      },
+      "localization" : "notInCodingAndNotInRegulatoryElements",
+      "cnvType" : "highLevelGain",
+      "chromosome" : "19",
+      "startPosition" : 2770,
+      "endPosition" : 3631
+    }, {
+      "identifier" : "38b42a1b-bc34-4af0-af0b-0384c3b25153_AAGAB",
+      "genomicSource" : "somatic",
+      "gene" : {
+        "code" : "HGNC:25662",
+        "display" : "AAGAB",
+        "system" : "https://www.genenames.org/"
+      },
+      "localization" : "coding",
+      "cnvType" : "lowLevelGain",
+      "chromosome" : "17",
+      "startPosition" : 32065,
+      "endPosition" : 32700
+    }, {
+      "identifier" : "38b42a1b-bc34-4af0-af0b-0384c3b25153_CDH13",
+      "genomicSource" : "somatic",
+      "gene" : {
+        "code" : "HGNC:1753",
+        "display" : "CDH13",
+        "system" : "https://www.genenames.org/"
+      },
+      "localization" : "coding",
+      "cnvType" : "lowLevelGain",
+      "chromosome" : "17",
+      "startPosition" : 32065,
+      "endPosition" : 32700
+    }, {
+      "identifier" : "38b42a1b-bc34-4af0-af0b-0384c3b25153_MDM2",
+      "genomicSource" : "somatic",
+      "gene" : {
+        "code" : "HGNC:6973",
+        "display" : "MDM2",
+        "system" : "https://www.genenames.org/"
+      },
+      "localization" : "coding",
+      "cnvType" : "lowLevelGain",
+      "chromosome" : "17",
+      "startPosition" : 32065,
+      "endPosition" : 32700
+    }, {
+      "identifier" : "38b42a1b-bc34-4af0-af0b-0384c3b25153_BRCA1",
+      "genomicSource" : "somatic",
+      "gene" : {
+        "code" : "HGNC:1100",
+        "display" : "BRCA1",
+        "system" : "https://www.genenames.org/"
+      },
+      "localization" : "coding",
+      "cnvType" : "lowLevelGain",
+      "chromosome" : "17",
+      "startPosition" : 32065,
+      "endPosition" : 32700
+    }, {
+      "identifier" : "38b42a1b-bc34-4af0-af0b-0384c3b25153_ACAD10",
+      "genomicSource" : "somatic",
+      "gene" : {
+        "code" : "HGNC:21597",
+        "display" : "ACAD10",
+        "system" : "https://www.genenames.org/"
+      },
+      "localization" : "coding",
+      "cnvType" : "lowLevelGain",
+      "chromosome" : "17",
+      "startPosition" : 32065,
+      "endPosition" : 32700
+    }, {
+      "identifier" : "38b42a1b-bc34-4af0-af0b-0384c3b25153_MTOR",
+      "genomicSource" : "somatic",
+      "gene" : {
+        "code" : "HGNC:3942",
+        "display" : "MTOR",
+        "system" : "https://www.genenames.org/"
+      },
+      "localization" : "coding",
+      "cnvType" : "lowLevelGain",
+      "chromosome" : "17",
+      "startPosition" : 32065,
+      "endPosition" : 32700
+    }, {
+      "identifier" : "38b42a1b-bc34-4af0-af0b-0384c3b25153_ABCA4",
+      "genomicSource" : "somatic",
+      "gene" : {
+        "code" : "HGNC:34",
+        "display" : "ABCA4",
+        "system" : "https://www.genenames.org/"
+      },
+      "localization" : "coding",
+      "cnvType" : "lowLevelGain",
+      "chromosome" : "17",
+      "startPosition" : 32065,
+      "endPosition" : 32700
+    }, {
+      "identifier" : "38b42a1b-bc34-4af0-af0b-0384c3b25153_BRAFP1",
+      "genomicSource" : "somatic",
+      "gene" : {
+        "code" : "HGNC:18615",
+        "display" : "BRAFP1",
+        "system" : "https://www.genenames.org/"
+      },
+      "localization" : "coding",
+      "cnvType" : "lowLevelGain",
+      "chromosome" : "17",
+      "startPosition" : 32065,
+      "endPosition" : 32700
+    }, {
+      "identifier" : "38b42a1b-bc34-4af0-af0b-0384c3b25153_AKT1",
+      "genomicSource" : "somatic",
+      "gene" : {
+        "code" : "HGNC:391",
+        "display" : "AKT1",
+        "system" : "https://www.genenames.org/"
+      },
+      "localization" : "coding",
+      "cnvType" : "lowLevelGain",
+      "chromosome" : "17",
+      "startPosition" : 32065,
+      "endPosition" : 32700
+    }, {
+      "identifier" : "38b42a1b-bc34-4af0-af0b-0384c3b25153_EGFR",
+      "genomicSource" : "somatic",
+      "gene" : {
+        "code" : "HGNC:3236",
+        "display" : "EGFR",
+        "system" : "https://www.genenames.org/"
+      },
+      "localization" : "coding",
+      "cnvType" : "lowLevelGain",
+      "chromosome" : "17",
+      "startPosition" : 32065,
+      "endPosition" : 32700
+    }, {
+      "identifier" : "38b42a1b-bc34-4af0-af0b-0384c3b25153_ABCA3",
+      "genomicSource" : "somatic",
+      "gene" : {
+        "code" : "HGNC:33",
+        "display" : "ABCA3",
+        "system" : "https://www.genenames.org/"
+      },
+      "localization" : "coding",
+      "cnvType" : "lowLevelGain",
+      "chromosome" : "17",
+      "startPosition" : 32065,
+      "endPosition" : 32700
+    }, {
+      "identifier" : "38b42a1b-bc34-4af0-af0b-0384c3b25153_RET",
+      "genomicSource" : "somatic",
+      "gene" : {
+        "code" : "HGNC:9967",
+        "display" : "RET",
+        "system" : "https://www.genenames.org/"
+      },
+      "localization" : "coding",
+      "cnvType" : "lowLevelGain",
+      "chromosome" : "17",
+      "startPosition" : 32065,
+      "endPosition" : 32700
+    }, {
+      "identifier" : "4ce2774c-747a-4c9a-8fef-da279d8aea77_BRAFP1",
+      "genomicSource" : "somatic",
+      "gene" : {
+        "code" : "HGNC:18615",
+        "display" : "BRAFP1",
+        "system" : "https://www.genenames.org/"
+      },
+      "localization" : "coding",
+      "cnvType" : "loss",
+      "chromosome" : "3",
+      "startPosition" : 40722,
+      "endPosition" : 40784
+    }, {
+      "identifier" : "4ce2774c-747a-4c9a-8fef-da279d8aea77_RET",
+      "genomicSource" : "somatic",
+      "gene" : {
+        "code" : "HGNC:9967",
+        "display" : "RET",
+        "system" : "https://www.genenames.org/"
+      },
+      "localization" : "coding",
+      "cnvType" : "loss",
+      "chromosome" : "3",
+      "startPosition" : 40722,
+      "endPosition" : 40784
+    }, {
+      "identifier" : "4ce2774c-747a-4c9a-8fef-da279d8aea77_MDM2",
+      "genomicSource" : "somatic",
+      "gene" : {
+        "code" : "HGNC:6973",
+        "display" : "MDM2",
+        "system" : "https://www.genenames.org/"
+      },
+      "localization" : "coding",
+      "cnvType" : "loss",
+      "chromosome" : "3",
+      "startPosition" : 40722,
+      "endPosition" : 40784
+    }, {
+      "identifier" : "d6f1e225-3119-4393-b324-7ec78d59bb28_MTOR",
+      "genomicSource" : "somatic",
+      "gene" : {
+        "code" : "HGNC:3942",
+        "display" : "MTOR",
+        "system" : "https://www.genenames.org/"
+      },
+      "localization" : "inRegulatoryElements",
+      "cnvType" : "highLevelGain",
+      "chromosome" : "13",
+      "startPosition" : 47750,
+      "endPosition" : 48733
+    }, {
+      "identifier" : "d6f1e225-3119-4393-b324-7ec78d59bb28_ACAD10",
+      "genomicSource" : "somatic",
+      "gene" : {
+        "code" : "HGNC:21597",
+        "display" : "ACAD10",
+        "system" : "https://www.genenames.org/"
+      },
+      "localization" : "inRegulatoryElements",
+      "cnvType" : "highLevelGain",
+      "chromosome" : "13",
+      "startPosition" : 47750,
+      "endPosition" : 48733
+    }, {
+      "identifier" : "d6f1e225-3119-4393-b324-7ec78d59bb28_ABCA4",
+      "genomicSource" : "somatic",
+      "gene" : {
+        "code" : "HGNC:34",
+        "display" : "ABCA4",
+        "system" : "https://www.genenames.org/"
+      },
+      "localization" : "inRegulatoryElements",
+      "cnvType" : "highLevelGain",
+      "chromosome" : "13",
+      "startPosition" : 47750,
+      "endPosition" : 48733
+    }, {
+      "identifier" : "d6f1e225-3119-4393-b324-7ec78d59bb28_AAGAB",
+      "genomicSource" : "somatic",
+      "gene" : {
+        "code" : "HGNC:25662",
+        "display" : "AAGAB",
+        "system" : "https://www.genenames.org/"
+      },
+      "localization" : "inRegulatoryElements",
+      "cnvType" : "highLevelGain",
+      "chromosome" : "13",
+      "startPosition" : 47750,
+      "endPosition" : 48733
+    } ],
+    "complexBiomarkers" : [ {
+      "identifier" : "efda3123-ba62-4144-869f-662cff8de445",
+      "tmb" : 210496,
+      "hrdHigh" : true,
+      "lstHigh" : true,
+      "taiHigh" : true
+    } ]
+  },
+  "plan" : {
+    "carePlanOd" : {
+      "molecularBoardDecisionDate" : "2026-04-07",
+      "studyRecommended" : true,
+      "counsellingRecommended" : true,
+      "reEvaluationRecommended" : true,
+      "interventionRecommended" : false,
+      "otherRecommendations" : [ "AS" ]
+    },
+    "recommendedSystemicTherapies" : [ {
+      "identifier" : "13ebb8a8-731b-4b85-bf58-39c2fada33e3",
+      "type" : "secPreventive",
+      "substances" : [ {
+        "code" : {
+          "code" : "L01EX15",
+          "display" : "Pexidartinib",
+          "system" : "http://fhir.de/CodeSystem/bfarm/atc",
+          "version" : "2025"
+        }
+      } ],
+      "evidenceLevel" : "m2C",
+      "evidenceLevelDetails" : [ "is" ],
+      "priority" : 4,
+      "variants" : [ "de5c3ba7-b0ad-41fb-ab0a-30d27ccbb812" ],
+      "therapeuticStrategy" : "ZS"
+    }, {
+      "identifier" : "22b56fbb-0515-48d7-8da0-ff9663eec90c",
+      "type" : "unknown",
+      "substances" : [ {
+        "code" : {
+          "code" : "L01XX03",
+          "display" : "Altretamin",
+          "system" : "http://fhir.de/CodeSystem/bfarm/atc",
+          "version" : "2025"
+        }
+      } ],
+      "evidenceLevel" : "m1B",
+      "evidenceLevelDetails" : [ "iv" ],
+      "priority" : 3,
+      "variants" : [ "a443804b-f9b4-4920-b4e6-076f61f8a09b" ],
+      "therapeuticStrategy" : "CH"
+    } ],
+    "recommendedStudies" : [ {
+      "identifier" : "08344315-9bac-46ce-aa15-a79edad3cbad",
+      "register" : "NCT",
+      "name" : "N/A",
+      "id" : "NCT62684927",
+      "evidenceLevel" : "m2C",
+      "evidenceLevelDetails" : [ "is" ],
+      "priority" : 4,
+      "variants" : [ "de5c3ba7-b0ad-41fb-ab0a-30d27ccbb812" ]
+    } ]
+  },
+  "followUp" : {
+    "followUpOds" : [ {
+      "followUpDate" : "2017-05-30",
+      "metachroneDiagnoses" : false,
+      "ecogPerformanceStatusScore" : "0",
+      "vitalStatus" : "deceased",
+      "deathDate" : "2017-10-31",
+      "therapies" : [ {
+        "reference" : "13ebb8a8-731b-4b85-bf58-39c2fada33e3",
+        "therapyStartDate" : "2017-03-07",
+        "therapyEndDate" : "2017-10-31",
+        "substances" : [ {
+          "code" : {
+            "code" : "L01EX15",
+            "display" : "Pexidartinib",
+            "system" : "http://fhir.de/CodeSystem/bfarm/atc",
+            "version" : "2025"
+          }
+        } ],
+        "therapyResponseDate" : "2017-05-30",
+        "therapyResponse" : "PR"
+      }, {
+        "reference" : "22b56fbb-0515-48d7-8da0-ff9663eec90c",
+        "therapyStartDate" : "2017-05-23",
+        "therapyEndDate" : "2017-10-31",
+        "substances" : [ {
+          "code" : {
+            "code" : "L01XX03",
+            "display" : "Altretamin",
+            "system" : "http://fhir.de/CodeSystem/bfarm/atc",
+            "version" : "2025"
+          }
+        } ],
+        "therapyResponseDate" : "2017-09-05",
+        "therapyResponse" : "PD"
+      } ]
+    } ]
+  }
+}

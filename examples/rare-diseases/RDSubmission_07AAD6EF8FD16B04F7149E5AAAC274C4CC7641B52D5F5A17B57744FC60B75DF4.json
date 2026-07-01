@@ -1,0 +1,478 @@
+{
+  "metadata" : {
+    "submission" : {
+      "date" : "2026-03-24",
+      "type" : "test",
+      "submitterId" : "260840108",
+      "clinicalDataNodeId" : "KDKTUE002",
+      "genomicDataCenterId" : "GRZTUE002",
+      "diseaseType" : "rare"
+    },
+    "coverageType" : "GKV",
+    "mvConsent" : {
+      "presentationDate" : "2026-02-23",
+      "version" : "Patient Info TE Consent MVGenomSeq vers01",
+      "scope" : [ {
+        "date" : "2026-02-24",
+        "domain" : "mvSequencing",
+        "type" : "permit"
+      }, {
+        "date" : "2026-02-24",
+        "domain" : "reIdentification",
+        "type" : "permit"
+      }, {
+        "date" : "2026-02-24",
+        "domain" : "caseIdentification",
+        "type" : "permit"
+      } ]
+    },
+    "researchConsents" : [ ],
+    "tanC" : "07AAD6EF8FD16B04F7149E5AAAC274C4CC7641B52D5F5A17B57744FC60B75DF4",
+    "gender" : "female",
+    "birthDate" : "1962-05",
+    "addressAGS" : "12345",
+    "decisionToInclude" : true,
+    "molecularBoardDecisionDate" : "2026-03-10"
+  },
+  "case" : {
+    "diagnosisRd" : {
+      "phenotypes" : [ {
+        "code" : "HP:0100861",
+        "system" : "https://hpo.jax.org"
+      }, {
+        "code" : "HP:0100877",
+        "system" : "https://hpo.jax.org"
+      } ],
+      "symptomOnsetDate" : "2025-05",
+      "molecularBoardDecisionDate" : "2026-03-10",
+      "diagnosticExtent" : "trioGenome",
+      "diagnosticAssessment" : "noGeneticDiagnosis",
+      "diagnoses" : [ {
+        "code" : "I71921",
+        "display" : "Mundgangrän",
+        "system" : "https://www.bfarm.de/DE/Kodiersysteme/Terminologien/Alpha-ID-SE",
+        "version" : "2025"
+      }, {
+        "code" : "ORPHA:2700",
+        "display" : "Noma",
+        "system" : "https://www.orpha.net",
+        "version" : "4.7"
+      }, {
+        "code" : "A69.0",
+        "display" : "Nekrotisierend-ulzeröse Stomatitis",
+        "system" : "http://fhir.de/CodeSystem/bfarm/icd-10-gm",
+        "version" : "2026"
+      } ],
+      "diagnosisGmfcs" : "I",
+      "libraryType" : "wgs"
+    },
+    "priorRd" : {
+      "genomicTestType" : "genomeShortRead",
+      "genomicStudyType" : "single",
+      "diagnosticDate" : "2026-03-24",
+      "diagnosticResult" : "structuralVariantWithUnclearBreakpoint",
+      "hospitalizationPeriods" : "unknown",
+      "hospitalizationDuration" : "unknown",
+      "zseContactDate" : "2026-03"
+    }
+  },
+  "molecular" : {
+    "smallVariants" : [ {
+      "id" : "cb6caf57-0f55-4bb3-995e-df7985d84eb8",
+      "genes" : [ {
+        "code" : "HGNC:21",
+        "display" : "AATK",
+        "system" : "https://www.genenames.org/"
+      } ],
+      "chromosome" : "11",
+      "startPosition" : 2079130677,
+      "endPosition" : 2079130678,
+      "ref" : "C",
+      "alt" : "T",
+      "localization" : [ {
+        "code" : "splicingRegion",
+        "display" : "SplicingRegion",
+        "system" : "bfarm/mvh/variant/localization"
+      } ],
+      "cdnaChange" : "NC_000023.11:g.32343183dup",
+      "gdnaChange" : "NC_000023.11:g.32343183dup",
+      "proteinChange" : "LRG_199p1:p.Trp24Cys",
+      "acmgClass" : "2",
+      "acmgCriteria" : [ {
+        "value" : "BA1",
+        "modifier" : "bp"
+      } ],
+      "zygosity" : "compHet",
+      "segregationAnalysis" : "notPerformed",
+      "modeOfInheritance" : "mitochondrial",
+      "diagnosticSignificance" : "candidate",
+      "externalId" : "697aaadb-6c07-424c-846a-1b0b454cc622",
+      "publications" : [ "1872937006" ]
+    }, {
+      "id" : "850229a7-2eb5-4734-8053-94c743379ddc",
+      "genes" : [ {
+        "code" : "HGNC:51526",
+        "display" : "AATBC",
+        "system" : "https://www.genenames.org/"
+      } ],
+      "chromosome" : "20",
+      "startPosition" : 1691509220,
+      "endPosition" : 1691509221,
+      "ref" : "G",
+      "alt" : "C",
+      "localization" : [ {
+        "code" : "intergenic",
+        "display" : "Intergenic",
+        "system" : "bfarm/mvh/variant/localization"
+      } ],
+      "cdnaChange" : "NC_000023.11:g.pter_qtersup",
+      "gdnaChange" : "NC_000023.11:g.pter_qtersup",
+      "proteinChange" : "NP_003997.2:p.Val7dup",
+      "acmgClass" : "3",
+      "acmgCriteria" : [ {
+        "value" : "BP2",
+        "modifier" : "ba"
+      }, {
+        "value" : "BS3",
+        "modifier" : "pm"
+      } ],
+      "zygosity" : "homoplasmic",
+      "segregationAnalysis" : "fromFather",
+      "modeOfInheritance" : "XLinked",
+      "diagnosticSignificance" : "incidental",
+      "externalId" : "b49fbbcb-a27d-4e78-b5b5-c8c0ba58e17e",
+      "publications" : [ "448623894" ]
+    }, {
+      "id" : "87628e3a-d02a-493d-8869-6c17bc760f7b",
+      "genes" : [ {
+        "code" : "HGNC:17929",
+        "display" : "AADAT",
+        "system" : "https://www.genenames.org/"
+      } ],
+      "chromosome" : "1",
+      "startPosition" : 1856078580,
+      "endPosition" : 1856078581,
+      "ref" : "G",
+      "alt" : "C",
+      "localization" : [ {
+        "code" : "regulatoryRegion",
+        "display" : "RegulatoryRegion",
+        "system" : "bfarm/mvh/variant/localization"
+      } ],
+      "cdnaChange" : "NC_000023.11:g.32343183dup",
+      "gdnaChange" : "NC_000023.11:g.32343183dup",
+      "proteinChange" : "LRG_199p1:p.Trp24Cys",
+      "acmgClass" : "5",
+      "acmgCriteria" : [ {
+        "value" : "PP3",
+        "modifier" : "bs"
+      }, {
+        "value" : "PP1",
+        "modifier" : "bp"
+      } ],
+      "zygosity" : "compHet",
+      "segregationAnalysis" : "fromMother",
+      "modeOfInheritance" : "mitochondrial",
+      "diagnosticSignificance" : "primary",
+      "externalId" : "c72d2b3c-dd05-4aea-a25a-5d2767bcb693",
+      "publications" : [ "731881123" ]
+    }, {
+      "id" : "71c8b28b-511c-41b4-81eb-6c515afbdd4c",
+      "genes" : [ {
+        "code" : "HGNC:21",
+        "display" : "AATK",
+        "system" : "https://www.genenames.org/"
+      } ],
+      "chromosome" : "MT",
+      "startPosition" : 1334318640,
+      "endPosition" : 1334318641,
+      "ref" : "C",
+      "alt" : "T",
+      "localization" : [ {
+        "code" : "intergenic",
+        "display" : "Intergenic",
+        "system" : "bfarm/mvh/variant/localization"
+      } ],
+      "cdnaChange" : "NC_000023.11:g.(31060227_31100351)_(33274278_33417151)dup",
+      "gdnaChange" : "NC_000023.11:g.(31060227_31100351)_(33274278_33417151)dup",
+      "proteinChange" : "NP_003997.2:p.Val7dup",
+      "acmgClass" : "3",
+      "acmgCriteria" : [ {
+        "value" : "PM3",
+        "modifier" : "ba"
+      }, {
+        "value" : "BS2",
+        "modifier" : "bm"
+      } ],
+      "zygosity" : "homoplasmic",
+      "segregationAnalysis" : "deNovo",
+      "modeOfInheritance" : "dominant",
+      "diagnosticSignificance" : "candidate",
+      "externalId" : "8280810e-dc65-48e1-974a-11afab1e732d",
+      "publications" : [ "985068476" ]
+    } ],
+    "structuralVariants" : [ {
+      "id" : "67dede70-28f4-4a1f-b1eb-e9eaf2a0dbdd",
+      "genes" : [ {
+        "code" : "HGNC:21",
+        "display" : "AATK",
+        "system" : "https://www.genenames.org/"
+      } ],
+      "localization" : [ {
+        "code" : "splicingRegion",
+        "display" : "SplicingRegion",
+        "system" : "bfarm/mvh/variant/localization"
+      } ],
+      "cdnaChange" : "NC_000023.11:g.33344590_33344592=/dup",
+      "gdnaChange" : "NC_000023.11:g.33344590_33344592=/dup",
+      "proteinChange" : "NP_003997.2:p.Val7dup",
+      "description" : "ISCN description...",
+      "acmgClass" : "4",
+      "acmgCriteria" : [ {
+        "value" : "PS4",
+        "modifier" : "bs"
+      }, {
+        "value" : "PVS1",
+        "modifier" : "bs"
+      } ],
+      "zygosity" : "homozygous",
+      "segregationAnalysis" : "fromFather",
+      "modeOfInheritance" : "mitochondrial",
+      "diagnosticSignificance" : "primary",
+      "externalId" : "9691eb6d-045f-42ed-a1b1-2cafaccdd06e",
+      "publications" : [ "1209191647" ]
+    }, {
+      "id" : "7579fef5-0be0-4c94-9619-4d0d5f332dea",
+      "genes" : [ {
+        "code" : "HGNC:51526",
+        "display" : "AATBC",
+        "system" : "https://www.genenames.org/"
+      } ],
+      "localization" : [ {
+        "code" : "intronic",
+        "display" : "Intronic",
+        "system" : "bfarm/mvh/variant/localization"
+      } ],
+      "cdnaChange" : "NC_000023.11:g.(31060227_31100351)_(33274278_33417151)dup",
+      "gdnaChange" : "NC_000023.11:g.(31060227_31100351)_(33274278_33417151)dup",
+      "proteinChange" : "NP_003997.1:p.(Gly56Ala^Ser^Cys)",
+      "description" : "ISCN description...",
+      "acmgClass" : "4",
+      "acmgCriteria" : [ {
+        "value" : "BS1",
+        "modifier" : "ba"
+      }, {
+        "value" : "PM3",
+        "modifier" : "bm"
+      } ],
+      "zygosity" : "homoplasmic",
+      "segregationAnalysis" : "deNovo",
+      "modeOfInheritance" : "mitochondrial",
+      "diagnosticSignificance" : "incidental",
+      "externalId" : "8f304408-3bcd-4253-8cf2-e2676be62c83",
+      "publications" : [ "1678471108" ]
+    }, {
+      "id" : "0f118007-613b-46ed-834c-97025796ab7d",
+      "genes" : [ {
+        "code" : "HGNC:17929",
+        "display" : "AADAT",
+        "system" : "https://www.genenames.org/"
+      } ],
+      "localization" : [ {
+        "code" : "intergenic",
+        "display" : "Intergenic",
+        "system" : "bfarm/mvh/variant/localization"
+      } ],
+      "cdnaChange" : "NC_000023.11:g.(31060227_31100351)_(33274278_33417151)dup",
+      "gdnaChange" : "NC_000023.11:g.(31060227_31100351)_(33274278_33417151)dup",
+      "proteinChange" : "LRG_199p1:p.Trp24=/Cys",
+      "description" : "ISCN description...",
+      "acmgClass" : "3",
+      "acmgCriteria" : [ {
+        "value" : "BP7",
+        "modifier" : "ps"
+      }, {
+        "value" : "BP7",
+        "modifier" : "pp"
+      } ],
+      "zygosity" : "heterozygous",
+      "segregationAnalysis" : "fromFather",
+      "modeOfInheritance" : "dominant",
+      "diagnosticSignificance" : "primary",
+      "externalId" : "a4a18289-2854-4f23-8260-837d2aa0a0cf",
+      "publications" : [ "2043292319" ]
+    } ],
+    "copyNumberVariants" : [ {
+      "id" : "37f34814-b888-4ae3-a5f4-ec7c6270ff88",
+      "genes" : [ {
+        "code" : "HGNC:20",
+        "display" : "AARS1",
+        "system" : "https://www.genenames.org/"
+      } ],
+      "chromosome" : "12",
+      "startPosition" : 417873329,
+      "endPosition" : 1060912148,
+      "type" : "gain",
+      "localization" : [ {
+        "code" : "intronic",
+        "display" : "Intronic",
+        "system" : "bfarm/mvh/variant/localization"
+      } ],
+      "cdnaChange" : "NC_000023.10:g.33038255C>A",
+      "gdnaChange" : "NC_000023.10:g.33038255C>A",
+      "proteinChange" : "LRG_199p1:p.Trp24Ter (p.Trp24*)",
+      "acmgClass" : "5",
+      "acmgCriteria" : [ {
+        "value" : "BP4",
+        "modifier" : "ba"
+      } ],
+      "zygosity" : "heterozygous",
+      "segregationAnalysis" : "deNovo",
+      "modeOfInheritance" : "unclear",
+      "diagnosticSignificance" : "candidate",
+      "externalId" : "dff14bc8-a361-42b3-ba19-9f7f23d4b5d0",
+      "publications" : [ "1366238025" ]
+    }, {
+      "id" : "27dba680-5570-4338-9eb2-c9ff1076fd8b",
+      "genes" : [ {
+        "code" : "HGNC:21",
+        "display" : "AATK",
+        "system" : "https://www.genenames.org/"
+      } ],
+      "chromosome" : "18",
+      "startPosition" : 1612974734,
+      "endPosition" : 1154054515,
+      "type" : "gain",
+      "localization" : [ {
+        "code" : "intronic",
+        "display" : "Intronic",
+        "system" : "bfarm/mvh/variant/localization"
+      } ],
+      "cdnaChange" : "NC_000023.11:g.(31060227_31100351)_(33274278_33417151)dup",
+      "gdnaChange" : "NC_000023.11:g.(31060227_31100351)_(33274278_33417151)dup",
+      "proteinChange" : "NP_003997.1:p.(Gly56Ala^Ser^Cys)",
+      "acmgClass" : "5",
+      "acmgCriteria" : [ {
+        "value" : "PM4",
+        "modifier" : "bp"
+      }, {
+        "value" : "PVS1",
+        "modifier" : "pm"
+      } ],
+      "zygosity" : "heterozygous",
+      "segregationAnalysis" : "notPerformed",
+      "modeOfInheritance" : "recessive",
+      "diagnosticSignificance" : "primary",
+      "externalId" : "231f8cd9-5694-4aab-a8cf-baf7e075144f",
+      "publications" : [ "1307880760" ]
+    }, {
+      "id" : "22206999-8c33-4b1b-adec-2a09f6355d0f",
+      "genes" : [ {
+        "code" : "HGNC:21",
+        "display" : "AATK",
+        "system" : "https://www.genenames.org/"
+      } ],
+      "chromosome" : "3",
+      "startPosition" : 703250088,
+      "endPosition" : 610928923,
+      "type" : "loss",
+      "localization" : [ {
+        "code" : "splicingRegion",
+        "display" : "SplicingRegion",
+        "system" : "bfarm/mvh/variant/localization"
+      } ],
+      "cdnaChange" : "NC_000023.10:g.33038255C>A",
+      "gdnaChange" : "NC_000023.10:g.33038255C>A",
+      "proteinChange" : "LRG_199p1:p.Trp24Cys",
+      "acmgClass" : "3",
+      "acmgCriteria" : [ {
+        "value" : "PS3",
+        "modifier" : "bs"
+      } ],
+      "zygosity" : "compHet",
+      "segregationAnalysis" : "notPerformed",
+      "modeOfInheritance" : "dominant",
+      "diagnosticSignificance" : "candidate",
+      "externalId" : "26a95650-11a9-4f69-87a9-b91c05862f4b",
+      "publications" : [ "1567325727" ]
+    }, {
+      "id" : "952f4f36-20aa-4910-a3b7-db3fe9da61e4",
+      "genes" : [ {
+        "code" : "HGNC:51526",
+        "display" : "AATBC",
+        "system" : "https://www.genenames.org/"
+      } ],
+      "chromosome" : "6",
+      "startPosition" : 425659430,
+      "endPosition" : 2146433888,
+      "type" : "loss",
+      "localization" : [ {
+        "code" : "intergenic",
+        "display" : "Intergenic",
+        "system" : "bfarm/mvh/variant/localization"
+      } ],
+      "cdnaChange" : "NC_000023.11:g.(31060227_31100351)_(33274278_33417151)dup",
+      "gdnaChange" : "NC_000023.11:g.(31060227_31100351)_(33274278_33417151)dup",
+      "proteinChange" : "LRG_199p1:p.Trp24Cys",
+      "acmgClass" : "1",
+      "acmgCriteria" : [ {
+        "value" : "BP1",
+        "modifier" : "pvs"
+      }, {
+        "value" : "PS2",
+        "modifier" : "bs"
+      } ],
+      "zygosity" : "heterozygous",
+      "segregationAnalysis" : "fromFather",
+      "modeOfInheritance" : "dominant",
+      "diagnosticSignificance" : "candidate",
+      "externalId" : "3f512053-943b-4dc5-8d37-d89a02cd85c8",
+      "publications" : [ "1676989031" ]
+    } ]
+  },
+  "plan" : {
+    "carePlanOd" : {
+      "molecularBoardDecisionDate" : "2026-03-24",
+      "studyRecommended" : true,
+      "counsellingRecommended" : true,
+      "reEvaluationRecommended" : true,
+      "therapyRecommended" : true,
+      "clinicalManagementRecommended" : true,
+      "clinicalManagementDescriptions" : [ "universityAmbulatoryCare" ]
+    },
+    "recommendedStudies" : [ {
+      "identifier" : "ac37e74e-7181-4957-bbd8-dbbe41f6a3dd",
+      "register" : "DRKS",
+      "name" : "N/A",
+      "id" : "DRKS00039926",
+      "variantReferences" : [ "71c8b28b-511c-41b4-81eb-6c515afbdd4c" ]
+    } ],
+    "recommendedTherapies" : [ {
+      "identifier" : "254987a0-7fa8-4dd8-8ac5-01419da6a79f",
+      "type" : "causal",
+      "strategy" : "systemicMedication",
+      "variantReferences" : [ "71c8b28b-511c-41b4-81eb-6c515afbdd4c" ]
+    } ]
+  },
+  "followUp" : {
+    "followUpOds" : [ {
+      "followUpDate" : "2026-03-24",
+      "phenotypes" : [ {
+        "code" : {
+          "code" : "HP:0100861",
+          "system" : "https://hpo.jax.org"
+        },
+        "change" : "improved"
+      }, {
+        "code" : {
+          "code" : "HP:0100877",
+          "system" : "https://hpo.jax.org"
+        },
+        "change" : "degraded"
+      } ],
+      "diagnosisEstablished" : false,
+      "diseaseProgression" : "Notes on the disease...",
+      "vitalStatus" : "living"
+    } ]
+  }
+}
