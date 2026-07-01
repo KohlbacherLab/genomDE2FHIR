@@ -137,3 +137,51 @@ Re-run `python3 scripts/e2e_harness.py` after each phase to watch the verdict mo
 
 Environmental note: P0 fixes are independently matchbox-verified, so they're correct regardless
 of P1; P1 just lets the harness *display* the resulting PASS.
+
+---
+
+## Implementation outcome (Path A, tx-enabled authoritative run)
+
+Applied P0-1/P0-2 + P1, and re-validated against matchbox reloaded to **latest 2026 packages**
+with **tx.fhir.org enabled**. Per-profile Path A result over all 44 oncology files:
+
+| profile | verdict | note |
+|---|---|---|
+| PatientPseudonymisiert | **44 clean** | P0-1 gender-amtlich extension |
+| Vitalstatus | **44 clean** | canonical fixed (`Vitalstatus`, not `mii-pr-person-vitalstatus`) + codes L/T |
+| coverage-de-basis | **44 clean** | — |
+| mii-pr-onko-…-ecog | **82 clean** | P0-2 dropped out-of-VS ECOG 5 (SNOMED slice now resolves via tx) |
+| mii-pr-mtb-diagnose-primaertumor | env | ICD-O-3 + ICD-10-GM VS — **BfArM** terms, not on tx.fhir.org |
+| mii-pr-mtb-systemtherapie-medication-statement | env | ATC VS — **BfArM** |
+| mii-pr-mtb-systemische-vortherapie | env* | `procedures-sct` pins SNOMED edition `20250701` which tx.fhir.org can't resolve → the "matches more than one slice" is a tx-version artifact, **not** a content bug (P0-3 confirmed: SNOMED stays on `code`). *Harness over-reports as content. |
+| mii-pr-consent-einwilligung | **CONTENT (real)** | see below |
+
+### What P1 changed
+- **P1-1 egress:** the container was never egress-blocked — it reaches tx.fhir.org + the registries.
+  matchbox just wasn't *consuming* tx (the running instance predated the `txServer` config).
+  Restart applied `matchbox.fhir.context.txServer: https://tx.fhir.org/r4` → SNOMED/LOINC now expand.
+- **P1-2 packages:** matchbox reloaded pinned to latest — basisprofil 1.6.0, meta/consent 2026.0.0,
+  medikation 2026.0.1, **onkologie 2026.0.3, +mtb 2026.0.1**; person/diagnose/prozedur/fall at their
+  latest 2025.0.1. Fixed the consent/vitalstatus "could not validate profile" (it was a
+  profile-canonical mismatch in the mapper, now corrected).
+- **Bonus** (exposed once validation became authoritative): 2 wrong profile canonicals + the
+  Vitalstatus value code — all fixed and now 44 clean.
+
+### Terminology gap (new finding — needs a decision)
+tx.fhir.org covers **SNOMED/LOINC** but **not** the German BfArM terminologies (ICD-10-GM, OPS,
+ATC, ICD-O-3) — those live on `https://terminologieserver.bfarm.de/fhir`. matchbox takes a single
+`txServer`, so it can't consult both at once. Options: (a) point `txServer` at the BfArM server
+(loses SNOMED); (b) accept ICD/OPS/ATC/ICD-O-3 as env here and do the authoritative German-code
+pass with `validator_cli.jar -tx …bfarm…` (Java now installed); (c) pre-load the specific VS
+expansions. Until then, the `diagnose`/`medication`/`vortherapie` env rows can't be turned green.
+
+### Remaining REAL content issue — consent (genuine modeling gap, not a simple bug)
+The genomDE **Modellvorhaben** consent scope domains (`mvSequencing`, `reIdentification`,
+`caseIdentification`, …) are **not** codes in the MII Broad-Consent policy CS
+(`urn:oid:2.16.840.1.113883.3.1937.777.24.5.3`), and MII `mii-pr-consent-einwilligung` requires
+`provision.period` (1..1) on the outer + inner provisions. genomDE MV consent ≠ MII Broad Consent —
+this needs a deliberate mapping (a ConceptMap MV-domain→MII-policy-code + provision period wiring),
+or a decision to model MV consent differently. Not hacked; flagged for design.
+
+**Net:** every P0/P1-addressable Path-A profile is clean; the only non-environmental residual is
+the consent modeling gap.
