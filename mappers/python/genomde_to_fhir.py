@@ -33,9 +33,9 @@ ROOT = Path(__file__).resolve().parents[2]
 PROFILE = "https://www.medizininformatik-initiative.de/fhir/{}"
 P = {  # crawl-verified canonicals (see mapping table / terminology-locks)
  "patient": "core/modul-person/StructureDefinition/PatientPseudonymisiert",
- "vitalstatus": "core/modul-person/StructureDefinition/mii-pr-person-vitalstatus",
+ "vitalstatus": "core/modul-person/StructureDefinition/Vitalstatus",   # profile id is 'Vitalstatus' (not mii-pr-person-*)
  "coverage": "http://fhir.de/StructureDefinition/coverage-de-basis",
- "consent": "core/modul-consent/StructureDefinition/mii-pr-consent-einwilligung",
+ "consent": "modul-consent/StructureDefinition/mii-pr-consent-einwilligung",  # consent module has no 'core/' segment
  "primaertumor": "fhir/ext/modul-mtb/StructureDefinition/mii-pr-mtb-diagnose-primaertumor".replace("fhir/", ""),
  "diagnose": "core/modul-diagnose/StructureDefinition/Diagnose",
  "ecog": "fhir/ext/modul-onko/StructureDefinition/mii-pr-onko-allgemeiner-leistungszustand-ecog".replace("fhir/", ""),
@@ -238,7 +238,7 @@ def map_oncology(dk):
             if c:
                 b.add(ecog_obs(c, fu.get("followUpDate"), f"fu{k}"), uid("ecog-fu", pat_id, k))
         if fu.get("vitalStatus"):
-            vmap = {"living": "lebend", "deceased": "verstorben", "alive": "lebend"}
+            vmap = {"living": "L", "deceased": "T", "alive": "L"}  # MII Vitalstatus CS: L=lebt, T=verstorben
             b.add(Observation(status="final", subject=subj, effectiveDateTime=fu.get("followUpDate"),
                               meta={"profile": [prof("vitalstatus")]},
                               category=[{"coding": [{"system": "http://terminology.hl7.org/CodeSystem/observation-category", "code": "survey"}]}],
