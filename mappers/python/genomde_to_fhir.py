@@ -27,6 +27,7 @@ from fhir.resources.R4B.condition import Condition
 from fhir.resources.R4B.observation import Observation
 from fhir.resources.R4B.procedure import Procedure
 from fhir.resources.R4B.medicationstatement import MedicationStatement
+from fhir.resources.R4B.fhirprimitiveextension import FHIRPrimitiveExtension
 
 ROOT = Path(__file__).resolve().parents[2]
 PROFILE = "https://www.medizininformatik-initiative.de/fhir/{}"
@@ -46,6 +47,12 @@ ASSERTED_DATE_EXT = "http://hl7.org/fhir/StructureDefinition/condition-assertedD
 INTENTION_EXT = "https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-ex-onko-systemische-therapie-intention"  # min 1
 ICDO3 = "http://terminology.hl7.org/CodeSystem/icd-o-3"      # profile fixes histology/topography to this (not the source OID)
 ECOG_CS = "https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/CodeSystem/mii-cs-onko-allgemeiner-leistungszustand-ecog"
+ECOG_VALID = {"0", "1", "2", "3", "4", "U"}  # MII CS; source "5"(=death)/"notApplicable" are out-of-VS
+# gender=other requires the amtliche Differenzierung (mii-pat-1); bound VS permits only D/X
+GENDER_AMTLICH_EXT = "http://fhir.de/StructureDefinition/gender-amtlich-de"
+GENDER_AMTLICH_CS = "http://fhir.de/CodeSystem/gender-amtlich-de"
+GENDER_AMTLICH_MAP = {"other": ("D", "divers"), "divers": ("D", "divers"),
+                      "unbestimmt": ("X", "unbestimmt")}
 INTENTION_CS = "https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/CodeSystem/mii-cs-onko-intention"
 VITALSTATUS_CS = "https://www.medizininformatik-initiative.de/fhir/core/modul-person/CodeSystem/Vitalstatus"
 CONSENT_PROVISION_CS = "urn:oid:2.16.840.1.113883.3.1937.777.24.5.3"
@@ -56,6 +63,17 @@ GENDER_MAP = {"male": "male", "female": "female", "other": "other", "unknown": "
 def prof(key):  # full profile canonical
     v = P[key]
     return v if v.startswith("http") else PROFILE.format(v)
+
+
+def ecog_code(raw, where, tan):
+    """Normalize source ECOG to the MII CS; warn+drop anything out of {0-4,U} (e.g. 5=death)."""
+    s = str(raw).strip()
+    if s.lower() in ("unknown", "unbekannt", "u"):
+        s = "U"
+    if s in ECOG_VALID:
+        return s
+    sys.stderr.write(f"[warn] ECOG '{raw}' not in MII CS {{0-4,U}} — dropped ({where}, tan={tan})\n")
+    return None
 
 def uid(*parts):
     return "urn:uuid:" + str(uuid.uuid5(uuid.NAMESPACE_URL, "genomde:" + ":".join(str(p) for p in parts if p)))
@@ -102,7 +120,13 @@ def map_oncology(dk):
         ident.append({"type": MR, "system": "urn:local:case-id", "value": meta["localCaseId"]})
     pat_kwargs = {"meta": {"profile": [prof("patient")]}, "identifier": ident or None}
     if meta.get("gender"):
-        pat_kwargs["gender"] = GENDER_MAP.get(meta["gender"], "unknown")
+        g = GENDER_MAP.get(meta["gender"], "unknown")
+        pat_kwargs["gender"] = g
+        if g == "other":  # mii-pat-1: amtliche Differenzierung required when gender=other
+            code, disp = GENDER_AMTLICH_MAP.get(meta["gender"], ("D", "divers"))
+            pat_kwargs["gender__ext"] = FHIRPrimitiveExtension(extension=[{
+                "url": GENDER_AMTLICH_EXT,
+                "valueCoding": {"system": GENDER_AMTLICH_CS, "code": code, "display": disp}}])
     if meta.get("birthDate"):
         pat_kwargs["birthDate"] = meta["birthDate"]
     patient = Patient(**{k: v for k, v in pat_kwargs.items() if v is not None})
@@ -174,7 +198,9 @@ def map_oncology(dk):
                               {"system": "http://snomed.info/sct", "code": "423740007"}]},
             valueCodeableConcept={"coding": [{"system": ECOG_CS, "code": str(score)}]})
     if diag.get("ecogPerformanceStatusScore"):
-        b.add(ecog_obs(diag["ecogPerformanceStatusScore"], None, "dx"), uid("ecog-dx", pat_id))
+        c = ecog_code(diag["ecogPerformanceStatusScore"], "dx", meta.get("tanC"))
+        if c:
+            b.add(ecog_obs(c, None, "dx"), uid("ecog-dx", pat_id))
 
     # --- Prior systemic therapies: Procedure + MedicationStatement(s) ---
     for i, pp in enumerate(case.get("priorProcedures", []) or []):
@@ -183,6 +209,12 @@ def map_oncology(dk):
         if pp.get("therapyStartDate"): period["start"] = pp["therapyStartDate"]
         if pp.get("therapyEndDate"): period["end"] = pp["therapyEndDate"]
         intention_code = pp.get("intention") or "X"   # profile requires Intention (min 1)
+        # code carries the SNOMED procedure code (sct slice + satisfies sct-ops-1). The
+        # "Element matches more than one slice (sct, systemische_therapie_art)" error is a
+        # terminology-server artifact: without SNOMED loaded the validator can't confirm the
+        # code is in procedures-sct and not in systemische-therapie-art, so it can't assign the
+        # slice. Resolves once matchbox has a tx server (see docs/FIX-PLAN.md P1-1). Do NOT move
+        # SNOMED off code — that violates sct-ops-1 (a real, tx-independent error).
         b.add(Procedure(status="completed", subject=subj,
                         meta={"profile": [prof("vortherapie")]},
                         extension=[{"url": INTENTION_EXT,
@@ -202,7 +234,9 @@ def map_oncology(dk):
     # --- Follow-up: ECOG + vital status ---
     for k, fu in enumerate(dk.get("followUp", {}).get("followUpOds", []) or []):
         if fu.get("ecogPerformanceStatusScore"):
-            b.add(ecog_obs(fu["ecogPerformanceStatusScore"], fu.get("followUpDate"), f"fu{k}"), uid("ecog-fu", pat_id, k))
+            c = ecog_code(fu["ecogPerformanceStatusScore"], f"fu{k}", meta.get("tanC"))
+            if c:
+                b.add(ecog_obs(c, fu.get("followUpDate"), f"fu{k}"), uid("ecog-fu", pat_id, k))
         if fu.get("vitalStatus"):
             vmap = {"living": "lebend", "deceased": "verstorben", "alive": "lebend"}
             b.add(Observation(status="final", subject=subj, effectiveDateTime=fu.get("followUpDate"),
