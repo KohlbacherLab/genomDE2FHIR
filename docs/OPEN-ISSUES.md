@@ -190,3 +190,43 @@ is the option if ever ingested). researchConsents[].scope = verbatim MII Consent
 | KDK rare diseases | 108 | 14 | 10 | 132 |
 | GRZ | 41 | 6 | 20 | 67 |
 | **Total** | **315** | **73** | **40** | **428** |
+
+---
+
+## Stage-2 update — mappers, harness, validation (current)
+
+**Built:** Python + FML oncology mappers (clinical spine); e2e harness
+([FIX-PLAN](FIX-PLAN.md), [E2E-REPORT](E2E-REPORT.md)); BfArM JSON-Schema validator
+(`scripts/validate_datenkranz.py`); schemas verified byte-identical to upstream
+([schemas/PROVENANCE.md](../schemas/PROVENANCE.md)).
+
+**Resolved this stage (Python, live-verified against matchbox + latest 2026 packages + tx.fhir.org):**
+- Patient `gender=other` → `gender-amtlich-de` extension (mii-pat-1) — clean.
+- ECOG out-of-VS scores (source `5`) dropped with warning — clean.
+- Consent + Vitalstatus profile canonicals corrected (`modul-consent` no `core/`; `Vitalstatus`
+  not `mii-pr-person-vitalstatus`); Vitalstatus codes L/T — clean.
+- matchbox: heap 3g→12g (was OOMing), reloaded to latest 2026 packages, tx.fhir.org enabled.
+
+**Open — oncology mapper content:**
+1. **Coverage `coverageType='UNK'`** (89/1056 in synthData-v1) — not in `versicherungsart-de-basis`;
+   map to unknown/data-absent or drop `Coverage.type`.
+2. **Consent §64e modelling** — genomDE MV-consent domains (`mvSequencing`/`reIdentification`/
+   `caseIdentification`) are NOT MII Broad-Consent policy codes, and the real MII Broad Consent
+   arrives separately via `researchConsents` (passthrough). Needs a target-model decision, not a hack.
+3. **Coverage-gap (dominant): molecular / plan / TNM / grading unmapped** — the new data populates
+   these in ~98% of records (molecular), all silently dropped. Biggest missing surface.
+
+**Open — infra/terminology:**
+4. German terminologies (ICD-10-GM/ICD-O-3/OPS/ATC) can't validate on tx.fhir.org → wire the
+   **MII SU-TermServ Ontoserver** via the mTLS proxy (`infra/mii-termserv-proxy/`; needs the cert).
+
+**Open — FML (Path B), backlogged:** `reference(pat)` produces nothing in matchbox v4.0.12 → build
+refs as `'Patient/'+tanC`; add transaction `fullUrl`+`request`; `Coverage.meta.profile`; backport all
+Python P0 fixes; conformance extensions parity.
+
+**Open — RD / GRZ FHIR mappers:** not built.
+
+**Source-data defects found by the schema validator** ([SCHEMA-VALIDATION-FINDINGS](SCHEMA-VALIDATION-FINDINGS.md)):
+synthData-v1 `nct` (476/500 invalid: TNM `version` missing, `priority` string-not-int, therapy
+`reference` missing) and multi-donor `grz` (549/1000: `researchConsents.presentationDate` missing).
+`dnpm`/`ukdd`/`nse` schema-clean. Raise with the data generators.
