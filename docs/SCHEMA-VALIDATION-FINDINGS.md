@@ -1,15 +1,18 @@
 # Datenkranz JSON-Schema validation — findings
 
-`scripts/validate_datenkranz.py` validates Datenkranz JSON against the **BfArM JSON Schemas**
-(`schemas/kdk/` = KDK Oncology + RareDiseases, `schemas/grz/` = GRZ). Branch auto-detected →
-root schema (`Oncology.json` / `RareDiseases.json` / `grz-schema.json`). The KDK schemas `$ref`
-each other by absolute BfArM GitHub raw URL; the validator maps those to the local files via a
-`referencing` Registry, so it runs **fully offline** against the pinned local schema copies.
+> The validator has since moved to its own package,
+> [**genomde-dk-validator**](https://github.com/KohlbacherLab/genomde-dk-validator) (schemas vendored,
+> + unknown-field detection + BfArM QS rules). The findings below still hold. Reproduce with:
+> ```bash
+> pip install git+https://github.com/KohlbacherLab/genomde-dk-validator.git
+> genomde-dk-validator example-data examples
+> ```
 
-Run (needs jsonschema ≥4.18 → **python3.11**):
-```bash
-python3.11 scripts/validate_datenkranz.py example-data examples
-```
+Validates Datenkranz JSON against the **BfArM JSON Schemas** (`schemas/kdk/` = KDK Oncology +
+RareDiseases, `schemas/grz/` = GRZ). Branch auto-detected → root schema
+(`Oncology.json` / `RareDiseases.json` / `grz-schema.json`). The KDK schemas `$ref` each other by
+absolute BfArM GitHub raw URL; the validator maps those to the local files via a `referencing`
+Registry, so it runs **fully offline** against the pinned local schema copies.
 
 ## Result (2362 files)
 | branch | total | valid | invalid |
