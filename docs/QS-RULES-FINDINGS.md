@@ -53,16 +53,23 @@ read counts) run on FASTQ/BAM — out of scope for a JSON validator (use GRZ_QC_
 - **Config-gated rules** (kdk-2/11, grz-2) correctly *skip with info* absent `--rules-config`, so a
   bare run never mis-passes them as satisfied.
 
-## Adversarial review of the rule set (codex — docs/REVIEW-RULES-codex.md)
-**Fixed:** (P0) `resolve()` didn't support numeric path indices → kdk-7's follow-up anchor never
-resolved (dead check) — now supported; (P0) kdk-7 over-excluded every `/molecularBoardDecisionDate$`
-(incl. plan + rare board dates) vs the QS text (only `researchConsents.presentationDate` +
-`submission.date`) — now excludes just the metaData self-anchor (kdk-7 472→559 after the fix).
-**Logged v0.1 follow-ups:** filter the mvConsent anchor to `type=permit,domain=mvSequencing` for
-kdk-9a/9b; split kdk-9b/kdk-10 into branch-aware OD/RD rules (rare libraryType really lives under
-`diagnosisRd`); enable a jsonschema `FormatChecker` + strict `date.fromisoformat` parsing;
-interval-aware comparison for month-only fields; criterion-2 indication-admission (not just LE-ID
-membership); criterion-4 terminology stays with the schema/matchbox tooling.
+## Adversarial review of the rule set (two codex rounds)
+Every rule carries a `source` field citing its exact BfArM criterion.
+
+**Round 1 (docs/REVIEW-RULES-codex.md) — fixed:** `resolve()` gained numeric path-index support
+(kdk-7's follow-up anchor was silently dead); TNM category read from SNOMED `display` notation
+(`cT1a1`) not just `T3` prefixes (382→0 false positives on nct).
+
+**Round 2 (docs/REVIEW-RULES2-codex.md) — fixed:** kdk-7 now auto-excludes the *active* anchor's
+own pointer(s) rather than a hardcoded `metaData.molecularBoardDecisionDate` (that was a
+false-negative for follow-up submissions), and the follow-up case covers **both** OD (`followUpOds`)
+and RD (`followUpRds`); TNM token now matched anywhere in display/text (verbose SNOMED FSNs no longer
+false-flagged); over-claiming `source`/`doc` wording tightened.
+
+**Logged v1.1 follow-ups (documented in the rule `doc` fields, not yet implemented):** filter the
+mvConsent anchor to `type=permit,domain=mvSequencing` for kdk-9b; interval-aware comparison for
+month-only dates (birthDate / RD onset / RD deathDate are `YYYY-MM`); criterion-2 indication-admission
+(not just LE-ID membership); criterion-4 terminology stays with the schema/matchbox tooling.
 
 Full rule definitions + per-criterion path mapping: the `about`/`doc` blocks in
 `genomde-dk-validator/src/genomde_dk_validator/rules/{kdk,grz}.rules.json`.
