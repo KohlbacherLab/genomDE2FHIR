@@ -60,11 +60,15 @@ Molecular / plan / TNM / grading are not mapped yet (tracked in OPEN-ISSUES).
 
 ## Validators & harness
 
-- **Schema validator** — `scripts/validate_datenkranz.py`: validates a Datenkranz file (or tree)
-  against the BfArM JSON Schemas, offline (resolves the schemas' GitHub `$ref`s to the local files).
-  Needs jsonschema ≥4.18 → run with `python3.11`.
+- **Datenkranz validator** — a standalone repo/package,
+  [**genomde-dk-validator**](https://github.com/KohlbacherLab/genomde-dk-validator): validates a
+  Datenkranz file (or tree) against the BfArM JSON Schemas offline (schemas vendored), with
+  unknown-field detection and the BfArM Qualitätssicherung semantic rules (`--kdk-rules` /
+  `--grz-rules`). (`scripts/validate_datenkranz.py` is now just a pointer to it.)
   ```bash
-  python3.11 scripts/validate_datenkranz.py example-data examples
+  pip install git+https://github.com/KohlbacherLab/genomde-dk-validator.git
+  genomde-dk-validator example-data examples
+  genomde-dk-validator --kdk-rules example-data/synthData-v1/nct
   ```
 - **e2e conversion harness** — `scripts/e2e_harness.py`: runs each DK file through **both** mappers →
   ingests into HAPI → validates each resource against its MII `meta.profile` via matchbox `$validate`;
