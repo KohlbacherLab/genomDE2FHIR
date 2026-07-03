@@ -25,7 +25,7 @@ SRC = ["path", "type", "required", "array", "enum", "format", "description"]
 STATUS = ["MAPPED", "DRAFT", "NOMAP", "TODO", "REMOVED?"]
 FILL = {"MAPPED": "C6EFCE", "DRAFT": "FFEB9C", "NOMAP": "E5E7EB", "TODO": "FCE4D6", "REMOVED?": "F8CBAD"}
 WIDE = {"enum": 22, "description": 30, "transform": 40, "omop_transform": 40, "fhir_element": 34,
-        "mii_profile": 34, "omop_field": 30, "omop_vocab": 26, "notes": 40, "path": 42}
+        "mii_profile": 34, "omop_field": 30, "omop_vocab": 26, "notes": 40, "path": 42, "reference": 40}
 hdr_src = PatternFill("solid", fgColor="D9D9D9"); hdr_tgt = PatternFill("solid", fgColor="BDD7EE")
 src_fill = PatternFill("solid", fgColor="F2F2F2")
 thin = Side(style="thin", color="DDDDDD"); border = Border(thin, thin, thin, thin)

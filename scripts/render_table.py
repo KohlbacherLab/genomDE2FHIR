@@ -46,7 +46,7 @@ td small{color:#777}
 </div>
 <table><thead><tr>
 <th data-k="_b">Br</th><th data-k="path">path</th><th data-k="required">req</th>
-<th data-k="mii_module">module</th><th data-k="mii_profile">profile</th><th data-k="fhir_element">FHIR element</th><th data-k="status">status</th>
+<th data-k="mii_module">module</th><th data-k="mii_profile">profile</th><th data-k="fhir_element">FHIR element</th><th data-k="reference">reference</th><th data-k="status">status</th>
 </tr></thead><tbody id="tb"></tbody></table>
 <script>
 const DATA=__DATA__;let sortK=null,sortDir=1;
@@ -64,6 +64,7 @@ function render(){
 <td>${esc(d.mii_module)}</td>
 <td class="e" title="${esc(d.mii_profile)}">${esc(short(d.mii_profile))}</td>
 <td class="e" title="${esc(d.transform)}">${esc(d.fhir_element)}</td>
+<td class="e" title="${esc(d.reference)}">${esc(d.reference)}</td>
 <td><span class="pill ${d.status}">${d.status}</span></td></tr>`).join("");
 }
 document.querySelectorAll("th").forEach(th=>th.onclick=()=>{const k=th.dataset.k;sortDir=(sortK===k)?-sortDir:1;sortK=k;render();});

@@ -14,7 +14,7 @@ Usage: build_mapping_table.py <leaves.csv> <mapping.csv>
 import csv, sys, os
 
 SOURCE_COLS = ["path", "type", "required", "array", "enum", "format", "description"]
-TARGET_COLS = ["mii_module", "mii_profile", "fhir_element", "transform", "status", "notes"]
+TARGET_COLS = ["mii_module", "mii_profile", "fhir_element", "transform", "status", "notes", "reference"]
 ALL = SOURCE_COLS + TARGET_COLS
 
 def read_csv(path):
