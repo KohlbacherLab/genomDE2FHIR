@@ -71,5 +71,32 @@ for title, fn in SHEETS:
             ws.conditional_formatting.add(f"{sc}2:{sc}{last}",
                 CellIsRule(operator="equal", formula=[f'"{st}"'], fill=PatternFill("solid", fgColor=hexc)))
 
+# ---- computed "Open Issues" tab: every DRAFT/TODO row + rows flagged for confirmation ----
+FLAGWORDS = ("confirm", "verify", "caveat", "unreliable", "questionable")
+oi = wb.create_sheet("Open Issues", index=1)   # right after README
+for c, name in enumerate(["tab", "path", "status", "mii_module", "fhir_element", "issue / reason"], start=1):
+    cell = oi.cell(row=1, column=c, value=name); cell.font = Font(bold=True); cell.fill = hdr_tgt; cell.border = border
+for c, w in enumerate([16, 46, 9, 13, 32, 70], start=1):
+    oi.column_dimensions[get_column_letter(c)].width = w
+r = 2
+for title, fn in SHEETS:
+    for row in csv.DictReader(open(ROOT / "mapping" / fn)):
+        st = (row.get("status") or "").upper()
+        blob = (row.get("transform", "") + " " + row.get("notes", "")).lower()
+        if st not in ("DRAFT", "TODO") and not any(w in blob for w in FLAGWORDS):
+            continue
+        seg = [s.strip() for s in (row.get("notes") or "").split("|")
+               if any(k in s.lower() for k in ("num-omics", "clin-resolve", "verify", "confirm", "caveat"))]
+        reason = seg[-1] if seg else (row.get("transform", "")[:140])
+        for c, v in enumerate([title, row["path"], row.get("status", ""), row.get("mii_module", ""),
+                               row.get("fhir_element", ""), reason], start=1):
+            cell = oi.cell(row=r, column=c, value=v); cell.border = border
+            cell.alignment = Alignment(vertical="top", wrap_text=c in (5, 6))
+        hexc = FILL.get(st)
+        if hexc:
+            oi.cell(row=r, column=3).fill = PatternFill("solid", fgColor=hexc)
+        r += 1
+oi.freeze_panes = "A2"; oi.auto_filter.ref = f"A1:F{r - 1}"
+
 out = ROOT / "mapping" / "mapping-table.xlsx"; wb.save(out)
-print(f"wrote {out.relative_to(ROOT)} ({len(SHEETS)} data tabs + README)")
+print(f"wrote {out.relative_to(ROOT)} ({len(SHEETS)} data tabs + README + Open Issues [{r - 2}])")
