@@ -6,6 +6,7 @@ Usage: python3 scripts/export_xlsx.py  ->  mapping/mapping-table.xlsx
 Round-trip back: in Sheets, File > Download > CSV per tab into mapping/<name>.csv.
 """
 import csv
+import re
 from pathlib import Path
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
@@ -71,8 +72,9 @@ for title, fn in SHEETS:
             ws.conditional_formatting.add(f"{sc}2:{sc}{last}",
                 CellIsRule(operator="equal", formula=[f'"{st}"'], fill=PatternFill("solid", fgColor=hexc)))
 
-# ---- computed "Open Issues" tab: every DRAFT/TODO row + rows flagged for confirmation ----
-FLAGWORDS = ("confirm", "verify", "caveat", "unreliable", "questionable")
+# ---- computed "Open Issues" tab: every DRAFT/TODO row + rows explicitly flagged for action ----
+# word-boundary so "confirm"/"verify" match but resolved prose ("confirmed", "verification") does not
+FLAG_RE = re.compile(r"\b(confirm|verify|caveat|unreliable|questionable|tbd)\b", re.I)
 oi = wb.create_sheet("Open Issues", index=1)   # right after README
 for c, name in enumerate(["tab", "path", "status", "mii_module", "fhir_element", "issue / reason"], start=1):
     cell = oi.cell(row=1, column=c, value=name); cell.font = Font(bold=True); cell.fill = hdr_tgt; cell.border = border
@@ -82,8 +84,8 @@ r = 2
 for title, fn in SHEETS:
     for row in csv.DictReader(open(ROOT / "mapping" / fn)):
         st = (row.get("status") or "").upper()
-        blob = (row.get("transform", "") + " " + row.get("notes", "")).lower()
-        if st not in ("DRAFT", "TODO") and not any(w in blob for w in FLAGWORDS):
+        text = (row.get("transform", "") or "") + " " + (row.get("notes", "") or "")
+        if st not in ("DRAFT", "TODO") and not FLAG_RE.search(text):
             continue
         seg = [s.strip() for s in (row.get("notes") or "").split("|")
                if any(k in s.lower() for k in ("num-omics", "clin-resolve", "verify", "confirm", "caveat"))]
