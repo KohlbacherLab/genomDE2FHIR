@@ -3,6 +3,11 @@
 Deep terminology / coded-value audit of the genomDE→MII mapping — automates the manual
 "NUM-OMICS" review that caught wrong LOINC codes (e.g. `94195-5`=CPT2 cited for an HRD field).
 
+> **Mandatory review gate.** This check is a required part of *every* adversarial review of the
+> mapping table — run it alongside the clinical/structural pass and resolve all INVALID/MISMATCH
+> findings + confirm catch-all-enum coverage before the review is complete. Structural FHIR
+> validation cannot catch a valid-but-wrong code; only this terminology-server check can.
+
 ```bash
 python3 scripts/check_terminology.py            # -> docs/TERMINOLOGY-CHECK.md
 python3 scripts/check_terminology.py --tx URL   # use another FHIR terminology server
