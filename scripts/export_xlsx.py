@@ -32,21 +32,7 @@ src_fill = PatternFill("solid", fgColor="F2F2F2")
 thin = Side(style="thin", color="DDDDDD"); border = Border(thin, thin, thin, thin)
 
 wb = Workbook()
-lg = wb.active; lg.title = "README"
-lg["A1"] = "genomDE Datenkranz → mapping tables (FHIR/MII-KDS + OMOP CDM)"; lg["A1"].font = Font(bold=True, size=14)
-for i, t in enumerate([
- "", "Three FHIR/MII-KDS mapping tabs (GRZ & KDK kept separate). The OMOP-CDM tables are",
- "kept OUT of this sheet by request — they live in git (mapping/mapping_omop_*.csv).",
- "Columns A–G (grey) = schema-derived skeleton: DO NOT EDIT.",
- "Target cols: mii_module, mii_profile, fhir_element, transform, status, notes.",
- "status dropdown: MAPPED / DRAFT / NOMAP / TODO / REMOVED?  (colour-coded).",
- "",
- "Authoritative source of truth = the CSVs in git (KohlbacherLab/genomDE2FHIR, mapping/).",
- "Pull edits back with scripts/sync_from_sheet.py (XLSX export — preserves cell comments).",
- "Reviewer comments flow via native cell COMMENTS (ingest_sheet_comments.py), not the notes column.",
-], start=2):
-    lg.cell(row=i, column=1, value=t)
-lg.column_dimensions["A"].width = 110
+_default = wb.active            # empty default sheet; removed after the data tabs are added
 
 for title, fn in SHEETS:
     rows = list(csv.DictReader(open(ROOT / "mapping" / fn)))
@@ -75,7 +61,7 @@ for title, fn in SHEETS:
 # ---- computed "Open Issues" tab: every DRAFT/TODO row + rows explicitly flagged for action ----
 # word-boundary so "confirm"/"verify" match but resolved prose ("confirmed", "verification") does not
 FLAG_RE = re.compile(r"\b(confirm|verify|caveat|unreliable|questionable|tbd)\b", re.I)
-oi = wb.create_sheet("Open Issues", index=1)   # right after README
+oi = wb.create_sheet("Open Issues")            # appended last
 for c, name in enumerate(["tab", "path", "status", "mii_module", "fhir_element", "issue / reason"], start=1):
     cell = oi.cell(row=1, column=c, value=name); cell.font = Font(bold=True); cell.fill = hdr_tgt; cell.border = border
 for c, w in enumerate([16, 46, 9, 13, 32, 70], start=1):
@@ -100,5 +86,6 @@ for title, fn in SHEETS:
         r += 1
 oi.freeze_panes = "A2"; oi.auto_filter.ref = f"A1:F{r - 1}"
 
+wb.remove(_default)            # drop the empty default sheet (no README tab)
 out = ROOT / "mapping" / "mapping-table.xlsx"; wb.save(out)
-print(f"wrote {out.relative_to(ROOT)} ({len(SHEETS)} data tabs + README + Open Issues [{r - 2}])")
+print(f"wrote {out.relative_to(ROOT)} ({len(SHEETS)} data tabs + Open Issues [{r - 2}])")
