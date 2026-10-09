@@ -1,0 +1,54 @@
+{
+ "resourceType": "StructureDefinition",
+ "id": "mvgs-ex-metachronous-tumor",
+ "url": "https://genomde.de/fhir/StructureDefinition/mvgs-ex-metachronous-tumor",
+ "version": "0.1.0",
+ "name": "MVGS_EX_METACHRONOUS_TUMOR",
+ "title": "Metachronous tumour observed",
+ "status": "draft",
+ "experimental": false,
+ "publisher": "KohlbacherLab (genomDE2FHIR)",
+ "description": "Whether metachronous tumours were observed at a follow-up (KDK followUp.followUpOds[].metachroneDiagnoses). MII has no element for the flag (DISCUSS-TD #4): from 2027 a true flag with diagnoses is derived from follow-up Conditions carrying extension:occurredFollowing -> primary tumour; this extension keeps the flag when it cannot be derived (false, true without diagnoses, profile set 2026).",
+ "fhirVersion": "4.0.1",
+ "kind": "complex-type",
+ "abstract": false,
+ "context": [
+  {
+   "type": "element",
+   "expression": "Observation"
+  }
+ ],
+ "type": "Extension",
+ "baseDefinition": "http://hl7.org/fhir/StructureDefinition/Extension",
+ "derivation": "constraint",
+ "differential": {
+  "element": [
+   {
+    "id": "Extension",
+    "path": "Extension",
+    "short": "Metachronous tumour observed",
+    "definition": "Whether metachronous tumours were observed at a follow-up (KDK followUp.followUpOds[].metachroneDiagnoses). MII has no element for the flag (DISCUSS-TD #4): from 2027 a true flag with diagnoses is derived from follow-up Conditions carrying extension:occurredFollowing -> primary tumour; this extension keeps the flag when it cannot be derived (false, true without diagnoses, profile set 2026)."
+   },
+   {
+    "id": "Extension.extension",
+    "path": "Extension.extension",
+    "max": "0"
+   },
+   {
+    "id": "Extension.url",
+    "path": "Extension.url",
+    "fixedUri": "https://genomde.de/fhir/StructureDefinition/mvgs-ex-metachronous-tumor"
+   },
+   {
+    "id": "Extension.value[x]",
+    "path": "Extension.value[x]",
+    "min": 1,
+    "type": [
+     {
+      "code": "boolean"
+     }
+    ]
+   }
+  ]
+ }
+}

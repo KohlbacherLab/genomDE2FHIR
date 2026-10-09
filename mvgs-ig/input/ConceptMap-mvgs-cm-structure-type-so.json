@@ -1,0 +1,92 @@
+{
+ "resourceType": "ConceptMap",
+ "id": "mvgs-cm-structure-type-so",
+ "url": "https://genomde.de/fhir/ConceptMap/mvgs-cm-structure-type-so",
+ "version": "0.1.0",
+ "name": "MVGS_CM_STRUCTURE_TYPE_SO",
+ "title": "MV-GenomSeq structural variant type to Sequence Ontology",
+ "status": "draft",
+ "experimental": false,
+ "publisher": "KohlbacherLab (genomDE2FHIR)",
+ "description": "KDK structuralVariants[].structureType to the SO code for `component:coding-change-type` (LOINC 48019-4, GR dna-change-type-vs, extensible) on mii-pr-mtb-dna-fusion / -rna-fusion (REVIEW-TD-2026-10-06 A, REPRESENTATIONS #11).",
+ "sourceUri": "https://genomde.de/fhir/ValueSet/mvgs-vs-structure-type",
+ "targetUri": "http://hl7.org/fhir/uv/genomics-reporting/ValueSet/dna-change-type-vs",
+ "group": [
+  {
+   "source": "https://genomde.de/fhir/CodeSystem/mvgs-cs-structure-type",
+   "target": "http://www.sequenceontology.org",
+   "element": [
+    {
+     "code": "translocation",
+     "display": "Translocation",
+     "target": [
+      {
+       "code": "SO:0000199",
+       "display": "translocation",
+       "equivalence": "equivalent"
+      }
+     ]
+    },
+    {
+     "code": "translocationWithCodingRegion",
+     "display": "Translocation with coding region",
+     "target": [
+      {
+       "code": "SO:0000199",
+       "display": "translocation",
+       "equivalence": "wider",
+       "comment": "coding-region qualifier not expressible in SO; kept as second coding"
+      }
+     ]
+    },
+    {
+     "code": "translocationWithNonCodingRegion",
+     "display": "Translocation with non-coding region",
+     "target": [
+      {
+       "code": "SO:0000199",
+       "display": "translocation",
+       "equivalence": "wider",
+       "comment": "non-coding-region qualifier not expressible in SO; kept as second coding"
+      }
+     ]
+    },
+    {
+     "code": "inversion",
+     "display": "Inversion",
+     "target": [
+      {
+       "code": "SO:1000036",
+       "display": "inversion",
+       "equivalence": "equivalent"
+      }
+     ]
+    },
+    {
+     "code": "deletionOfGeneSegments",
+     "display": "Deletion of gene segments",
+     "target": [
+      {
+       "code": "SO:0000159",
+       "display": "deletion",
+       "equivalence": "wider",
+       "comment": "gene-segment scope not expressible in SO"
+      }
+     ]
+    },
+    {
+     "code": "duplicationOfGeneSegments",
+     "display": "Duplication of gene segments",
+     "target": [
+      {
+       "code": "SO:1000035",
+       "display": "duplication",
+       "equivalence": "wider",
+       "comment": "gene-segment scope not expressible in SO"
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

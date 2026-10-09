@@ -1,0 +1,47 @@
+{
+ "resourceType": "CodeSystem",
+ "id": "mvgs-cs-hospitalization-periods",
+ "url": "https://genomde.de/fhir/CodeSystem/mvgs-cs-hospitalization-periods",
+ "version": "0.1.0",
+ "name": "MVGS_CS_HOSPITALIZATION_PERIODS",
+ "title": "MV-GenomSeq hospitalisation periods (banded count, last five years)",
+ "status": "draft",
+ "experimental": false,
+ "publisher": "KohlbacherLab (genomDE2FHIR)",
+ "description": "Number of inpatient treatments in the last five years, banded as delivered by the BfArM Datenkranz (KDK rare disease case.priorRds[].hospitalizationPeriods). Interim until the Seltene module ships a concept (ballot comment HDB-975; DISCUSS-TD #33, REPRESENTATIONS #33). Band codes are the KDK literals; 'unknown' is not a code (Observation.dataAbsentReason). The concept 'hospitalization-periods' is the Observation.code; it is not part of the value set mvgs-vs-hospitalization-periods (band codes only), so CodeSystem.valueSet (whole code system) is not set.",
+ "caseSensitive": true,
+ "content": "complete",
+ "count": 6,
+ "concept": [
+  {
+   "code": "hospitalization-periods",
+   "display": "Number of inpatient treatments in the last five years (banded)",
+   "definition": "Number of inpatient stays related to the rare disease in the five years before the current case (KDK hospitalizationPeriods)."
+  },
+  {
+   "code": "none",
+   "display": "None",
+   "definition": "No inpatient treatment."
+  },
+  {
+   "code": "upToFive",
+   "display": "Up to 5",
+   "definition": "1 to 5 inpatient treatments."
+  },
+  {
+   "code": "upToTen",
+   "display": "Up to 10",
+   "definition": "6 to 10 inpatient treatments."
+  },
+  {
+   "code": "upToFifteen",
+   "display": "Up to 15",
+   "definition": "11 to 15 inpatient treatments."
+  },
+  {
+   "code": "moreThanFifteen",
+   "display": "More than 15",
+   "definition": "More than 15 inpatient treatments."
+  }
+ ]
+}

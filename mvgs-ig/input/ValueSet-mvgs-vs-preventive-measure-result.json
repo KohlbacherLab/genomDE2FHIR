@@ -1,0 +1,30 @@
+{
+ "resourceType": "ValueSet",
+ "id": "mvgs-vs-preventive-measure-result",
+ "url": "https://genomde.de/fhir/ValueSet/mvgs-vs-preventive-measure-result",
+ "version": "0.1.0",
+ "name": "MVGS_VS_PREVENTIVE_MEASURE_RESULT",
+ "title": "MV-GenomSeq preventive measure result values",
+ "status": "draft",
+ "experimental": false,
+ "publisher": "KohlbacherLab (genomDE2FHIR)",
+ "description": "Result values of a preventive measure (noFindings, malignoma, unclear).",
+ "compose": {
+  "include": [
+   {
+    "system": "https://genomde.de/fhir/CodeSystem/mvgs-cs-preventive-measure-result",
+    "concept": [
+     {
+      "code": "noFindings"
+     },
+     {
+      "code": "malignoma"
+     },
+     {
+      "code": "unclear"
+     }
+    ]
+   }
+  ]
+ }
+}

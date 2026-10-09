@@ -1,0 +1,32 @@
+{
+ "resourceType": "CodeSystem",
+ "id": "mvgs-cs-grz-study-subtype",
+ "url": "https://genomde.de/fhir/CodeSystem/mvgs-cs-grz-study-subtype",
+ "version": "0.1.0",
+ "name": "MVGS_CS_GRZ_STUDY_SUBTYPE",
+ "title": "MV-GenomSeq genomic study subtype",
+ "status": "draft",
+ "experimental": false,
+ "publisher": "KohlbacherLab (genomDE2FHIR)",
+ "description": "Which genomes a GRZ genomic study sequences (BfArM GRZ submission.genomicStudySubtype). GR genomic-study-type-vs (example binding of the genomic study code) has no concept for it.",
+ "caseSensitive": true,
+ "content": "complete",
+ "count": 3,
+ "concept": [
+  {
+   "code": "tumor-only",
+   "display": "Tumor only",
+   "definition": "Only tumor (somatic) material of the index patient is sequenced."
+  },
+  {
+   "code": "tumor+germline",
+   "display": "Tumor and germline",
+   "definition": "Tumor (somatic) and germline material of the index patient are sequenced."
+  },
+  {
+   "code": "germline-only",
+   "display": "Germline only",
+   "definition": "Only germline material is sequenced."
+  }
+ ]
+}

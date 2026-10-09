@@ -1,0 +1,41 @@
+{
+ "resourceType": "ValueSet",
+ "id": "mvgs-vs-hospitalization-periods",
+ "url": "https://genomde.de/fhir/ValueSet/mvgs-vs-hospitalization-periods",
+ "version": "0.1.0",
+ "name": "MVGS_VS_HOSPITALIZATION_PERIODS",
+ "title": "MV-GenomSeq hospitalisation periods (banded count, last five years)",
+ "status": "draft",
+ "experimental": false,
+ "publisher": "KohlbacherLab (genomDE2FHIR)",
+ "description": "Band codes of MV-GenomSeq hospitalisation periods (banded count, last five years) (the Observation.code concept is excluded).",
+ "compose": {
+  "include": [
+   {
+    "system": "https://genomde.de/fhir/CodeSystem/mvgs-cs-hospitalization-periods",
+    "concept": [
+     {
+      "code": "none",
+      "display": "None"
+     },
+     {
+      "code": "upToFive",
+      "display": "Up to 5"
+     },
+     {
+      "code": "upToTen",
+      "display": "Up to 10"
+     },
+     {
+      "code": "upToFifteen",
+      "display": "Up to 15"
+     },
+     {
+      "code": "moreThanFifteen",
+      "display": "More than 15"
+     }
+    ]
+   }
+  ]
+ }
+}

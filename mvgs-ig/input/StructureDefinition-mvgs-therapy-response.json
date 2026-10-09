@@ -1,0 +1,120 @@
+{
+ "resourceType": "StructureDefinition",
+ "id": "mvgs-therapy-response",
+ "url": "https://genomde.de/fhir/StructureDefinition/mvgs-therapy-response",
+ "version": "0.1.0",
+ "name": "MVGS_THERAPY_RESPONSE",
+ "title": "MV-GenomSeq therapy response",
+ "status": "draft",
+ "experimental": false,
+ "publisher": "KohlbacherLab (genomDE2FHIR)",
+ "description": "Response of the tumour to a performed systemic therapy as reported in the genomDE KDK follow-up (followUp.followUpOds[].therapies[].therapyResponse / .therapyResponseDate / .therapyResponseSource). Local profile on core Observation because mii-pr-mtb-response-befund requires Observation.method 1..1 (RECIST/RANO), which genomDE does not transmit (DISCUSS-TD #14). Response code from the MII MTB CodeSystem mii-cs-mtb-response-befund-beurteilung; the data source (Arztbrief, Tumordokumentation, ...) goes to note.",
+ "fhirVersion": "4.0.1",
+ "kind": "resource",
+ "abstract": false,
+ "type": "Observation",
+ "baseDefinition": "http://hl7.org/fhir/StructureDefinition/Observation",
+ "derivation": "constraint",
+ "differential": {
+  "element": [
+   {
+    "id": "Observation",
+    "path": "Observation",
+    "short": "Therapy response (genomDE follow-up)",
+    "definition": "Response of the tumour to a performed systemic therapy as reported in the genomDE KDK follow-up (followUp.followUpOds[].therapies[].therapyResponse / .therapyResponseDate / .therapyResponseSource). Local profile on core Observation because mii-pr-mtb-response-befund requires Observation.method 1..1 (RECIST/RANO), which genomDE does not transmit (DISCUSS-TD #14). Response code from the MII MTB CodeSystem mii-cs-mtb-response-befund-beurteilung; the data source (Arztbrief, Tumordokumentation, ...) goes to note."
+   },
+   {
+    "id": "Observation.partOf",
+    "path": "Observation.partOf",
+    "short": "Assessed systemic therapy",
+    "mustSupport": true,
+    "type": [
+     {
+      "code": "Reference",
+      "targetProfile": [
+       "http://hl7.org/fhir/StructureDefinition/Procedure"
+      ]
+     }
+    ]
+   },
+   {
+    "id": "Observation.status",
+    "path": "Observation.status",
+    "mustSupport": true
+   },
+   {
+    "id": "Observation.code",
+    "path": "Observation.code",
+    "mustSupport": true,
+    "patternCodeableConcept": {
+     "coding": [
+      {
+       "system": "http://snomed.info/sct",
+       "code": "396432002"
+      }
+     ]
+    }
+   },
+   {
+    "id": "Observation.subject",
+    "path": "Observation.subject",
+    "min": 1,
+    "mustSupport": true,
+    "type": [
+     {
+      "code": "Reference",
+      "targetProfile": [
+       "http://hl7.org/fhir/StructureDefinition/Patient"
+      ]
+     }
+    ]
+   },
+   {
+    "id": "Observation.focus",
+    "path": "Observation.focus",
+    "short": "Tumour (primary diagnosis) whose response is assessed",
+    "mustSupport": true,
+    "type": [
+     {
+      "code": "Reference",
+      "targetProfile": [
+       "http://hl7.org/fhir/StructureDefinition/Condition"
+      ]
+     }
+    ]
+   },
+   {
+    "id": "Observation.effective[x]",
+    "path": "Observation.effective[x]",
+    "short": "Date of the response assessment",
+    "mustSupport": true,
+    "type": [
+     {
+      "code": "dateTime"
+     }
+    ]
+   },
+   {
+    "id": "Observation.value[x]",
+    "path": "Observation.value[x]",
+    "min": 1,
+    "mustSupport": true,
+    "type": [
+     {
+      "code": "CodeableConcept"
+     }
+    ],
+    "binding": {
+     "strength": "required",
+     "valueSet": "https://www.medizininformatik-initiative.de/fhir/ext/modul-mtb/ValueSet/mii-vs-mtb-response-befund-beurteilung"
+    }
+   },
+   {
+    "id": "Observation.note",
+    "path": "Observation.note",
+    "short": "Data source of the response information",
+    "mustSupport": true
+   }
+  ]
+ }
+}

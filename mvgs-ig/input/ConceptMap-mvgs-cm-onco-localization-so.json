@@ -1,0 +1,54 @@
+{
+ "resourceType": "ConceptMap",
+ "id": "mvgs-cm-onco-localization-so",
+ "url": "https://genomde.de/fhir/ConceptMap/mvgs-cm-onco-localization-so",
+ "version": "0.1.0",
+ "name": "MVGS_CM_ONCO_LOCALIZATION_SO",
+ "title": "MV-GenomSeq oncology variant localization to Sequence Ontology",
+ "status": "draft",
+ "experimental": false,
+ "publisher": "KohlbacherLab (genomDE2FHIR)",
+ "description": "KDK oncology molecular.*[].localization (coding, inRegulatoryElements, notInCodingAndNotInRegulatoryElements; source: DatenkranzOncology logical model) to SO terms for mii-pr-molgen-molekulare-konsequenz.component:feature-consequence (GR molecular-consequence-vs, SO is-a SO:0001537). notInCodingAndNotInRegulatoryElements has no single SO term and maps to the value-set root SO:0001537 (wider; the source value is kept as CodeableConcept.text). Interim until HDB-976 (DISCUSS-TD #26).",
+ "targetUri": "http://hl7.org/fhir/uv/genomics-reporting/ValueSet/molecular-consequence-vs",
+ "group": [
+  {
+   "target": "http://www.sequenceontology.org",
+   "element": [
+    {
+     "code": "coding",
+     "display": "Variant located in a coding region",
+     "target": [
+      {
+       "code": "SO:0001580",
+       "display": "coding_sequence_variant",
+       "equivalence": "equivalent"
+      }
+     ]
+    },
+    {
+     "code": "inRegulatoryElements",
+     "display": "Variant located in regulatory elements",
+     "target": [
+      {
+       "code": "SO:0001566",
+       "display": "regulatory_region_variant",
+       "equivalence": "equivalent"
+      }
+     ]
+    },
+    {
+     "code": "notInCodingAndNotInRegulatoryElements",
+     "display": "Variant located neither in coding nor in regulatory elements",
+     "target": [
+      {
+       "code": "SO:0001537",
+       "display": "structural_variant",
+       "equivalence": "wider",
+       "comment": "Lossy: no SO term for 'neither coding nor regulatory'; the molecular-consequence-vs root is used and the source value is carried as text."
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

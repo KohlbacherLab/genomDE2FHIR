@@ -1,0 +1,71 @@
+{
+ "resourceType": "ConceptMap",
+ "id": "mvgs-cm-grz-sample-conservation-sct",
+ "url": "https://genomde.de/fhir/ConceptMap/mvgs-cm-grz-sample-conservation-sct",
+ "version": "0.1.0",
+ "name": "MVGS_CM_GRZ_SAMPLE_CONSERVATION_SCT",
+ "title": "MV-GenomSeq GRZ sample conservation to SNOMED CT processing",
+ "status": "draft",
+ "experimental": false,
+ "publisher": "KohlbacherLab (genomDE2FHIR)",
+ "description": "GRZ labData.sampleConservation to the SNOMED CT laboratory procedure of Specimen.processing.procedure (coding:sct, mii-vs-biobank-laboratory-procedure-sct, preferred). No storage temperature is derived.",
+ "sourceUri": "https://genomde.de/fhir/ValueSet/mvgs-vs-grz-sample-conservation",
+ "targetUri": "https://www.medizininformatik-initiative.de/fhir/ext/modul-biobank/ValueSet/mii-vs-biobank-laboratory-procedure-sct",
+ "group": [
+  {
+   "source": "https://genomde.de/fhir/CodeSystem/mvgs-cs-grz-sample-conservation",
+   "target": "http://snomed.info/sct",
+   "element": [
+    {
+     "code": "ffpe",
+     "display": "FFPE",
+     "target": [
+      {
+       "code": "787376009",
+       "display": "Preparation of formalin fixed paraffin embedded tissue specimen",
+       "equivalence": "equivalent"
+      }
+     ]
+    },
+    {
+     "code": "cryo-frozen",
+     "display": "Cryo-frozen",
+     "target": [
+      {
+       "code": "27872000",
+       "display": "Specimen freezing",
+       "equivalence": "wider"
+      }
+     ]
+    },
+    {
+     "code": "fresh-tissue",
+     "display": "Fresh tissue",
+     "target": [
+      {
+       "equivalence": "unmatched"
+      }
+     ]
+    },
+    {
+     "code": "other",
+     "display": "Other",
+     "target": [
+      {
+       "equivalence": "unmatched"
+      }
+     ]
+    },
+    {
+     "code": "unknown",
+     "display": "Unknown",
+     "target": [
+      {
+       "equivalence": "unmatched"
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

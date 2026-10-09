@@ -1,0 +1,66 @@
+{
+ "resourceType": "StructureDefinition",
+ "id": "mvgs-ex-genomic-study-design",
+ "url": "https://genomde.de/fhir/StructureDefinition/mvgs-ex-genomic-study-design",
+ "version": "0.1.0",
+ "name": "MVGS_EX_GENOMIC_STUDY_DESIGN",
+ "title": "Genomic study design",
+ "status": "draft",
+ "experimental": false,
+ "publisher": "KohlbacherLab (genomDE2FHIR)",
+ "description": "Study design (single/duo/trio) of a genomic study; no MII element exists (DISCUSS-TD #31).",
+ "fhirVersion": "4.0.1",
+ "kind": "complex-type",
+ "abstract": false,
+ "context": [
+  {
+   "type": "element",
+   "expression": "Procedure"
+  },
+  {
+   "type": "element",
+   "expression": "ServiceRequest"
+  },
+  {
+   "type": "element",
+   "expression": "DiagnosticReport"
+  }
+ ],
+ "type": "Extension",
+ "baseDefinition": "http://hl7.org/fhir/StructureDefinition/Extension",
+ "derivation": "constraint",
+ "differential": {
+  "element": [
+   {
+    "id": "Extension",
+    "path": "Extension",
+    "short": "Genomic study design",
+    "definition": "Study design (single/duo/trio) of a genomic study; no MII element exists (DISCUSS-TD #31)."
+   },
+   {
+    "id": "Extension.extension",
+    "path": "Extension.extension",
+    "max": "0"
+   },
+   {
+    "id": "Extension.url",
+    "path": "Extension.url",
+    "fixedUri": "https://genomde.de/fhir/StructureDefinition/mvgs-ex-genomic-study-design"
+   },
+   {
+    "id": "Extension.value[x]",
+    "path": "Extension.value[x]",
+    "min": 1,
+    "type": [
+     {
+      "code": "Coding"
+     }
+    ],
+    "binding": {
+     "strength": "required",
+     "valueSet": "https://genomde.de/fhir/ValueSet/mvgs-vs-genomic-study-design"
+    }
+   }
+  ]
+ }
+}

@@ -1,0 +1,30 @@
+{
+ "resourceType": "ValueSet",
+ "id": "mvgs-vs-finding-category",
+ "url": "https://genomde.de/fhir/ValueSet/mvgs-vs-finding-category",
+ "version": "0.1.0",
+ "name": "MVGS_VS_FINDING_CATEGORY",
+ "title": "MV-GenomSeq finding category",
+ "status": "draft",
+ "experimental": false,
+ "publisher": "KohlbacherLab (genomDE2FHIR)",
+ "description": "Values of the MV-GenomSeq finding category (without the component code).",
+ "compose": {
+  "include": [
+   {
+    "system": "https://genomde.de/fhir/CodeSystem/mvgs-cs-finding-category",
+    "concept": [
+     {
+      "code": "primary"
+     },
+     {
+      "code": "incidental"
+     },
+     {
+      "code": "candidate"
+     }
+    ]
+   }
+  ]
+ }
+}

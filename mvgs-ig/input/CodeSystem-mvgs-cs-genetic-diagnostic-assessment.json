@@ -1,0 +1,49 @@
+{
+ "resourceType": "CodeSystem",
+ "id": "mvgs-cs-genetic-diagnostic-assessment",
+ "url": "https://genomde.de/fhir/CodeSystem/mvgs-cs-genetic-diagnostic-assessment",
+ "version": "0.1.0",
+ "name": "MVGS_CS_GENETIC_DIAGNOSTIC_ASSESSMENT",
+ "title": "MV-GenomSeq evaluation of genetic diagnostics (hereditary tumour cases)",
+ "status": "draft",
+ "experimental": false,
+ "publisher": "KohlbacherLab (genomDE2FHIR)",
+ "description": "KDK oncology diagnosisOd.diagnosticAssessment (evaluation of genetic diagnostics, hereditary-tumour cases only). No MII Onko/MTB concept exists (DISCUSS-TD #5, REPRESENTATIONS #5): the converter emits an Observation whose code is `genetic-diagnostic-assessment` and whose value is one of the five assessment codes (codes = KDK enum values, 1:1).",
+ "caseSensitive": true,
+ "valueSet": "https://genomde.de/fhir/ValueSet/mvgs-vs-genetic-diagnostic-assessment",
+ "hierarchyMeaning": "is-a",
+ "content": "complete",
+ "count": 6,
+ "concept": [
+  {
+   "code": "genetic-diagnostic-assessment",
+   "display": "Evaluation of genetic diagnostics",
+   "definition": "Observation code: overall evaluation of the genetic diagnostics performed for a (suspected) hereditary tumour syndrome (KDK diagnosisOd.diagnosticAssessment). Not an answer value."
+  },
+  {
+   "code": "noGeneticDiagnosis",
+   "display": "No genetic diagnosis",
+   "definition": "Genetic diagnostics did not establish a genetic diagnosis."
+  },
+  {
+   "code": "suspectedGeneticDiagnosis",
+   "display": "Suspected genetic diagnosis",
+   "definition": "A genetic diagnosis is suspected but not confirmed."
+  },
+  {
+   "code": "furtherGeneticDiagnosticRecommended",
+   "display": "Further genetic diagnostics recommended",
+   "definition": "Further genetic diagnostics are recommended."
+  },
+  {
+   "code": "confirmedGeneticDiagnosis",
+   "display": "Confirmed genetic diagnosis",
+   "definition": "A genetic diagnosis is confirmed."
+  },
+  {
+   "code": "partialGeneticDiagnosis",
+   "display": "Partial genetic diagnosis",
+   "definition": "A genetic diagnosis explains the findings only partially."
+  }
+ ]
+}

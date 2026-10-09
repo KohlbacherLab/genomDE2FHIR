@@ -1,0 +1,43 @@
+{
+ "resourceType": "CodeSystem",
+ "id": "mvgs-cs-mv-rejection-reason",
+ "url": "https://genomde.de/fhir/CodeSystem/mvgs-cs-mv-rejection-reason",
+ "version": "0.1.0",
+ "name": "MVGS_CS_MV_REJECTION_REASON",
+ "title": "MV-GenomSeq reason for not including a case",
+ "status": "draft",
+ "experimental": false,
+ "publisher": "KohlbacherLab (genomDE2FHIR)",
+ "description": "Reason for the negative inclusion decision of the indication board (BfArM KDK metaData.rejectionJustification); codes = BfArM enumeration values.",
+ "caseSensitive": true,
+ "valueSet": "https://genomde.de/fhir/ValueSet/mvgs-vs-mv-rejection-reason",
+ "content": "complete",
+ "count": 5,
+ "concept": [
+  {
+   "code": "targetedDiagnosticRecommended",
+   "display": "Gezielte Diagnostik empfohlen",
+   "definition": "Targeted diagnostics recommended instead."
+  },
+  {
+   "code": "probablyPsychosomaticIllness",
+   "display": "Wahrscheinlich psychosomatische Erkrankung",
+   "definition": "Probably a psychosomatic illness."
+  },
+  {
+   "code": "probablyCommonDisease",
+   "display": "Wahrscheinlich häufige Erkrankung",
+   "definition": "Probably a common disease."
+  },
+  {
+   "code": "probablyNoGeneticCause",
+   "display": "Wahrscheinlich keine genetische Ursache",
+   "definition": "Probably no genetic cause."
+  },
+  {
+   "code": "otherReason",
+   "display": "Anderer Grund",
+   "definition": "Another reason."
+  }
+ ]
+}

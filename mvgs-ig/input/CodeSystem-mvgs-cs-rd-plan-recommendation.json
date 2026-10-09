@@ -1,0 +1,81 @@
+{
+ "resourceType": "CodeSystem",
+ "id": "mvgs-cs-rd-plan-recommendation",
+ "url": "https://genomde.de/fhir/CodeSystem/mvgs-cs-rd-plan-recommendation",
+ "version": "0.1.0",
+ "name": "MVGS_CS_RD_PLAN_RECOMMENDATION",
+ "title": "MV-GenomSeq rare-disease care plan recommendations",
+ "status": "draft",
+ "experimental": false,
+ "publisher": "KohlbacherLab (genomDE2FHIR)",
+ "description": "Recommendation flags of the KDK rare-disease care plan (carePlanRd.*Recommended) and the clinical management settings (clinicalManagementDescriptions[]) as CarePlan.activity.detail.code; mii-pr-seltene-therapieplan has no coded slot for them.",
+ "caseSensitive": true,
+ "hierarchyMeaning": "is-a",
+ "valueSet": "https://genomde.de/fhir/ValueSet/mvgs-vs-rd-plan-recommendation",
+ "content": "complete",
+ "count": 12,
+ "concept": [
+  {
+   "code": "study-inclusion",
+   "display": "Study inclusion recommended",
+   "definition": "Participation in a clinical study recommended (KDK carePlanRd.studyRecommended = true)."
+  },
+  {
+   "code": "genetic-counselling",
+   "display": "Human genetic counselling recommended",
+   "definition": "KDK carePlanRd.counsellingRecommended = true."
+  },
+  {
+   "code": "re-evaluation",
+   "display": "Re-evaluation recommended",
+   "definition": "Re-evaluation of the case/diagnostics recommended (KDK carePlanRd.reEvaluationRecommended = true)."
+  },
+  {
+   "code": "therapy",
+   "display": "Therapy recommended",
+   "definition": "KDK carePlanRd.therapyRecommended = true; the individual recommendations are separate Therapieempfehlung resources."
+  },
+  {
+   "code": "clinical-management",
+   "display": "Clinical management recommended",
+   "definition": "KDK carePlanRd.clinicalManagementRecommended = true; child concepts give the recommended setting (KDK clinicalManagementDescriptions[], ref. TNAMSE).",
+   "concept": [
+    {
+     "code": "diseaseSpecificAmbulatoryCare",
+     "display": "Disease-specific ambulatory care",
+     "definition": "Clinical management setting (KDK clinicalManagementDescriptions[] = diseaseSpecificAmbulatoryCare)."
+    },
+    {
+     "code": "universityAmbulatoryCare",
+     "display": "University ambulatory care",
+     "definition": "Clinical management setting (KDK clinicalManagementDescriptions[] = universityAmbulatoryCare)."
+    },
+    {
+     "code": "localCrd",
+     "display": "Local centre for rare diseases",
+     "definition": "Clinical management setting (KDK clinicalManagementDescriptions[] = localCrd)."
+    },
+    {
+     "code": "otherCrd",
+     "display": "Other centre for rare diseases",
+     "definition": "Clinical management setting (KDK clinicalManagementDescriptions[] = otherCrd)."
+    },
+    {
+     "code": "otherAmbulatoryCare",
+     "display": "Other ambulatory care",
+     "definition": "Clinical management setting (KDK clinicalManagementDescriptions[] = otherAmbulatoryCare)."
+    },
+    {
+     "code": "gp",
+     "display": "General practitioner",
+     "definition": "Clinical management setting (KDK clinicalManagementDescriptions[] = gp)."
+    },
+    {
+     "code": "specialist",
+     "display": "Specialist",
+     "definition": "Clinical management setting (KDK clinicalManagementDescriptions[] = specialist)."
+    }
+   ]
+  }
+ ]
+}

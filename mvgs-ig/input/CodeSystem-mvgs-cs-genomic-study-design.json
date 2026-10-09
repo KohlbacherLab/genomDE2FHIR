@@ -1,0 +1,33 @@
+{
+ "resourceType": "CodeSystem",
+ "id": "mvgs-cs-genomic-study-design",
+ "url": "https://genomde.de/fhir/CodeSystem/mvgs-cs-genomic-study-design",
+ "version": "0.1.0",
+ "name": "MVGS_CS_GENOMIC_STUDY_DESIGN",
+ "title": "MV-GenomSeq genomic study design",
+ "status": "draft",
+ "experimental": false,
+ "publisher": "KohlbacherLab (genomDE2FHIR)",
+ "description": "Design of a genomic study: index alone or with parents (BfArM GRZ submission.genomicStudyType, KDK RD priorRds[].genomicStudyType). No MII or standard concept exists (DISCUSS-TD #31).",
+ "caseSensitive": true,
+ "valueSet": "https://genomde.de/fhir/ValueSet/mvgs-vs-genomic-study-design",
+ "content": "complete",
+ "count": 3,
+ "concept": [
+  {
+   "code": "single",
+   "display": "Single (index only)",
+   "definition": "Only the index patient is sequenced."
+  },
+  {
+   "code": "duo",
+   "display": "Duo",
+   "definition": "Index patient and one relative are sequenced."
+  },
+  {
+   "code": "trio",
+   "display": "Trio",
+   "definition": "Index patient and both parents are sequenced."
+  }
+ ]
+}

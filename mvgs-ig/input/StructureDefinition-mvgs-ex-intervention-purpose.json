@@ -1,0 +1,118 @@
+{
+ "resourceType": "StructureDefinition",
+ "id": "mvgs-ex-intervention-purpose",
+ "url": "https://genomde.de/fhir/StructureDefinition/mvgs-ex-intervention-purpose",
+ "version": "0.1.0",
+ "name": "MVGS_EX_INTERVENTION_PURPOSE",
+ "title": "Intervention purpose",
+ "status": "draft",
+ "experimental": false,
+ "publisher": "KohlbacherLab (genomDE2FHIR)",
+ "description": "Whether a recommended (surgical) intervention is therapeutic and/or risk-reducing (KDK OncologyPlan carePlanOd.suitableInterventions[] flags). mii-ex-onko-operation-intention covers performed operations only and has no risk-reducing code (DISCUSS-TD #5, REPRESENTATIONS #5).",
+ "fhirVersion": "4.0.1",
+ "kind": "complex-type",
+ "abstract": false,
+ "context": [
+  {
+   "type": "element",
+   "expression": "ServiceRequest"
+  },
+  {
+   "type": "element",
+   "expression": "Procedure"
+  }
+ ],
+ "type": "Extension",
+ "baseDefinition": "http://hl7.org/fhir/StructureDefinition/Extension",
+ "derivation": "constraint",
+ "differential": {
+  "element": [
+   {
+    "id": "Extension",
+    "path": "Extension",
+    "short": "Intervention purpose",
+    "definition": "Whether a recommended (surgical) intervention is therapeutic and/or risk-reducing (KDK OncologyPlan carePlanOd.suitableInterventions[] flags). mii-ex-onko-operation-intention covers performed operations only and has no risk-reducing code (DISCUSS-TD #5, REPRESENTATIONS #5)."
+   },
+   {
+    "id": "Extension.extension",
+    "path": "Extension.extension",
+    "slicing": {
+     "discriminator": [
+      {
+       "type": "value",
+       "path": "url"
+      }
+     ],
+     "rules": "closed"
+    },
+    "min": 2
+   },
+   {
+    "id": "Extension.extension:therapeutic",
+    "path": "Extension.extension",
+    "sliceName": "therapeutic",
+    "short": "Intervention is therapeutic",
+    "min": 1,
+    "max": "1"
+   },
+   {
+    "id": "Extension.extension:therapeutic.extension",
+    "path": "Extension.extension.extension",
+    "max": "0"
+   },
+   {
+    "id": "Extension.extension:therapeutic.url",
+    "path": "Extension.extension.url",
+    "fixedUri": "therapeutic"
+   },
+   {
+    "id": "Extension.extension:therapeutic.value[x]",
+    "path": "Extension.extension.value[x]",
+    "min": 1,
+    "type": [
+     {
+      "code": "boolean"
+     }
+    ]
+   },
+   {
+    "id": "Extension.extension:riskReducing",
+    "path": "Extension.extension",
+    "sliceName": "riskReducing",
+    "short": "Intervention is risk-reducing",
+    "min": 1,
+    "max": "1"
+   },
+   {
+    "id": "Extension.extension:riskReducing.extension",
+    "path": "Extension.extension.extension",
+    "max": "0"
+   },
+   {
+    "id": "Extension.extension:riskReducing.url",
+    "path": "Extension.extension.url",
+    "fixedUri": "riskReducing"
+   },
+   {
+    "id": "Extension.extension:riskReducing.value[x]",
+    "path": "Extension.extension.value[x]",
+    "min": 1,
+    "type": [
+     {
+      "code": "boolean"
+     }
+    ]
+   },
+   {
+    "id": "Extension.url",
+    "path": "Extension.url",
+    "fixedUri": "https://genomde.de/fhir/StructureDefinition/mvgs-ex-intervention-purpose"
+   },
+   {
+    "id": "Extension.value[x]",
+    "path": "Extension.value[x]",
+    "max": "0"
+   }
+  ]
+ }
+}

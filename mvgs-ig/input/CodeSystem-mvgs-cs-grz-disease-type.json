@@ -1,0 +1,32 @@
+{
+ "resourceType": "CodeSystem",
+ "id": "mvgs-cs-grz-disease-type",
+ "url": "https://genomde.de/fhir/CodeSystem/mvgs-cs-grz-disease-type",
+ "version": "0.1.0",
+ "name": "MVGS_CS_GRZ_DISEASE_TYPE",
+ "title": "MV-GenomSeq disease type",
+ "status": "draft",
+ "experimental": false,
+ "publisher": "KohlbacherLab (genomDE2FHIR)",
+ "description": "Disease area of an MV-GenomSeq GRZ submission (BfArM GRZ submission.diseaseType); used as genomic study reasonCode. The study profile follows it (oncological -> MTB, otherwise MolGen).",
+ "caseSensitive": true,
+ "content": "complete",
+ "count": 3,
+ "concept": [
+  {
+   "code": "oncological",
+   "display": "Oncological disease",
+   "definition": "Submission in the oncology track of the Modellvorhaben Genomsequenzierung."
+  },
+  {
+   "code": "rare",
+   "display": "Rare disease",
+   "definition": "Submission in the rare-disease track of the Modellvorhaben Genomsequenzierung."
+  },
+  {
+   "code": "hereditary",
+   "display": "Hereditary disease",
+   "definition": "Submission for a hereditary (germline-predisposition) indication."
+  }
+ ]
+}

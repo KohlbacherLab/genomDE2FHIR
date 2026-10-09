@@ -1,0 +1,48 @@
+{
+ "resourceType": "CodeSystem",
+ "id": "mvgs-cs-structure-type",
+ "url": "https://genomde.de/fhir/CodeSystem/mvgs-cs-structure-type",
+ "version": "0.1.0",
+ "name": "MVGS_CS_STRUCTURE_TYPE",
+ "title": "MV-GenomSeq structural variant type",
+ "status": "draft",
+ "experimental": false,
+ "publisher": "KohlbacherLab (genomDE2FHIR)",
+ "description": "Structural variant type of the BfArM KDK oncology data set (molecular.structuralVariants[].structureType). Kept as a second coding next to the Sequence Ontology code in `component:coding-change-type` (REPRESENTATIONS #11).",
+ "caseSensitive": true,
+ "valueSet": "https://genomde.de/fhir/ValueSet/mvgs-vs-structure-type",
+ "content": "complete",
+ "count": 6,
+ "concept": [
+  {
+   "code": "translocation",
+   "display": "Translocation",
+   "definition": "Translocation, coding status of the breakpoint region not specified."
+  },
+  {
+   "code": "translocationWithCodingRegion",
+   "display": "Translocation with coding region",
+   "definition": "Translocation involving a coding region."
+  },
+  {
+   "code": "translocationWithNonCodingRegion",
+   "display": "Translocation with non-coding region",
+   "definition": "Translocation involving a non-coding region."
+  },
+  {
+   "code": "inversion",
+   "display": "Inversion",
+   "definition": "Inversion."
+  },
+  {
+   "code": "deletionOfGeneSegments",
+   "display": "Deletion of gene segments",
+   "definition": "Deletion of gene segments (intragenic or multi-gene)."
+  },
+  {
+   "code": "duplicationOfGeneSegments",
+   "display": "Duplication of gene segments",
+   "definition": "Duplication of gene segments."
+  }
+ ]
+}

@@ -1,0 +1,75 @@
+{
+ "resourceType": "ConceptMap",
+ "id": "mvgs-cm-rd-localization-so",
+ "url": "https://genomde.de/fhir/ConceptMap/mvgs-cm-rd-localization-so",
+ "version": "0.1.0",
+ "name": "MVGS_CM_RD_LOCALIZATION_SO",
+ "title": "KDK rare-disease variant localization to Sequence Ontology",
+ "status": "draft",
+ "experimental": false,
+ "publisher": "KohlbacherLab (genomDE2FHIR)",
+ "description": "KDK RareDiseasesMolecular *.localization[].code -> SO consequence term for mii-pr-molgen-molekulare-konsequenz.component:feature-consequence (GR molecular-consequence-vs, is-a SO:0001537). Interim until the MolGen Variantenlokalisation of HDB-976 (DISCUSS-TD #26; REVIEW-TD A).",
+ "targetCanonical": "http://hl7.org/fhir/uv/genomics-reporting/ValueSet/molecular-consequence-vs",
+ "group": [
+  {
+   "target": "http://www.sequenceontology.org",
+   "element": [
+    {
+     "code": "codingRegion",
+     "display": "Coding region",
+     "target": [
+      {
+       "code": "SO:0001580",
+       "display": "coding_sequence_variant",
+       "equivalence": "equivalent"
+      }
+     ]
+    },
+    {
+     "code": "splicingRegion",
+     "display": "Splicing region",
+     "target": [
+      {
+       "code": "SO:0001630",
+       "display": "splice_region_variant",
+       "equivalence": "equivalent"
+      }
+     ]
+    },
+    {
+     "code": "regulatoryRegion",
+     "display": "Regulatory region",
+     "target": [
+      {
+       "code": "SO:0001566",
+       "display": "regulatory_region_variant",
+       "equivalence": "equivalent"
+      }
+     ]
+    },
+    {
+     "code": "intronic",
+     "display": "Intronic",
+     "target": [
+      {
+       "code": "SO:0001627",
+       "display": "intron_variant",
+       "equivalence": "equivalent"
+      }
+     ]
+    },
+    {
+     "code": "intergenic",
+     "display": "Intergenic",
+     "target": [
+      {
+       "code": "SO:0001628",
+       "display": "intergenic_variant",
+       "equivalence": "equivalent"
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

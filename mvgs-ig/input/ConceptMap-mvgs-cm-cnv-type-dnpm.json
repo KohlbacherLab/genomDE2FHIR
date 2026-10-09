@@ -1,0 +1,87 @@
+{
+ "resourceType": "ConceptMap",
+ "id": "mvgs-cm-cnv-type-dnpm",
+ "url": "https://genomde.de/fhir/ConceptMap/mvgs-cm-cnv-type-dnpm",
+ "version": "0.1.0",
+ "name": "MVGS_CM_CNV_TYPE_DNPM",
+ "title": "MV-GenomSeq CNV type to DNPM CNV type",
+ "status": "draft",
+ "experimental": false,
+ "publisher": "KohlbacherLab (genomDE2FHIR)",
+ "description": "KDK copyNumberVariants[].cnvType to the DNPM/bwHC CNV type codes used by MII MTB `component:cnv-type` (system http://bwhc.de/mtb/genetics-copy-number-variant, no CodeSystem resource published; values as in the MTB examples). Unspecified gain has no DNPM code (DISCUSS-TD #17).",
+ "sourceUri": "https://genomde.de/fhir/ValueSet/mvgs-vs-cnv-type",
+ "targetUri": "http://bwhc.de/mtb/genetics-copy-number-variant",
+ "group": [
+  {
+   "source": "https://genomde.de/fhir/CodeSystem/mvgs-cs-cnv-type",
+   "target": "http://bwhc.de/mtb/genetics-copy-number-variant",
+   "element": [
+    {
+     "code": "completeLoss",
+     "display": "Complete loss",
+     "target": [
+      {
+       "code": "loss",
+       "display": "loss",
+       "equivalence": "wider"
+      }
+     ]
+    },
+    {
+     "code": "heterozygousLoss",
+     "display": "Heterozygous loss",
+     "target": [
+      {
+       "code": "loss",
+       "display": "loss",
+       "equivalence": "wider"
+      }
+     ]
+    },
+    {
+     "code": "loss",
+     "display": "Loss",
+     "target": [
+      {
+       "code": "loss",
+       "display": "loss",
+       "equivalence": "equivalent"
+      }
+     ]
+    },
+    {
+     "code": "gain",
+     "display": "Gain",
+     "target": [
+      {
+       "equivalence": "unmatched",
+       "comment": "DNPM distinguishes low-level and high-level gain only"
+      }
+     ]
+    },
+    {
+     "code": "lowLevelGain",
+     "display": "Low-level gain",
+     "target": [
+      {
+       "code": "low-level-gain",
+       "display": "low-level-gain",
+       "equivalence": "equivalent"
+      }
+     ]
+    },
+    {
+     "code": "highLevelGain",
+     "display": "High-level gain",
+     "target": [
+      {
+       "code": "high-level-gain",
+       "display": "high-level-gain",
+       "equivalence": "equivalent"
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

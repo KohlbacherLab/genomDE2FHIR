@@ -1,0 +1,132 @@
+{
+ "resourceType": "ConceptMap",
+ "id": "mvgs-cm-grz-library-type-method-type",
+ "url": "https://genomde.de/fhir/ConceptMap/mvgs-cm-grz-library-type-method-type",
+ "version": "0.1.0",
+ "name": "MVGS_CM_GRZ_LIBRARY_TYPE_METHOD_TYPE",
+ "title": "MV-GenomSeq GRZ library type to MTB method type",
+ "status": "draft",
+ "experimental": false,
+ "publisher": "KohlbacherLab (genomDE2FHIR)",
+ "description": "GRZ labData.libraryType to genomic-study-analysis-method-type (mii-vs-mtb-genomic-analysis-method-type, required on mii-pr-mtb-genomic-study-analysis, used under the preferred GR binding on the MolGen profile). Long-read variants lose the read-length qualifier (kept in Procedure.code).",
+ "sourceUri": "https://genomde.de/fhir/ValueSet/mvgs-vs-grz-library-type",
+ "targetUri": "https://www.medizininformatik-initiative.de/fhir/ext/modul-mtb/ValueSet/mii-vs-mtb-genomic-analysis-method-type",
+ "group": [
+  {
+   "source": "https://genomde.de/fhir/CodeSystem/mvgs-cs-grz-library-type",
+   "target": "https://www.medizininformatik-initiative.de/fhir/ext/modul-mtb/CodeSystem/mii-cs-mtb-genomic-analysis-method-type",
+   "element": [
+    {
+     "code": "panel",
+     "display": "Gene panel",
+     "target": [
+      {
+       "code": "gene-panel",
+       "display": "Genpanel",
+       "equivalence": "equivalent"
+      }
+     ]
+    },
+    {
+     "code": "panel_lr",
+     "display": "Gene panel, long-read",
+     "target": [
+      {
+       "code": "gene-panel",
+       "display": "Genpanel",
+       "equivalence": "wider",
+       "comment": "long-read qualifier lost"
+      }
+     ]
+    },
+    {
+     "code": "wes",
+     "display": "Whole exome sequencing",
+     "target": [
+      {
+       "code": "whole-exom-sequencing",
+       "display": "Whole Exom Sequencing (WES)",
+       "equivalence": "equivalent"
+      }
+     ]
+    },
+    {
+     "code": "wes_lr",
+     "display": "Whole exome sequencing, long-read",
+     "target": [
+      {
+       "code": "whole-exom-sequencing",
+       "display": "Whole Exom Sequencing (WES)",
+       "equivalence": "wider",
+       "comment": "long-read qualifier lost"
+      }
+     ]
+    },
+    {
+     "code": "wxs",
+     "display": "Whole exome sequencing (WXS)",
+     "target": [
+      {
+       "code": "whole-exom-sequencing",
+       "display": "Whole Exom Sequencing (WES)",
+       "equivalence": "equivalent"
+      }
+     ]
+    },
+    {
+     "code": "wxs_lr",
+     "display": "Whole exome sequencing (WXS), long-read",
+     "target": [
+      {
+       "code": "whole-exom-sequencing",
+       "display": "Whole Exom Sequencing (WES)",
+       "equivalence": "wider",
+       "comment": "long-read qualifier lost"
+      }
+     ]
+    },
+    {
+     "code": "wgs",
+     "display": "Whole genome sequencing",
+     "target": [
+      {
+       "code": "whole-genom-sequencing",
+       "display": "Whole Genom Sequencing (WGS)",
+       "equivalence": "equivalent"
+      }
+     ]
+    },
+    {
+     "code": "wgs_lr",
+     "display": "Whole genome sequencing, long-read",
+     "target": [
+      {
+       "code": "whole-genom-sequencing",
+       "display": "Whole Genom Sequencing (WGS)",
+       "equivalence": "wider",
+       "comment": "long-read qualifier lost"
+      }
+     ]
+    },
+    {
+     "code": "other",
+     "display": "Other",
+     "target": [
+      {
+       "equivalence": "unmatched"
+      }
+     ]
+    },
+    {
+     "code": "unknown",
+     "display": "Unknown",
+     "target": [
+      {
+       "equivalence": "unmatched"
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

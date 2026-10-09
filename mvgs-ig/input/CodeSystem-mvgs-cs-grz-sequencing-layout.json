@@ -1,0 +1,38 @@
+{
+ "resourceType": "CodeSystem",
+ "id": "mvgs-cs-grz-sequencing-layout",
+ "url": "https://genomde.de/fhir/CodeSystem/mvgs-cs-grz-sequencing-layout",
+ "version": "0.1.0",
+ "name": "MVGS_CS_GRZ_SEQUENCING_LAYOUT",
+ "title": "MV-GenomSeq GRZ sequencing layout",
+ "status": "draft",
+ "experimental": false,
+ "publisher": "KohlbacherLab (genomDE2FHIR)",
+ "description": "BfArM GRZ donors[].labData[].sequencingLayout (end type of the sequencing reads). Used as the value of mii-ex-mtb-genomic-study-analysis-qc.extension:sequencing-read-type, which has no binding (DISCUSS-TD #22).",
+ "caseSensitive": true,
+ "valueSet": "https://genomde.de/fhir/ValueSet/mvgs-vs-grz-sequencing-layout",
+ "content": "complete",
+ "count": 4,
+ "concept": [
+  {
+   "code": "single-end",
+   "display": "Single-end",
+   "definition": "Reads are sequenced from one end of the fragment."
+  },
+  {
+   "code": "paired-end",
+   "display": "Paired-end",
+   "definition": "Reads are sequenced from both ends of the fragment."
+  },
+  {
+   "code": "reverse",
+   "display": "Reverse",
+   "definition": "Reads are sequenced from the reverse strand only."
+  },
+  {
+   "code": "other",
+   "display": "Other",
+   "definition": "Another sequencing layout."
+  }
+ ]
+}

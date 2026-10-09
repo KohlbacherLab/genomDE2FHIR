@@ -1,0 +1,19 @@
+{
+ "resourceType": "NamingSystem",
+ "id": "mvgs-ns-cosmic",
+ "name": "MVGS_NS_COSMIC",
+ "status": "draft",
+ "kind": "codesystem",
+ "date": "2026-10-09",
+ "publisher": "KohlbacherLab (genomDE2FHIR)",
+ "responsible": "Wellcome Sanger Institute (COSMIC)",
+ "description": "COSMIC (Catalogue Of Somatic Mutations In Cancer) as a code system URI, used for mutational signature ids of the COSMIC SBS catalogue (e.g. SBS6; catalogue version such as 'COSMIC v3.3' in Coding.version) and other COSMIC identifiers (e.g. COSF fusion ids, as in the MII MTB example Observation-MII-EXA-MTB-RNA-Fusion-1). No FHIR CodeSystem is published (COSMIC licence); no other NamingSystem defines this URI (DISCUSS-TD #20, REVIEW-TD C). Interim until MII or HL7 THO registers one.",
+ "usage": "Observation.valueCodeableConcept.coding.system of mii-pr-mtb-molekularer-biomarker instances with code mvgs-cs-molecular-feature#sbs-signature; codes are normalised without blanks (KDK 'SBS 6' -> 'SBS6').",
+ "uniqueId": [
+  {
+   "type": "uri",
+   "value": "https://cancer.sanger.ac.uk/cosmic",
+   "preferred": true
+  }
+ ]
+}
