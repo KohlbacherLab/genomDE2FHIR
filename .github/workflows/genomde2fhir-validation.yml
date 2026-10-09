@@ -1,0 +1,39 @@
+name: genomde2fhir nightly validation (matchbox-2027)
+# matchbox needs 8-12 GB heap and ~1.5 GB of FHIR packages: runs on a self-hosted runner with Docker
+# (labels: self-hosted, matchbox). The FHIR package cache (~/.fhir/packages) must be populated on the runner.
+on:
+  schedule:
+    - cron: "17 2 * * *"
+  workflow_dispatch:
+jobs:
+  validate:
+    runs-on: [self-hosted, matchbox]
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install converter
+        run: |
+          python3 -m venv .venv && . .venv/bin/activate
+          pip install "genomde-dk-validator @ git+https://github.com/KohlbacherLab/genomde-dk-validator@v1.1.2"
+          pip install -e "genomde2fhir[dev]"
+      - name: Start matchbox-2027 + HAPI-2027
+        run: |
+          python3 scripts/build_matchbox_cache.py
+          docker compose -f infra/matchbox-2027/docker-compose.yml up -d
+          for i in $(seq 1 60); do curl -sf http://localhost:8091/matchboxv3/actuator/health | grep -q UP && break; sleep 10; done
+      - name: Install de.genomde.mvgs and the FML maps
+        run: . .venv/bin/activate && python scripts/build_mvgs.py --install http://localhost:8091/matchboxv3/fhir --maps
+      - name: Tests incl. matchbox-backed ones
+        run: . .venv/bin/activate && MB2027=http://localhost:8091/matchboxv3/fhir pytest genomde2fhir/tests -q
+      - name: Corpus run (sample) with FML parity
+        run: . .venv/bin/activate && python scripts/run_corpus.py --sample 30 --fml
+      - name: Fail on content errors
+        run: |
+          python3 -c "import json,sys; r=json.load(open('out/e2e-2027/results.json')); bad={b:d['verdicts'].get('FAIL',0) for b,d in r['branches'].items()}; print(bad); sys.exit(1 if any(bad.values()) else 0)"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: e2e-2027
+          path: |
+            docs/E2E-REPORT-2027.md
+            out/e2e-2027/results.json

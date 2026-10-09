@@ -1,0 +1,26 @@
+name: genomde2fhir tests
+on:
+  push:
+    paths: ["genomde2fhir/**", "mapping/*.csv", "mvgs-ig/**", "scripts/sync_package_data.py", ".github/workflows/genomde2fhir-tests.yml"]
+  pull_request:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python: ["3.11", "3.12", "3.13", "3.14"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Install
+        run: |
+          pip install "genomde-dk-validator @ git+https://github.com/KohlbacherLab/genomde-dk-validator@v1.1.2"
+          pip install -e "genomde2fhir[dev]"
+      - name: Package data in sync with mapping/ and mvgs-ig/
+        run: python scripts/sync_package_data.py --check --no-index
+      - name: Unit tests (matchbox-dependent tests skip without MB2027)
+        run: pytest genomde2fhir/tests -q
+      - name: Build sdist + wheel
+        run: pip install build && python -m build genomde2fhir
