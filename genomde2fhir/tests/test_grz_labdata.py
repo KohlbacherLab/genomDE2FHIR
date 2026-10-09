@@ -125,6 +125,8 @@ def test_multi_donor_edge(convert_dk):
 
 def test_corpus_sample_converts(convert_dk):
     files = [f for f in corpus("grz") if "synthData" in str(f)][:25]
+    if not files:
+        pytest.skip("synthetic GRZ corpus not in this checkout")
     assert len(files) >= 3
     for f in files:
         dk = load(f)

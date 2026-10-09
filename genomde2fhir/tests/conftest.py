@@ -15,7 +15,10 @@ def corpus(branch: str, kind: str = "valid") -> list[Path]:
 
 
 def load(path) -> dict:
-    return json.loads(Path(path).read_text(encoding="utf-8"))
+    path = Path(path) if Path(path).is_absolute() else REPO / path
+    if not path.is_file():   # synthetic corpus files are not distributed with the repository
+        pytest.skip(f"{path.relative_to(REPO) if path.is_relative_to(REPO) else path} not in this checkout")
+    return json.loads(path.read_text(encoding="utf-8"))
 
 
 def resources(bundle: dict, rtype: str | None = None, profile: str | None = None) -> list[dict]:
