@@ -1,7 +1,7 @@
 # genomDE → MII KDS — end-to-end conversion harness report
-_generated 2026-07-01T10:52:25 · roots=['examples'] · paths=A · ingest=True · validate=True · limit=none_
+_generated 2026-07-02T10:17:09 · roots=['example-data/synthData-v1'] · paths=AB · ingest=True · validate=True · limit=150_
 
-> **Path A: FAIL**
+> **Path A: FAIL** · **Path B: FAIL**
 
 ## Pipeline
 ```
@@ -12,33 +12,51 @@ DK JSON ─┬─ (A) Python  genomde_to_fhir.py     ─┐
 - **matchbox** `http://localhost:8090/matchboxv3/fhir` — `$transform` + KDS `$validate` (MII packages loaded)
 
 ## Discovery
-174 JSON across ['examples']. Only the **oncology** branch has mappers → 44 eligible, 44 run this pass.
+2098 JSON across ['example-data/synthData-v1']. Only the **oncology** branch has mappers → 1056 eligible, 150 run this pass (--limit 150).
 
 | branch | files | has mapper? |
 |---|---|---|
-| oncology | 44 | yes |
+| oncology | 1056 | yes |
 | rare-disease | 42 | no |
-| legacy-variant | 84 | no |
-| grz | 4 | no |
+| grz | 1000 | no |
 
 ## Path A — Python mapper — verdict **FAIL**
-- emit Bundle: **44 ok / 0 fail**
-- ingest → HAPI (transaction): **44 ok / 0 fail**
+- emit Bundle: **150 ok / 0 fail**
+- ingest → HAPI (transaction): **150 ok / 0 fail**
 
 ### KDS `$validate` (per resource × declared profile)
 | profile | clean | env-only | content-err | val-err | no-profile |
 |---|---|---|---|---|---|
-| PatientPseudonymisiert | 44 | 0 | 0 | 0 | 0 |
-| Vitalstatus | 44 | 0 | 0 | 0 | 0 |
-| coverage-de-basis | 44 | 0 | 0 | 0 | 0 |
-| mii-pr-consent-einwilligung | 0 | 0 | 44 | 0 | 0 |
-| mii-pr-mtb-diagnose-primaertumor | 0 | 44 | 0 | 0 | 0 |
-| mii-pr-mtb-systemische-vortherapie | 0 | 0 | 67 | 0 | 0 |
-| mii-pr-mtb-systemtherapie-medication-statement | 0 | 67 | 0 | 0 | 0 |
-| mii-pr-onko-allgemeiner-leistungszustand-ecog | 82 | 0 | 0 | 0 | 0 |
+| PatientPseudonymisiert | 150 | 0 | 0 | 0 | 0 |
+| Vitalstatus | 84 | 0 | 0 | 0 | 0 |
+| coverage-de-basis | 134 | 0 | 16 | 0 | 0 |
+| mii-pr-consent-einwilligung | 0 | 0 | 150 | 0 | 0 |
+| mii-pr-mtb-diagnose-primaertumor | 0 | 150 | 0 | 0 | 0 |
+| mii-pr-mtb-systemische-vortherapie | 0 | 0 | 110 | 0 | 0 |
+| mii-pr-mtb-systemtherapie-medication-statement | 45 | 65 | 0 | 0 | 0 |
+| mii-pr-onko-allgemeiner-leistungszustand-ecog | 228 | 0 | 0 | 0 | 0 |
 
-## Path B — FML `$transform` (matchbox)
-_SKIPPED (paths=A)_
+## Path B — FML `$transform` (matchbox) — verdict **FAIL**
+- transform Bundle: **150 ok / 0 fail**
+- ingest → HAPI (transaction): **0 ok / 150 fail**
+
+### KDS `$validate` (per resource × declared profile)
+| profile | clean | env-only | content-err | val-err | no-profile |
+|---|---|---|---|---|---|
+| (no profile: Coverage) | 0 | 0 | 0 | 0 | 150 |
+| PatientPseudonymisiert | 145 | 0 | 5 | 0 | 0 |
+| mii-pr-consent-einwilligung | 0 | 150 | 0 | 0 | 0 |
+| mii-pr-mtb-diagnose-primaertumor | 0 | 0 | 150 | 0 | 0 |
+| mii-pr-mtb-systemische-vortherapie | 0 | 0 | 110 | 0 | 0 |
+| mii-pr-mtb-systemtherapie-medication-statement | 0 | 0 | 110 | 0 | 0 |
+| mii-pr-onko-allgemeiner-leistungszustand-ecog | 0 | 0 | 234 | 0 | 0 |
+| mii-pr-person-vitalstatus | 0 | 84 | 0 | 0 | 0 |
+
+## A↔B parity
+Cases where Path A and Path B emit different resource-type counts: **3 / 150**.
+- `OncologySubmission_4A1F48C8F347F967E1CB72D1C1725BBAA8F23B5A627E3DC7A8FFF0A4092E9B63`: {'Observation': [1, 3]}
+- `OncologySubmission_639605FE11AEC0DF38D509693AB7FF1A6135BC8BB4AB57A02839A434A37A26E2`: {'Observation': [1, 3]}
+- `OncologySubmission_720D1596164CF6917C5DFDB447F88751E5B0B3457E48F6F3B9C95183EA2CF1E5`: {'Observation': [1, 3]}
 
 ## Content-error samples (tx-server/env noise excluded; full list in results.json)
 - `A` **mii-pr-consent-einwilligung**: Consent.provision.period: minimum required = 1, but only found 0 (from https://www.medizininformatik-initiative.de/fhir/modul-consent/StructureDefinition/mii-pr-consent-einwilligun
@@ -48,6 +66,29 @@ _SKIPPED (paths=A)_
 - `A` **mii-pr-consent-einwilligung**: Unknown code 'reIdentification' in the CodeSystem 'urn:oid:2.16.840.1.113883.3.1937.777.24.5.3' version '1.0.5'
 - `A` **mii-pr-consent-einwilligung**: Unknown code 'caseIdentification' in the CodeSystem 'urn:oid:2.16.840.1.113883.3.1937.777.24.5.3' version '1.0.5'
 - `A` **mii-pr-mtb-systemische-vortherapie**: Profile https://www.medizininformatik-initiative.de/fhir/ext/modul-mtb/StructureDefinition/mii-pr-mtb-systemische-vortherapie|2026.0.1, Element matches more than one slice - sct, s
+- `B` **mii-pr-mtb-diagnose-primaertumor**: Condition.extension: minimum required = 1, but only found 0 (from https://www.medizininformatik-initiative.de/fhir/ext/modul-mtb/StructureDefinition/mii-pr-mtb-diagnose-primaertumo
+- `B` **mii-pr-mtb-diagnose-primaertumor**: Slice 'Condition.extension:Feststellungsdatum' for extension 'http://hl7.org/fhir/StructureDefinition/condition-assertedDate': a matching slice is required, but not found (from htt
+- `B` **mii-pr-mtb-diagnose-primaertumor**: Condition.subject: minimum required = 1, but only found 0 (from https://www.medizininformatik-initiative.de/fhir/ext/modul-mtb/StructureDefinition/mii-pr-mtb-diagnose-primaertumor|
+- `B` **mii-pr-onko-allgemeiner-leistungszustand-ecog**: Observation.subject: minimum required = 1, but only found 0 (from https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-pr-onko-allgemeiner-leistu
+- `B` **mii-pr-onko-allgemeiner-leistungszustand-ecog**: Slice 'Observation.code.coding:snomed': a matching slice is required, but not found (from https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-pr
+- `B` **mii-pr-onko-allgemeiner-leistungszustand-ecog**: Slice 'Observation.value[x].coding:obds': a matching slice is required, but not found (from https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-
+- `B` **mii-pr-mtb-systemische-vortherapie**: Procedure.extension: minimum required = 1, but only found 0 (from https://www.medizininformatik-initiative.de/fhir/ext/modul-mtb/StructureDefinition/mii-pr-mtb-systemische-vorthera
+- `B` **mii-pr-mtb-systemische-vortherapie**: Slice 'Procedure.extension:Intention' for extension 'https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-ex-onko-systemische-therapie-intention'
+- `B` **mii-pr-mtb-systemische-vortherapie**: Procedure.subject: minimum required = 1, but only found 0 (from https://www.medizininformatik-initiative.de/fhir/ext/modul-mtb/StructureDefinition/mii-pr-mtb-systemische-vortherapi
+- `B` **mii-pr-mtb-systemische-vortherapie**: Profile https://www.medizininformatik-initiative.de/fhir/ext/modul-mtb/StructureDefinition/mii-pr-mtb-systemische-vortherapie|2026.0.1, Element matches more than one slice - sct, s
+- `B` **mii-pr-mtb-systemtherapie-medication-statement**: MedicationStatement.partOf: minimum required = 1, but only found 0 (from https://www.medizininformatik-initiative.de/fhir/ext/modul-mtb/StructureDefinition/mii-pr-mtb-systemtherapi
+- `B` **mii-pr-mtb-systemtherapie-medication-statement**: MedicationStatement.subject: minimum required = 1, but only found 0 (from https://www.medizininformatik-initiative.de/fhir/ext/modul-mtb/StructureDefinition/mii-pr-mtb-systemtherap
+- `B` **mii-pr-mtb-systemtherapie-medication-statement**: MedicationStatement.effective[x]: minimum required = 1, but only found 0 (from https://www.medizininformatik-initiative.de/fhir/ext/modul-mtb/StructureDefinition/mii-pr-mtb-systemt
+- `B` **PatientPseudonymisiert**: Constraint failed: mii-pat-1: 'Falls die Geschlechtsangabe 'other' gewählt wird, muss die amtliche Differenzierung per Extension angegeben werden' (defined in https://www.medizinin
+- `A` **mii-pr-consent-einwilligung**: Consent.dateTime: minimum required = 1, but only found 0 (from https://www.medizininformatik-initiative.de/fhir/modul-consent/StructureDefinition/mii-pr-consent-einwilligung|1.0.8)
+- `A` **coverage-de-basis**: Unknown code 'UNK' in the CodeSystem 'http://fhir.de/CodeSystem/versicherungsart-de-basis' version '1.4.0'
+- `A` **coverage-de-basis**: None of the codings provided are in the value set 'VersicherungsartDeBasis' (http://fhir.de/ValueSet/versicherungsart-de-basis|1.4.0), and a coding from this value set is required)
+- `A` **coverage-de-basis**: Unknown code 'SKT' in the CodeSystem 'http://fhir.de/CodeSystem/versicherungsart-de-basis' version '1.4.0'
+
+## Failures / gaps (deduped)
+| path | kind | reason | count |
+|---|---|---|---|
+| B | ingest/structural | entry without fullUrl; entry without request.method | 150 |
 
 ## Notes
 - **Verdict:** FAIL = produce/ingest/content-conformance error; INCONCLUSIVE = only env/tx-server, missing-profile, or $validate transport issues (couldn't fully validate); PASS = all clean. This matchbox has no terminology server, so KDS-conformant mappers land at INCONCLUSIVE here and PASS against a tx.fhir.org-backed validator.
