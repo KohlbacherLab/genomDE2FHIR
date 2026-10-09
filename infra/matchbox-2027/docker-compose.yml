@@ -1,0 +1,39 @@
+# matchbox-2027 (validation + $transform on the MII KDS 2027.0.0 ballot) and a HAPI JPA store for ingest tests.
+# The shared 2026 matchbox on :8090 (~/Claude/genomDE FHIR Mapper) is untouched.
+#   docker compose -f infra/matchbox-2027/docker-compose.yml up -d
+#   curl -s http://localhost:8091/matchboxv3/actuator/health
+services:
+  matchbox-2027:
+    image: europe-west6-docker.pkg.dev/ahdis-ch/ahdis/matchbox:v4.1.21
+    container_name: genomde-matchbox-2027
+    ports:
+      - "8091:8080"
+    # 4.1.18+ sizes the heap with MaxRAMPercentage=70; the limit gives ~11 GB heap
+    mem_limit: 16g
+    volumes:
+      - ./config:/config:ro
+      - ./package-cache:/home/matchbox/.fhir/packages
+      - matchbox-2027-db:/database
+    restart: unless-stopped
+
+  hapi-2027:
+    image: hapiproject/hapi:v8.4.0-1
+    container_name: genomde-hapi-2027
+    ports:
+      - "8092:8080"
+    environment:
+      # client-assigned ids for PUT Type/<uuid5> (idempotent re-submission)
+      hapi.fhir.client_id_strategy: ANY
+      hapi.fhir.allow_external_references: "true"
+      hapi.fhir.enforce_referential_integrity_on_write: "true"
+      spring.datasource.url: jdbc:h2:file:/data/hapi
+    # the image runs as a non-root user that cannot write a fresh named volume; local test store only
+    user: root
+    mem_limit: 6g
+    volumes:
+      - hapi-2027-db:/data
+    restart: unless-stopped
+
+volumes:
+  matchbox-2027-db:
+  hapi-2027-db:

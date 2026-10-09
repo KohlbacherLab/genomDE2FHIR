@@ -1,0 +1,82 @@
+# matchbox-2027 — validation + $transform against the MII KDS 2027.0.0 ballot stack.
+# Pinned image: matchbox v4.1.21 (see ../docker-compose.yml). Packages come from the bind-mounted
+# FHIR package cache (../package-cache → /home/matchbox/.fhir/packages); dependencies missing there
+# are fetched from the registry. Rebuild the cache with scripts/build_matchbox_cache.py.
+server:
+  servlet:
+    context-path: /matchboxv3
+spring:
+  main:
+    allow-bean-definition-overriding: true
+    allow-circular-references: true
+matchbox:
+  fhir:
+    context:
+      fhirVersion: 4.0.1
+      txServer: https://tx.fhir.org/r4
+      # one engine for the whole configured stack: lets us POST our own StructureMaps/logical models
+      # and keeps the 2027 graph isolated from the 2026 instance on :8090
+      onlyOneEngine: true
+hapi:
+  fhir:
+    fhir_version: R4
+    server_address: http://localhost:8091/matchboxv3/fhir
+    implementationguides:
+      fhir_r4_core:
+        name: hl7.fhir.r4.core
+        version: 4.0.1
+      basisprofil:
+        name: de.basisprofil.r4
+        version: 1.6.0
+      # patched tarballs first (13 logical models with >100-char type removed, see scripts/build_matchbox_cache.py)
+      mii_base:
+        name: de.medizininformatikinitiative.kerndatensatz.base
+        version: 2027.0.0-ballot
+        url: file:///config/packages/de.medizininformatikinitiative.kerndatensatz.base-2027.0.0-ballot.tgz
+      mii_medikation:
+        name: de.medizininformatikinitiative.kerndatensatz.medikation
+        version: 2027.0.0-ballot
+        url: file:///config/packages/de.medizininformatikinitiative.kerndatensatz.medikation-2027.0.0-ballot.tgz
+      mii_biobank:
+        name: de.medizininformatikinitiative.kerndatensatz.biobank
+        version: 2027.0.0-ballot
+        url: file:///config/packages/de.medizininformatikinitiative.kerndatensatz.biobank-2027.0.0-ballot.tgz
+      mii_studie:
+        name: de.medizininformatikinitiative.kerndatensatz.studie
+        version: 2027.0.0-ballot
+        url: file:///config/packages/de.medizininformatikinitiative.kerndatensatz.studie-2027.0.0-ballot.tgz
+      mii_patho:
+        name: de.medizininformatikinitiative.kerndatensatz.patho
+        version: 2027.0.0-ballot
+        url: file:///config/packages/de.medizininformatikinitiative.kerndatensatz.patho-2027.0.0-ballot.tgz
+      mii_labor:
+        name: de.medizininformatikinitiative.kerndatensatz.laborbefund
+        version: 2027.0.0-ballot
+        url: file:///config/packages/de.medizininformatikinitiative.kerndatensatz.laborbefund-2027.0.0-ballot.tgz
+      mii_molgen:
+        name: de.medizininformatikinitiative.kerndatensatz.molgen
+        version: 2027.0.0-ballot.1
+        url: file:///config/packages/de.medizininformatikinitiative.kerndatensatz.molgen-2027.0.0-ballot.1.tgz
+      mii_onko:
+        name: de.medizininformatikinitiative.kerndatensatz.onkologie
+        version: 2027.0.0-ballot.1
+        url: file:///config/packages/de.medizininformatikinitiative.kerndatensatz.onkologie-2027.0.0-ballot.1.tgz
+      mii_seltene:
+        name: de.medizininformatikinitiative.kerndatensatz.seltene
+        version: 2027.0.0-ballot
+        url: file:///config/packages/de.medizininformatikinitiative.kerndatensatz.seltene-2027.0.0-ballot.tgz
+      gr:
+        name: hl7.fhir.uv.genomics-reporting
+        version: 3.0.0
+      mii_meta:
+        name: de.medizininformatikinitiative.kerndatensatz.meta
+        version: 2027.0.0-ballot
+      mii_consent:
+        name: de.medizininformatikinitiative.kerndatensatz.consent
+        version: 2027.0.0-ballot
+      mii_mtb:
+        name: de.medizininformatikinitiative.kerndatensatz.mtb
+        version: 2027.0.0-ballot.1
+      # local MV-GenomSeq conformance package (logical models, local profiles, CodeSystems, ConceptMaps, maps)
+      # is installed after startup by scripts/install_mvgs.sh (POST $install-npm-package) so it can be rebuilt
+      # without restarting the server.
