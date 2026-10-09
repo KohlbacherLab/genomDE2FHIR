@@ -1,10 +1,10 @@
 # Terminology / coded-value check of the genomDE→MII mapping
 
-Automated re-run of the NUM-OMICS review via `https://tx.fhir.org/r4` (LOINC+SNOMED $lookup/$expand). Checked **45** distinct coded values.
+Automated re-run of the NUM-OMICS review via `https://tx.fhir.org/r4` (LOINC+SNOMED $lookup/$expand). Checked **66** distinct coded values.
 
 - INVALID (code does not exist): **0**
 - MISMATCH (display unrelated to the mapped concept): **0**
-- OK (exists, display consistent): **45**
+- OK (exists, display consistent): **66**
 
 ## ❌ INVALID codes (do not exist)
 
@@ -20,22 +20,48 @@ Automated re-run of the NUM-OMICS review via `https://tx.fhir.org/r4` (LOINC+SNO
 
 Answer codes exist in LOINC (else marked INVALID above); their *display* is shown next to the field so a wrong-but-valid code stands out (e.g. an anatomy term among inheritance modes):
 
-- **case.diagnosisRd.diagnosisGmfcs** — `LA15150-8`=Can stand on their own and only walks using a walking aid (such as a walker, rollator, crutches, canes, etc.); `LA15151-6`=Can walk on their own without using walking aids, but needs to hold the handrail when going up or down stairs; `LA16552-4`=Can walk on their own without using walking aids, and can go up or down stairs without needing to hold the handrail.; `LL1594-2`=PhenX13_50_motor function child 6-12Y
+- **case.diagnosisOd.ecogPerformanceStatusScore** — `LA9622-7`=Fully active, able to carry on all pre-disease performance without restriction; `LA9626-8`=Completely disabled. Cannot carry on any selfcare. Totally confined to bed or chair
+- **case.diagnosisRd.diagnosisGmfcs** — `LA15150-8`=Can stand on their own and only walks using a walking aid (such as a walker, rollator, crutches, canes, etc.); `LA15151-6`=Can walk on their own without using walking aids, but needs to hold the handrail when going up or down stairs; `LA16552-4`=Can walk on their own without using walking aids, and can go up or down stairs without needing to hold the handrail.; `LA16556-5`=Can sit on their own but does not stand or walk without significant support and adult supervision.; `LA16558-1`=Has difficulty sitting on their own and controlling their head and body posture in most positions; `LL1594-2`=PhenX13_50_motor function child 6-12Y
+- **case.diagnosisRd.phenotypes[].code** — `LA9633-4`=Present
+- **case.diagnosisRd.phenotypes[].display** — `LA9633-4`=Present
+- **case.diagnosisRd.phenotypes[].system** — `LA9633-4`=Present
+- **case.diagnosisRd.phenotypes[].text** — `LA9633-4`=Present
+- **case.diagnosisRd.phenotypes[].version** — `LA9633-4`=Present
 - **donors[].labData[].sequenceData.referenceGenome** — `LA14029-5`=GRCh37; `LA26806-2`=GRCh38
-- **followUp.followUpRds[].gmfcs** — `LA15150-8`=Can stand on their own and only walks using a walking aid (such as a walker, rollator, crutches, canes, etc.); `LA15151-6`=Can walk on their own without using walking aids, but needs to hold the handrail when going up or down stairs; `LA16552-4`=Can walk on their own without using walking aids, and can go up or down stairs without needing to hold the handrail.; `LL1594-2`=PhenX13_50_motor function child 6-12Y
-- **molecular.copyNumberVariants[].acmgClass** — `LA6668-3`=Pathogenic; `LA6675-8`=Benign; `LL4034-6`=ACMG_Clinical significance of genetic variation
-- **molecular.copyNumberVariants[].cnvType** — `LA14033-7`=Copy number gain; `LA14034-5`=Copy number loss
-- **molecular.copyNumberVariants[].modeOfInheritance** — `LA24640-7`=Autosomal dominant; `LA24641-5`=Autosomal recessive; `LA24789-2`=Mitochondrial; `LA24947-6`=X-linked; `LL3731-8`=[NEI] Inheritance pattern from family history
-- **molecular.copyNumberVariants[].zygosity** — `LA6705-3`=Homozygous; `LL381-5`=MG_5_Genetic variant allelic state
-- **molecular.smallVariants[].acmgClass** — `LA6668-3`=Pathogenic; `LA6675-8`=Benign; `LL4034-6`=ACMG_Clinical significance of genetic variation
-- **molecular.smallVariants[].genomicSource** — `LA6683-2`=Germline; `LA6684-0`=Somatic
-- **molecular.smallVariants[].modeOfInheritance** — `LA24640-7`=Autosomal dominant; `LA24641-5`=Autosomal recessive; `LA24789-2`=Mitochondrial; `LA24947-6`=X-linked; `LL3731-8`=[NEI] Inheritance pattern from family history
-- **molecular.smallVariants[].zygosity** — `LA6705-3`=Homozygous; `LL381-5`=MG_5_Genetic variant allelic state
-- **molecular.structuralVariants[].acmgClass** — `LA6668-3`=Pathogenic; `LA6675-8`=Benign; `LL4034-6`=ACMG_Clinical significance of genetic variation
-- **molecular.structuralVariants[].modeOfInheritance** — `LA24640-7`=Autosomal dominant; `LA24641-5`=Autosomal recessive; `LA24789-2`=Mitochondrial; `LA24947-6`=X-linked; `LL3731-8`=[NEI] Inheritance pattern from family history
-- **molecular.structuralVariants[].zygosity** — `LA6705-3`=Homozygous; `LL381-5`=MG_5_Genetic variant allelic state
+- **donors[].labData[].sequenceSubtype** — `LA6683-2`=Germline; `LA6684-0`=Somatic; `LL378-1`=MG_2_Genetic variant source
+- **followUp.followUpOds[].ecogPerformanceStatusScore** — `LA9622-7`=Fully active, able to carry on all pre-disease performance without restriction; `LA9626-8`=Completely disabled. Cannot carry on any selfcare. Totally confined to bed or chair
+- **followUp.followUpOds[].phenotypes[].change** — `LA9633-4`=Present; `LA9634-2`=Absent
+- **followUp.followUpRds[].gmfcs** — `LA15150-8`=Can stand on their own and only walks using a walking aid (such as a walker, rollator, crutches, canes, etc.); `LA15151-6`=Can walk on their own without using walking aids, but needs to hold the handrail when going up or down stairs; `LA16552-4`=Can walk on their own without using walking aids, and can go up or down stairs without needing to hold the handrail.; `LA16556-5`=Can sit on their own but does not stand or walk without significant support and adult supervision.; `LA16558-1`=Has difficulty sitting on their own and controlling their head and body posture in most positions; `LL1594-2`=PhenX13_50_motor function child 6-12Y
+- **followUp.followUpRds[].phenotypes[].change** — `LA9633-4`=Present; `LA9634-2`=Absent
+- **followUp.followUpRds[].phenotypes[].code** — `LA9633-4`=Present; `LA9634-2`=Absent
+- **followUp.followUpRds[].phenotypes[].display** — `LA9633-4`=Present; `LA9634-2`=Absent
+- **followUp.followUpRds[].phenotypes[].system** — `LA9633-4`=Present; `LA9634-2`=Absent
+- **followUp.followUpRds[].phenotypes[].text** — `LA9633-4`=Present; `LA9634-2`=Absent
+- **followUp.followUpRds[].phenotypes[].version** — `LA9633-4`=Present; `LA9634-2`=Absent
+- **molecular.copyNumberVariants[].acmgClass** — `LA26332-9`=Likely pathogenic; `LA26333-7`=Uncertain significance; `LA26334-5`=Likely benign; `LA6668-3`=Pathogenic; `LA6675-8`=Benign; `LL4034-6`=ACMG_Clinical significance of genetic variation
+- **molecular.copyNumberVariants[].chromosome** — `LL2938-0`=List of human chromosomes
+- **molecular.copyNumberVariants[].endPosition** — `LA26806-2`=GRCh38
+- **molecular.copyNumberVariants[].genomicSource** — `LA6683-2`=Germline; `LA6684-0`=Somatic; `LL378-1`=MG_2_Genetic variant source
+- **molecular.copyNumberVariants[].modeOfInheritance** — `LA24789-2`=Mitochondrial; `LA24947-6`=X-linked; `LL3731-8`=[NEI] Inheritance pattern from family history
+- **molecular.copyNumberVariants[].segregationAnalysis** — `LA26320-4`=Maternal; `LA26321-2`=Paternal; `LA26807-0`=De novo; `LL5489-1`=Origin of Genetic Variance
+- **molecular.copyNumberVariants[].startPosition** — `LA26806-2`=GRCh38
+- **molecular.copyNumberVariants[].zygosity** — `LA26217-2`=Compound heterozygous; `LA6703-8`=Heteroplasmic; `LA6704-6`=Homoplasmic; `LA6705-3`=Homozygous; `LA6706-1`=Heterozygous; `LA6707-9`=Hemizygous; `LL381-5`=MG_5_Genetic variant allelic state
+- **molecular.expressionVariants[].expressionType** — `LA9633-4`=Present; `LA9634-2`=Absent; `LL1971-2`=Variant Assess
+- **molecular.smallVariants[].acmgClass** — `LA26332-9`=Likely pathogenic; `LA26333-7`=Uncertain significance; `LA26334-5`=Likely benign; `LA6668-3`=Pathogenic; `LA6675-8`=Benign; `LL4034-6`=ACMG_Clinical significance of genetic variation
+- **molecular.smallVariants[].chromosome** — `LL2938-0`=List of human chromosomes
+- **molecular.smallVariants[].endPosition** — `LA26806-2`=GRCh38; `LA30102-0`=1-based character counting
+- **molecular.smallVariants[].genomicSource** — `LA6683-2`=Germline; `LA6684-0`=Somatic; `LL378-1`=MG_2_Genetic variant source
+- **molecular.smallVariants[].modeOfInheritance** — `LA24789-2`=Mitochondrial; `LA24947-6`=X-linked; `LL3731-8`=[NEI] Inheritance pattern from family history
+- **molecular.smallVariants[].segregationAnalysis** — `LA26320-4`=Maternal; `LA26321-2`=Paternal; `LA26807-0`=De novo; `LL5489-1`=Origin of Genetic Variance
+- **molecular.smallVariants[].startPosition** — `LA26806-2`=GRCh38; `LA30102-0`=1-based character counting
+- **molecular.smallVariants[].zygosity** — `LA26217-2`=Compound heterozygous; `LA6703-8`=Heteroplasmic; `LA6704-6`=Homoplasmic; `LA6705-3`=Homozygous; `LA6706-1`=Heterozygous; `LA6707-9`=Hemizygous; `LL381-5`=MG_5_Genetic variant allelic state
+- **molecular.structuralVariants[].acmgClass** — `LA26332-9`=Likely pathogenic; `LA26333-7`=Uncertain significance; `LA26334-5`=Likely benign; `LA6668-3`=Pathogenic; `LA6675-8`=Benign; `LL4034-6`=ACMG_Clinical significance of genetic variation
+- **molecular.structuralVariants[].genomicSource** — `LA6683-2`=Germline; `LA6684-0`=Somatic; `LL378-1`=MG_2_Genetic variant source
+- **molecular.structuralVariants[].modeOfInheritance** — `LA24789-2`=Mitochondrial; `LA24947-6`=X-linked; `LL3731-8`=[NEI] Inheritance pattern from family history
+- **molecular.structuralVariants[].segregationAnalysis** — `LA26320-4`=Maternal; `LA26321-2`=Paternal; `LA26807-0`=De novo; `LL5489-1`=Origin of Genetic Variance
+- **molecular.structuralVariants[].zygosity** — `LA26217-2`=Compound heterozygous; `LA6703-8`=Heteroplasmic; `LA6704-6`=Homoplasmic; `LA6705-3`=Homozygous; `LA6706-1`=Heterozygous; `LA6707-9`=Hemizygous; `LL381-5`=MG_5_Genetic variant allelic state
 
-## ✅ Verified consistent (45)
+## ✅ Verified consistent (66)
 
 <details><summary>expand</summary>
 
@@ -48,44 +74,65 @@ Answer codes exist in LOINC (else marked INVALID above); their *display* is show
 | `48004-6` | DNA change (c.HGVS) |
 | `48005-3` | Amino acid change (pHGVS) |
 | `48018-6` | Gene studied [ID] |
+| `48019-4` | DNA change type |
 | `51958-7` | Transcript reference sequence [ID] |
 | `53034-5` | Allelic state |
 | `53037-8` | Genetic variation clinical significance [Imp] |
 | `62374-4` | Human reference sequence assembly version |
-| `62781-0` | PhenX - gross motor function - 4-6Y protocol 131202 |
-| `62782-8` | PhenX - gross motor function - 6-12 years protocol 131203 |
 | `67162-8` | Patient Disposition |
 | `69547-8` | Genomic ref allele [ID] |
 | `69551-0` | Genomic alt allele [ID] |
-| `79742-3` | Inheritance pattern based on family history |
+| `81252-9` | Discrete genetic variant |
 | `81254-5` | Genomic allele start-end |
 | `81290-9` | Genomic DNA change (gHGVS) |
 | `81291-7` | Variant ISCN |
 | `82155-3` | Genomic structural variant copy number |
+| `89262-0` | ECOG Performance Status [Interpretation] |
 | `94076-7` | Mutations/Megabase [# Ratio] in Tumor |
 | `LA14029-5` | GRCh37 |
-| `LA14033-7` | Copy number gain |
-| `LA14034-5` | Copy number loss |
 | `LA15150-8` | Can stand on their own and only walks using a walking aid (such as a walker, rollator, crutches, canes, etc.) |
 | `LA15151-6` | Can walk on their own without using walking aids, but needs to hold the handrail when going up or down stairs |
 | `LA16552-4` | Can walk on their own without using walking aids, and can go up or down stairs without needing to hold the handrail. |
-| `LA24640-7` | Autosomal dominant |
-| `LA24641-5` | Autosomal recessive |
+| `LA16556-5` | Can sit on their own but does not stand or walk without significant support and adult supervision. |
+| `LA16558-1` | Has difficulty sitting on their own and controlling their head and body posture in most positions |
 | `LA24789-2` | Mitochondrial |
 | `LA24947-6` | X-linked |
+| `LA26217-2` | Compound heterozygous |
+| `LA26320-4` | Maternal |
+| `LA26321-2` | Paternal |
+| `LA26332-9` | Likely pathogenic |
+| `LA26333-7` | Uncertain significance |
+| `LA26334-5` | Likely benign |
 | `LA26806-2` | GRCh38 |
+| `LA26807-0` | De novo |
+| `LA30102-0` | 1-based character counting |
 | `LA6668-3` | Pathogenic |
 | `LA6675-8` | Benign |
 | `LA6683-2` | Germline |
 | `LA6684-0` | Somatic |
+| `LA6703-8` | Heteroplasmic |
+| `LA6704-6` | Homoplasmic |
 | `LA6705-3` | Homozygous |
+| `LA6706-1` | Heterozygous |
+| `LA6707-9` | Hemizygous |
+| `LA9622-7` | Fully active, able to carry on all pre-disease performance without restriction |
+| `LA9626-8` | Completely disabled. Cannot carry on any selfcare. Totally confined to bed or chair |
+| `LA9633-4` | Present |
+| `LA9634-2` | Absent |
 | `LL1594-2` | PhenX13_50_motor function child 6-12Y |
+| `LL1971-2` | Variant Assess |
+| `LL2938-0` | List of human chromosomes |
 | `LL3731-8` | [NEI] Inheritance pattern from family history |
+| `LL378-1` | MG_2_Genetic variant source |
 | `LL381-5` | MG_5_Genetic variant allelic state |
 | `LL4034-6` | ACMG_Clinical significance of genetic variation |
+| `LL5489-1` | Origin of Genetic Variance |
 | `396432002` | Status of regression of tumour |
+| `399390009` | TNM stage grouping |
 | `399537006` | Clinical TNM stage grouping |
 | `399588009` | Pathologic TNM stage grouping |
+| `423740007` | ECOG performance status |
+| `707621005` | Gross motor function classification system for cerebral palsy |
 
 </details>
 
