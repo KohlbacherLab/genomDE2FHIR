@@ -1,0 +1,33 @@
+{
+ "resourceType": "CodeSystem",
+ "id": "mvgs-cs-grz-device-function",
+ "url": "https://genomde.de/fhir/CodeSystem/mvgs-cs-grz-device-function",
+ "version": "0.1.0",
+ "name": "MVGS_CS_GRZ_DEVICE_FUNCTION",
+ "title": "MV-GenomSeq GRZ device function",
+ "status": "draft",
+ "experimental": false,
+ "publisher": "KohlbacherLab (genomDE2FHIR)",
+ "description": "Functions of GRZ lab-data devices that mii-cs-mtb-genomicanalysis-devicefunction does not cover: the enrichment kit (as second coding next to library-preparation-kit / gene-panel) and the software of the bioinformatics analysis (pipeline, variant callers) used in genomic-study-analysis-device.function (DISCUSS-TD #24).",
+ "caseSensitive": true,
+ "valueSet": "https://genomde.de/fhir/ValueSet/mvgs-vs-grz-device-function",
+ "content": "complete",
+ "count": 3,
+ "concept": [
+  {
+   "code": "enrichment-kit",
+   "display": "Enrichment kit",
+   "definition": "Target enrichment (capture/amplicon) kit of the library."
+  },
+  {
+   "code": "bioinformatics-pipeline",
+   "display": "Bioinformatics pipeline",
+   "definition": "Software pipeline that processed the sequence data."
+  },
+  {
+   "code": "variant-caller",
+   "display": "Variant caller",
+   "definition": "Variant calling software used in the pipeline."
+  }
+ ]
+}

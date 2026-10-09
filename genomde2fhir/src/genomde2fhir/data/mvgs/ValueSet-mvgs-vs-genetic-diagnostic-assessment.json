@@ -1,0 +1,41 @@
+{
+ "resourceType": "ValueSet",
+ "id": "mvgs-vs-genetic-diagnostic-assessment",
+ "url": "https://genomde.de/fhir/ValueSet/mvgs-vs-genetic-diagnostic-assessment",
+ "version": "0.1.0",
+ "name": "MVGS_VS_GENETIC_DIAGNOSTIC_ASSESSMENT",
+ "title": "MV-GenomSeq evaluation of genetic diagnostics: answer values",
+ "status": "draft",
+ "experimental": false,
+ "publisher": "KohlbacherLab (genomDE2FHIR)",
+ "description": "The five answer values of KDK diagnosisOd.diagnosticAssessment (without the observation code).",
+ "compose": {
+  "include": [
+   {
+    "system": "https://genomde.de/fhir/CodeSystem/mvgs-cs-genetic-diagnostic-assessment",
+    "concept": [
+     {
+      "code": "noGeneticDiagnosis",
+      "display": "No genetic diagnosis"
+     },
+     {
+      "code": "suspectedGeneticDiagnosis",
+      "display": "Suspected genetic diagnosis"
+     },
+     {
+      "code": "furtherGeneticDiagnosticRecommended",
+      "display": "Further genetic diagnostics recommended"
+     },
+     {
+      "code": "confirmedGeneticDiagnosis",
+      "display": "Confirmed genetic diagnosis"
+     },
+     {
+      "code": "partialGeneticDiagnosis",
+      "display": "Partial genetic diagnosis"
+     }
+    ]
+   }
+  ]
+ }
+}

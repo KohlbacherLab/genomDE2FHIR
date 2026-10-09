@@ -1,0 +1,48 @@
+{
+ "resourceType": "CodeSystem",
+ "id": "mvgs-cs-research-consent-absence-reason",
+ "url": "https://genomde.de/fhir/CodeSystem/mvgs-cs-research-consent-absence-reason",
+ "version": "0.1.0",
+ "name": "MVGS_CS_RESEARCH_CONSENT_ABSENCE_REASON",
+ "title": "MV-GenomSeq reason for a missing research consent",
+ "status": "draft",
+ "experimental": false,
+ "publisher": "KohlbacherLab (genomDE2FHIR)",
+ "description": "Why no research consent object is submitted (BfArM KDK/GRZ researchConsents[].noScopeJustification); display = the BfArM enumeration value.",
+ "caseSensitive": true,
+ "valueSet": "https://genomde.de/fhir/ValueSet/mvgs-vs-research-consent-absence-reason",
+ "content": "complete",
+ "count": 6,
+ "concept": [
+  {
+   "code": "unable-to-consent",
+   "display": "patient unable to consent",
+   "definition": "The patient is unable to consent."
+  },
+  {
+   "code": "refused",
+   "display": "patient refuses to sign consent",
+   "definition": "The patient refuses to sign the research consent."
+  },
+  {
+   "code": "documents-not-returned",
+   "display": "patient did not return consent documents",
+   "definition": "The patient did not return the consent documents."
+  },
+  {
+   "code": "other-patient-reason",
+   "display": "other patient-related reason",
+   "definition": "Another patient-related reason."
+  },
+  {
+   "code": "technical-reason",
+   "display": "consent information cannot be submitted by LE due to technical reason",
+   "definition": "The Leistungserbringer cannot submit the consent information for technical reasons."
+  },
+  {
+   "code": "not-implemented",
+   "display": "consent is not implemented at LE due to organizational issues",
+   "definition": "The research consent is not implemented at the Leistungserbringer for organizational reasons."
+  }
+ ]
+}

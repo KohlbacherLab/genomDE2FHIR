@@ -1,0 +1,38 @@
+{
+ "resourceType": "CodeSystem",
+ "id": "mvgs-cs-finding-category",
+ "url": "https://genomde.de/fhir/CodeSystem/mvgs-cs-finding-category",
+ "version": "0.1.0",
+ "name": "MVGS_CS_FINDING_CATEGORY",
+ "title": "MV-GenomSeq finding category",
+ "status": "draft",
+ "experimental": false,
+ "publisher": "KohlbacherLab (genomDE2FHIR)",
+ "description": "Diagnostic significance of a rare-disease variant for the case (KDK RareDiseasesMolecular *.diagnosticSignificance). Interim component on MolGen diagnostische-implikation until the MolGen Befundkategorie CodeSystem (HDB-976) is published (DISCUSS-TD #27). 'finding-category' is the component code, the other concepts are its values.",
+ "caseSensitive": true,
+ "valueSet": "https://genomde.de/fhir/ValueSet/mvgs-vs-finding-category",
+ "content": "complete",
+ "count": 4,
+ "concept": [
+  {
+   "code": "finding-category",
+   "display": "Finding category",
+   "definition": "Component code: category of the finding for the case (primary, incidental, candidate)."
+  },
+  {
+   "code": "primary",
+   "display": "Primary finding",
+   "definition": "Variant explains (part of) the indication of the case (KDK diagnosticSignificance 'primary')."
+  },
+  {
+   "code": "incidental",
+   "display": "Incidental finding",
+   "definition": "Variant unrelated to the indication of the case (KDK diagnosticSignificance 'incidental')."
+  },
+  {
+   "code": "candidate",
+   "display": "Candidate finding",
+   "definition": "Variant considered a candidate for the indication, not yet confirmed (KDK diagnosticSignificance 'candidate')."
+  }
+ ]
+}

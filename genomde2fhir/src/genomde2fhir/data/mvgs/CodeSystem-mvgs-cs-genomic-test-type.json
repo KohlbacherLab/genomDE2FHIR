@@ -1,0 +1,63 @@
+{
+ "resourceType": "CodeSystem",
+ "id": "mvgs-cs-genomic-test-type",
+ "url": "https://genomde.de/fhir/CodeSystem/mvgs-cs-genomic-test-type",
+ "version": "0.1.0",
+ "status": "draft",
+ "experimental": false,
+ "publisher": "KohlbacherLab (genomDE2FHIR)",
+ "name": "MVGS_CS_GENOMIC_TEST_TYPE",
+ "title": "MV-GenomSeq genomic test type",
+ "description": "Type of a prior genetic test as delivered by the BfArM Datenkranz (KDK oncology case.priorDiagnostics[].type). Carried on the genomic study (Procedure.code, example binding) so that read length and single-gene tests are kept; the standard method type goes to genomic-study-analysis extension:method-type via mvgs-cm-genomic-test-type-method-type (DISCUSS-TD #12, REPRESENTATIONS #12).",
+ "caseSensitive": true,
+ "valueSet": "https://genomde.de/fhir/ValueSet/mvgs-vs-genomic-test-type",
+ "content": "complete",
+ "count": 9,
+ "concept": [
+  {
+   "code": "exome",
+   "display": "Exome sequencing",
+   "definition": "Whole-exome sequencing."
+  },
+  {
+   "code": "genomeShortRead",
+   "display": "Genome sequencing, short read",
+   "definition": "Whole-genome sequencing with short-read technology."
+  },
+  {
+   "code": "genomeLongRead",
+   "display": "Genome sequencing, long read",
+   "definition": "Whole-genome sequencing with long-read technology."
+  },
+  {
+   "code": "panel",
+   "display": "Gene panel",
+   "definition": "Targeted sequencing of a gene panel."
+  },
+  {
+   "code": "single",
+   "display": "Single-gene test",
+   "definition": "Analysis of a single gene (method not specified by the Datenkranz); no MII or GR concept exists (DISCUSS-TD #12)."
+  },
+  {
+   "code": "array",
+   "display": "Array",
+   "definition": "Microarray-based analysis (e.g. array-CGH, SNP array)."
+  },
+  {
+   "code": "karyotyping",
+   "display": "Karyotyping",
+   "definition": "Conventional cytogenetic karyotyping."
+  },
+  {
+   "code": "other",
+   "display": "Other",
+   "definition": "Another genetic test type."
+  },
+  {
+   "code": "none",
+   "display": "None",
+   "definition": "No prior genetic test was performed."
+  }
+ ]
+}

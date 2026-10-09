@@ -1,0 +1,22 @@
+{
+ "resourceType": "ValueSet",
+ "id": "mvgs-vs-evidence-level",
+ "url": "https://genomde.de/fhir/ValueSet/mvgs-vs-evidence-level",
+ "version": "0.1.0",
+ "name": "MVGS_VS_EVIDENCE_LEVEL",
+ "title": "MV-GenomSeq MTB evidence level",
+ "status": "draft",
+ "experimental": false,
+ "publisher": "KohlbacherLab (genomDE2FHIR)",
+ "description": "MII MTB evidence grades (mii-cs-mtb-empfehlung-evidenzgrad) and additional references (mii-cs-mtb-empfehlung-evidenzgrad-zusatzverweis), for mvgs-ex-evidence-level.",
+ "compose": {
+  "include": [
+   {
+    "system": "https://www.medizininformatik-initiative.de/fhir/ext/modul-mtb/CodeSystem/mii-cs-mtb-empfehlung-evidenzgrad"
+   },
+   {
+    "system": "https://www.medizininformatik-initiative.de/fhir/ext/modul-mtb/CodeSystem/mii-cs-mtb-empfehlung-evidenzgrad-zusatzverweis"
+   }
+  ]
+ }
+}

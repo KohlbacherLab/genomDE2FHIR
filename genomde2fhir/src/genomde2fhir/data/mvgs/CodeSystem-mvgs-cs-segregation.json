@@ -1,0 +1,23 @@
+{
+ "resourceType": "CodeSystem",
+ "id": "mvgs-cs-segregation",
+ "url": "https://genomde.de/fhir/CodeSystem/mvgs-cs-segregation",
+ "version": "0.1.0",
+ "name": "MVGS_CS_SEGREGATION",
+ "title": "MV-GenomSeq segregation analysis",
+ "status": "draft",
+ "experimental": false,
+ "publisher": "KohlbacherLab (genomDE2FHIR)",
+ "description": "Segregation results without a LOINC answer in LL5489-1 (variant-inheritance, extensible binding); interim for HDB-976 (c) (DISCUSS-TD #28).",
+ "caseSensitive": true,
+ "valueSet": "https://genomde.de/fhir/ValueSet/mvgs-vs-segregation",
+ "content": "complete",
+ "count": 1,
+ "concept": [
+  {
+   "code": "biparental",
+   "display": "Inherited from mother and father",
+   "definition": "Segregation analysis found the variant in both the mother and the father (KDK segregationAnalysis 'fromMotherAndFather')."
+  }
+ ]
+}

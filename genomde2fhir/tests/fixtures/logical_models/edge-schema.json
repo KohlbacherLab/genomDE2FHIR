@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.org/edge-schema.json",
+  "$comment": "Synthetic schema exercising every construct schema_to_logical.py supports (tests/test_logical_models.py).",
+  "title": "Edge schema",
+  "type": "object",
+  "required": ["meta", "items", "optionalList"],
+  "properties": {
+    "meta": {
+      "type": "object",
+      "required": ["date", "kind"],
+      "properties": {
+        "date": {"type": "string", "format": "date", "description": "A date. Kept as string."},
+        "kind": {"type": "string", "enum": ["alpha", "beta", "unknown"], "description": "Kind of thing."},
+        "untypedEnum": {"enum": ["x", "y"]},
+        "count": {"type": "integer", "minimum": 0},
+        "ratio": {"type": "number", "minimum": 0, "maximum": 100},
+        "flag": {"type": "boolean"},
+        "endDate": {"type": "string", "format": "date", "nullable": true},
+        "opaque": {"type": "object", "description": "Embedded foreign JSON object."}
+      }
+    },
+    "items": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/Item"}
+    },
+    "optionalList": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "coded": {
+      "allOf": [
+        {"$ref": "https://raw.githubusercontent.com/BfArM-MVH/MVGenomseq_KDK/main/KDK/data-types/Coding.json"},
+        {"type": "object", "properties": {"date": {"type": "string", "format": "date"}}, "required": ["code", "date"]}
+      ]
+    }
+  },
+  "$defs": {
+    "Item": {
+      "type": "object",
+      "properties": {
+        "id": {"type": "string", "description": "Collides with the inherited Element.id."},
+        "scope": {"type": "object"},
+        "justification": {"type": "string", "enum": ["a", "b"]},
+        "substances": {
+          "type": "array",
+          "items": {
+            "allOf": [
+              {"$ref": "https://raw.githubusercontent.com/BfArM-MVH/MVGenomseq_KDK/main/KDK/data-types/Substance.json"},
+              {
+                "if": {"properties": {"code": {"properties": {"code": {"not": {"pattern": "^[A-Z]$"}}}}}},
+                "then": {"required": ["name"]}
+              }
+            ]
+          }
+        }
+      },
+      "oneOf": [{"required": ["scope"]}, {"required": ["justification"]}]
+    }
+  }
+}

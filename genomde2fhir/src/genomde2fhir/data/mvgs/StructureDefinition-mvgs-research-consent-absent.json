@@ -1,0 +1,76 @@
+{
+ "resourceType": "StructureDefinition",
+ "id": "mvgs-research-consent-absent",
+ "url": "https://genomde.de/fhir/StructureDefinition/mvgs-research-consent-absent",
+ "version": "0.1.0",
+ "name": "MVGS_RESEARCH_CONSENT_ABSENT",
+ "title": "MV-GenomSeq research consent not available",
+ "status": "draft",
+ "experimental": false,
+ "publisher": "KohlbacherLab (genomDE2FHIR)",
+ "description": "States that no research (Broad) consent is available for a patient/donor and why (researchConsents[] entries without scope, noScopeJustification). No MII element exists; a Consent resource would have to assert a consent state the source does not give.",
+ "fhirVersion": "4.0.1",
+ "kind": "resource",
+ "abstract": false,
+ "type": "Observation",
+ "baseDefinition": "http://hl7.org/fhir/StructureDefinition/Observation",
+ "derivation": "constraint",
+ "differential": {
+  "element": [
+   {
+    "id": "Observation",
+    "path": "Observation",
+    "short": "MV-GenomSeq research consent not available",
+    "definition": "States that no research (Broad) consent is available for a patient/donor and why (researchConsents[] entries without scope, noScopeJustification). No MII element exists; a Consent resource would have to assert a consent state the source does not give."
+   },
+   {
+    "id": "Observation.status",
+    "path": "Observation.status",
+    "fixedCode": "final"
+   },
+   {
+    "id": "Observation.code",
+    "path": "Observation.code",
+    "patternCodeableConcept": {
+     "coding": [
+      {
+       "system": "https://genomde.de/fhir/CodeSystem/mvgs-cs-mv-administrative",
+       "code": "research-consent-absent"
+      }
+     ]
+    }
+   },
+   {
+    "id": "Observation.subject",
+    "path": "Observation.subject",
+    "min": 1,
+    "mustSupport": true
+   },
+   {
+    "id": "Observation.effective[x]",
+    "path": "Observation.effective[x]",
+    "short": "Presentation date of the research consent (researchConsents[].presentationDate)",
+    "type": [
+     {
+      "code": "dateTime"
+     }
+    ],
+    "mustSupport": true
+   },
+   {
+    "id": "Observation.value[x]",
+    "path": "Observation.value[x]",
+    "min": 1,
+    "type": [
+     {
+      "code": "CodeableConcept"
+     }
+    ],
+    "binding": {
+     "strength": "required",
+     "valueSet": "https://genomde.de/fhir/ValueSet/mvgs-vs-research-consent-absence-reason"
+    }
+   }
+  ]
+ }
+}

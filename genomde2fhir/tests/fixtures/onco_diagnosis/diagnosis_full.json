@@ -1,0 +1,161 @@
+{
+ "metaData": {
+  "submission": {
+   "date": "2026-04-22",
+   "type": "initial",
+   "submitterId": "195384932",
+   "clinicalDataNodeId": "KDKHD0006",
+   "diseaseType": "oncological"
+  },
+  "coverageType": "GPV",
+  "mvConsent": {
+   "version": "Einwilligung Modellvorhaben 64e v1 (2025-03-03)",
+   "scope": [
+    {
+     "type": "permit",
+     "date": "2026-03-22",
+     "domain": "mvSequencing"
+    },
+    {
+     "type": "permit",
+     "date": "2026-03-22",
+     "domain": "reIdentification"
+    },
+    {
+     "type": "permit",
+     "date": "2026-03-22",
+     "domain": "caseIdentification"
+    }
+   ]
+  },
+  "researchConsents": [
+   {
+    "schemaVersion": "2025.0.1",
+    "presentationDate": "2026-03-22",
+    "noScopeJustification": "patient did not return consent documents"
+   }
+  ],
+  "tanC": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "gender": "male",
+  "birthDate": "1978-05",
+  "addressAGS": "02000",
+  "decisionToInclude": false,
+  "molecularBoardDecisionDate": "2026-04-08",
+  "rejectionJustification": "otherReason",
+  "localCaseId": "onco-diagnosis-fixture-full"
+ },
+ "case": {
+  "diagnosisOd": {
+   "mainDiagnosis": {
+    "code": "C341",
+    "system": "http://fhir.de/CodeSystem/dimdi/icd-10-gm",
+    "version": "2026",
+    "display": "Bösartige Neubildung: Oberlappen (-Bronchus)",
+    "date": "2024-03-15"
+   },
+   "additionalDiagnoses": [
+    {
+     "code": "E119",
+     "system": "http://fhir.de/CodeSystem/dimdi/icd-10-gm",
+     "version": "2026",
+     "display": "Diabetes mellitus, Typ 2",
+     "date": "2019-05-15"
+    },
+    {
+     "code": "ORPHA:145",
+     "system": "https://www.orpha.net/consor/cgi-bin/index.php",
+     "version": "1.4.0",
+     "display": "Hereditary breast and/or ovarian cancer syndrome",
+     "date": "2020-01-15"
+    },
+    {
+     "code": "I100393",
+     "system": "https://www.alpha-id.de",
+     "version": "2025",
+     "date": "2020-01-15"
+    }
+   ],
+   "ecogPerformanceStatusScore": "unknown",
+   "germlineDiagnosisConfirmed": true,
+   "germlineDiagnoses": [
+    {
+     "code": "Z80.3",
+     "system": "http://fhir.de/CodeSystem/bfarm/icd-10-gm",
+     "version": "2026",
+     "display": "Bösartige Neubildung der Brustdrüse in der Familienanamnese"
+    },
+    {
+     "code": "ORPHA:145",
+     "system": "https://www.orpha.net/consor/cgi-bin/index.php",
+     "version": "1.4.0"
+    }
+   ],
+   "hpoTerms": [
+    {
+     "code": "HP:0003002",
+     "system": "https://hpo.jax.org/app/",
+     "version": "2025-05-06",
+     "display": "Breast carcinoma",
+     "text": "Mammakarzinom"
+    }
+   ],
+   "histology": {
+    "code": "M8140/3",
+    "system": "urn:oid:2.16.840.1.113883.6.43.1",
+    "version": "Zweite Revision",
+    "display": "Adenokarzinom o.n.A."
+   },
+   "topography": {
+    "code": "C341",
+    "system": "ICD-O3-T",
+    "version": "rev2",
+    "display": "Oberlappen der Lunge"
+   },
+   "grading": "U",
+   "tnmClassifications": [
+    {
+     "code": "1352545001",
+     "system": "http://snomed.info/sct",
+     "version": "http://snomed.info/sct/900000000000207008/version/20240401",
+     "display": "ypT2",
+     "text": "ypT2"
+    },
+    {
+     "code": "N0",
+     "system": "UICC",
+     "version": "8th ed.",
+     "display": "N0"
+    },
+    {
+     "code": "1352517007",
+     "system": "http://snomed.info/sct",
+     "version": "2025-03-01",
+     "display": "cM1a",
+     "text": "cM1a"
+    },
+    {
+     "code": "1229903009",
+     "system": "http://snomed.info/sct",
+     "version": "2025-03-01",
+     "display": "cM1",
+     "text": "cM1"
+    }
+   ],
+   "additionalClassification": [
+    {
+     "system": "TNM",
+     "key": "cT2 cN0 cM1a"
+    },
+    {
+     "system": "dnpm-dip/mtb/diagnosis/kds-tumor-spread",
+     "key": "metastasized"
+    },
+    {
+     "system": "FIGO"
+    }
+   ],
+   "libraryType": "wgs_lr",
+   "diagnosticAssessment": "confirmedGeneticDiagnosis"
+  }
+ }
+}

@@ -1,0 +1,358 @@
+{
+ "metaData": {
+  "submission": {
+   "date": "2025-12-08",
+   "type": "initial",
+   "submitterId": "195858668",
+   "clinicalDataNodeId": "KDKHD0006",
+   "diseaseType": "oncological"
+  },
+  "coverageType": "BG",
+  "mvConsent": {
+   "version": "Einwilligung Modellvorhaben 64e v1 (2025-03-03)",
+   "scope": [
+    {
+     "type": "permit",
+     "date": "2025-11-02",
+     "domain": "mvSequencing"
+    },
+    {
+     "type": "permit",
+     "date": "2025-11-02",
+     "domain": "reIdentification"
+    },
+    {
+     "type": "permit",
+     "date": "2025-11-02",
+     "domain": "caseIdentification"
+    }
+   ]
+  },
+  "researchConsents": [
+   {
+    "schemaVersion": "2025.0.1",
+    "presentationDate": "2025-11-02",
+    "noScopeJustification": "patient unable to consent"
+   }
+  ],
+  "tanC": "2a7767dfc37f449822be9c9ff4bdaa8ba50380b5812ce06b16c8ff797efac201",
+  "gender": "female",
+  "birthDate": "1940-01",
+  "addressAGS": "15082",
+  "decisionToInclude": false,
+  "molecularBoardDecisionDate": "2025-11-26",
+  "rejectionJustification": "otherReason",
+  "localCaseId": "onco-prior-fixture-1"
+ },
+ "case": {
+  "diagnosisOd": {
+   "mainDiagnosis": {
+    "code": "C15.9",
+    "system": "http://fhir.de/CodeSystem/bfarm/icd-10-gm",
+    "version": "2025",
+    "date": "2022-06-24"
+   },
+   "ecogPerformanceStatusScore": "2",
+   "germlineDiagnosisConfirmed": false,
+   "histology": {
+    "code": "8140/3",
+    "system": "ICD-O3-M",
+    "version": "rev2"
+   },
+   "topography": {
+    "code": "C15.9",
+    "system": "ICD-O3-T",
+    "version": "rev2"
+   },
+   "libraryType": "none",
+   "hpoTerms": [
+    {
+     "code": "HP:0100751",
+     "system": "https://hpo.jax.org/app/",
+     "text": "Esophageal neoplasm"
+    }
+   ],
+   "tnmClassifications": [
+    {
+     "code": "1352912003",
+     "system": "http://snomed.info/sct",
+     "version": "2025-03-01",
+     "display": "cTis",
+     "text": "cTis"
+    },
+    {
+     "code": "1229946007",
+     "system": "http://snomed.info/sct",
+     "version": "2025-03-01",
+     "display": "pN0",
+     "text": "pN0"
+    },
+    {
+     "code": "1229903009",
+     "system": "http://snomed.info/sct",
+     "version": "2025-03-01",
+     "display": "pM1",
+     "text": "pM1"
+    }
+   ]
+  },
+  "priorDiagnostics": [
+   {
+    "type": "exome",
+    "date": "2020-05-15",
+    "simpleVariants": [
+     {
+      "gene": {
+       "code": "HGNC:1097",
+       "system": "https://www.genenames.org/",
+       "display": "BRAF",
+       "version": "2025-01"
+      },
+      "transcript": {
+       "code": "ENST00000646891.2",
+       "system": "Ensembl",
+       "display": "BRAF-220",
+       "version": "113"
+      },
+      "dnaChange": "c.1799T>A",
+      "proteinChange": "p.Val600Glu",
+      "variantTypes": [
+       {
+        "code": "SO:0001583",
+        "system": "http://www.sequenceontology.org",
+        "version": "2024-11-18",
+        "display": "missense_variant"
+       },
+       {
+        "code": "SO:0001483",
+        "system": "http://www.sequenceontology.org",
+        "version": "2024-11-18",
+        "display": "SNV"
+       }
+      ]
+     },
+     {
+      "gene": {
+       "code": "HGNC:11998",
+       "display": "TP53"
+      },
+      "transcript": {
+       "code": "NM_000546.6",
+       "system": "https://www.ncbi.nlm.nih.gov/refseq/"
+      },
+      "dnaChange": "c.524G>A",
+      "proteinChange": "p.Arg175His"
+     }
+    ]
+   },
+   {
+    "type": "genomeLongRead",
+    "date": "2020-05-15"
+   },
+   {
+    "type": "genomeShortRead",
+    "date": "2020-05-15"
+   },
+   {
+    "type": "panel",
+    "date": "2020-05-15",
+    "complexVariants": [
+     "EML4::ALK Fusion (Variante 1)",
+     "MET Amplifikation"
+    ]
+   },
+   {
+    "type": "single",
+    "date": "2020-05-15"
+   },
+   {
+    "type": "array",
+    "date": "2020-05-15"
+   },
+   {
+    "type": "karyotyping",
+    "date": "2020-05-15"
+   },
+   {
+    "type": "other",
+    "date": "2020-05-15"
+   },
+   {
+    "type": "none"
+   },
+   {
+    "type": "none",
+    "date": "2019-03-15",
+    "complexVariants": [
+     "Befund ohne Testangabe: KRAS G12C"
+    ]
+   }
+  ],
+  "priorProcedures": [
+   {
+    "treatmentType": "O",
+    "therapyStartDate": "2021-01-15",
+    "intention": "K",
+    "substances": [
+     {
+      "code": {
+       "code": "L01FF01",
+       "system": "http://fhir.de/CodeSystem/bfarm/atc",
+       "version": "2025",
+       "display": "Nivolumab"
+      },
+      "name": "Nivolumab"
+     }
+    ],
+    "terminationReasonOBDS": "E",
+    "therapyEndDate": "2021-10-20",
+    "therapyResponse": "CR",
+    "therapyResponseDate": "2022-01-01"
+   },
+   {
+    "treatmentType": "A",
+    "therapyStartDate": "2021-02-15",
+    "intention": "P",
+    "substances": [
+     {
+      "code": {
+       "code": "L01BC02",
+       "system": "https://www.wido.de/publikationen-produkte/analytik/arzneimittel-klassifikation/",
+       "version": "2025"
+      }
+     }
+    ],
+    "terminationReasonOBDS": "R",
+    "therapyEndDate": "2021-11-20",
+    "therapyResponse": "PR",
+    "therapyResponseDate": "2022-01-02"
+   },
+   {
+    "treatmentType": "N",
+    "therapyStartDate": "2021-03-15",
+    "intention": "S",
+    "substances": [
+     {
+      "code": {
+       "code": "L01FD01",
+       "system": "http://www.whocc.no/atc",
+       "version": "2025"
+      }
+     }
+    ],
+    "terminationReasonOBDS": "W",
+    "therapyEndDate": "2021-12-20",
+    "therapyResponse": "SD",
+    "therapyResponseDate": "2022-01-03"
+   },
+   {
+    "treatmentType": "I",
+    "therapyStartDate": "2021-04-15",
+    "intention": "X",
+    "substances": [
+     {
+      "code": {
+       "code": "L01X",
+       "system": "http://fhir.de/CodeSystem/bfarm/atc",
+       "version": "2025"
+      },
+      "name": "Prüfsubstanz XY-123"
+     }
+    ],
+    "terminationReasonOBDS": "A",
+    "therapyEndDate": "2021-10-20",
+    "therapyResponse": "PD",
+    "therapyResponseDate": "2022-01-04"
+   },
+   {
+    "treatmentType": "S",
+    "therapyStartDate": "2021-05-15",
+    "substances": [
+     {
+      "name": "Studienmedikation ohne Code"
+     }
+    ],
+    "terminationReasonOBDS": "P",
+    "therapyEndDate": "2021-11-20"
+   },
+   {
+    "treatmentType": "O",
+    "therapyStartDate": "2021-06-15",
+    "intention": "K",
+    "substances": [
+     {
+      "code": {
+       "code": "L02BG04",
+       "system": "http://fhir.de/CodeSystem/bfarm/atc",
+       "version": "2025",
+       "display": "Letrozol"
+      },
+      "name": "Letrozol"
+     },
+     {
+      "code": {
+       "code": "L01EF01",
+       "system": "http://fhir.de/CodeSystem/bfarm/atc",
+       "version": "2025"
+      }
+     }
+    ],
+    "terminationReasonOBDS": "S",
+    "therapyEndDate": "2021-12-20"
+   },
+   {
+    "treatmentType": "A",
+    "therapyStartDate": "2021-07-15",
+    "intention": "P",
+    "terminationReasonOBDS": "V",
+    "therapyEndDate": "2021-10-20",
+    "therapyResponseDate": "2022-02-02"
+   },
+   {
+    "treatmentType": "N",
+    "therapyStartDate": "2021-08-15",
+    "intention": "S",
+    "substances": [
+     {
+      "code": {
+       "code": "L01CA04",
+       "system": "http://fhir.de/CodeSystem/bfarm/atc",
+       "version": "2025"
+      }
+     }
+    ],
+    "terminationReasonOBDS": "T",
+    "therapyEndDate": "2021-11-20"
+   },
+   {
+    "treatmentType": "I",
+    "therapyStartDate": "2021-09-15",
+    "intention": "X",
+    "substances": [
+     {
+      "code": {
+       "code": "L01BA01",
+       "system": "http://fhir.de/CodeSystem/bfarm/atc",
+       "version": "2025"
+      }
+     }
+    ],
+    "terminationReasonOBDS": "U",
+    "therapyEndDate": "2021-12-20"
+   },
+   {
+    "treatmentType": "S",
+    "therapyStartDate": "2021-01-15",
+    "substances": [
+     {
+      "code": {
+       "code": "L01XA01",
+       "system": "http://fhir.de/CodeSystem/bfarm/atc",
+       "version": "2025"
+      }
+     }
+    ]
+   }
+  ]
+ }
+}

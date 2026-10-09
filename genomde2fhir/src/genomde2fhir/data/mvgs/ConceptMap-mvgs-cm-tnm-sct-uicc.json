@@ -1,0 +1,2906 @@
+{
+ "resourceType": "ConceptMap",
+ "id": "mvgs-cm-tnm-sct-uicc",
+ "url": "https://genomde.de/fhir/ConceptMap/mvgs-cm-tnm-sct-uicc",
+ "version": "0.1.0",
+ "name": "MVGS_CM_TNM_SCT_UICC",
+ "title": "MV-GenomSeq TNM category: SNOMED CT to UICC",
+ "status": "draft",
+ "experimental": false,
+ "publisher": "KohlbacherLab (genomDE2FHIR)",
+ "description": "KDK diagnosisOd.tnmClassifications[] (SNOMED CT TNM category qualifier values) to the UICC TNM code required by `value.coding:uicc` of mii-pr-onko-tnm-{t,n,m}-kategorie (REPRESENTATIONS #2, DISCUSS-TD #2). Group 1 is the element-wise inverse of the MII Onko 2027.0.0-ballot.1 (= 2026.0.3) ConceptMaps mii-cm-onko-tnm-uicc-sct-clinical and -pathological, restricted to T/N/M categories (no y/r/a descriptors, no stage groups); every SNOMED code is unique, the c/p prefix of the source concept is carried as `product` (property = mii-ex-onko-tnm-cp-praefix, value c|p). Source edition = target edition of the MII maps. Group 2 accepts UICC strings that senders put into the SNOMED code field (identity over mii-vs-onko-tnm-{t,n,m}-kategorie-werte). SNOMED codes outside group 1 (e.g. AJCC qualifier values) are unmatched; the converter keeps them in mii-pr-onko-weitere-klassifikationen.",
+ "group": [
+  {
+   "source": "http://snomed.info/sct",
+   "sourceVersion": "http://snomed.info/sct/900000000000207008/version/20240401",
+   "target": "https://www.uicc.org/resources/tnm",
+   "element": [
+    {
+     "code": "1352975000",
+     "display": "Union for International Cancer Control cTX (qualifier value)",
+     "target": [
+      {
+       "code": "TX",
+       "display": "TX",
+       "equivalence": "equivalent",
+       "product": [
+        {
+         "property": "https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-ex-onko-tnm-cp-praefix",
+         "system": "https://www.uicc.org/resources/tnm",
+         "value": "c"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "code": "1352986003",
+     "display": "Union for International Cancer Control cT0 (qualifier value)",
+     "target": [
+      {
+       "code": "T0",
+       "display": "T0",
+       "equivalence": "equivalent",
+       "product": [
+        {
+         "property": "https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-ex-onko-tnm-cp-praefix",
+         "system": "https://www.uicc.org/resources/tnm",
+         "value": "c"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "code": "1352961007",
+     "display": "Union for International Cancer Control cTa (qualifier value)",
+     "target": [
+      {
+       "code": "Ta",
+       "display": "Ta",
+       "equivalence": "equivalent",
+       "product": [
+        {
+         "property": "https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-ex-onko-tnm-cp-praefix",
+         "system": "https://www.uicc.org/resources/tnm",
+         "value": "c"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "code": "1352984000",
+     "display": "Union for International Cancer Control cTis (qualifier value)",
+     "target": [
+      {
+       "code": "Tis",
+       "display": "Tis",
+       "equivalence": "equivalent",
+       "product": [
+        {
+         "property": "https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-ex-onko-tnm-cp-praefix",
+         "system": "https://www.uicc.org/resources/tnm",
+         "value": "c"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "code": "1352964004",
+     "display": "Union for International Cancer Control cTis(LAMN) (qualifier value)",
+     "target": [
+      {
+       "code": "Tis(LAMN)",
+       "display": "Tis(LAMN)",
+       "equivalence": "equivalent",
+       "product": [
+        {
+         "property": "https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-ex-onko-tnm-cp-praefix",
+         "system": "https://www.uicc.org/resources/tnm",
+         "value": "c"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "code": "1352965003",
+     "display": "Union for International Cancer Control cTis(DCIS) (qualifier value)",
+     "target": [
+      {
+       "code": "Tis(DCIS)",
+       "display": "Tis(DCIS)",
+       "equivalence": "equivalent",
+       "product": [
+        {
+         "property": "https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-ex-onko-tnm-cp-praefix",
+         "system": "https://www.uicc.org/resources/tnm",
+         "value": "c"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "code": "1351846009",
+     "display": "Union for International Cancer Control cTis(LCIS) (qualifier value)",
+     "target": [
+      {
+       "code": "Tis(LCIS)",
+       "display": "Tis(LCIS)",
+       "equivalence": "equivalent",
+       "product": [
+        {
+         "property": "https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-ex-onko-tnm-cp-praefix",
+         "system": "https://www.uicc.org/resources/tnm",
+         "value": "c"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "code": "1352987007",
+     "display": "Union for International Cancer Control cTis(Paget) (qualifier value)",
+     "target": [
+      {
+       "code": "Tis(Paget)",
+       "display": "Tis(Paget)",
+       "equivalence": "equivalent",
+       "product": [
+        {
+         "property": "https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-ex-onko-tnm-cp-praefix",
+         "system": "https://www.uicc.org/resources/tnm",
+         "value": "c"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "code": "1352996007",
+     "display": "Union for International Cancer Control cT1 (qualifier value)",
+     "target": [
+      {
+       "code": "T1",
+       "display": "T1",
+       "equivalence": "equivalent",
+       "product": [
+        {
+         "property": "https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-ex-onko-tnm-cp-praefix",
+         "system": "https://www.uicc.org/resources/tnm",
+         "value": "c"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "code": "1352979006",
+     "display": "Union for International Cancer Control cT1mi (qualifier value)",
+     "target": [
+      {
+       "code": "T1mi",
+       "display": "T1mi",
+       "equivalence": "equivalent",
+       "product": [
+        {
+         "property": "https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-ex-onko-tnm-cp-praefix",
+         "system": "https://www.uicc.org/resources/tnm",
+         "value": "c"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "code": "1352983006",
+     "display": "Union for International Cancer Control cT1a (qualifier value)",
+     "target": [
+      {
+       "code": "T1a",
+       "display": "T1a",
+       "equivalence": "equivalent",
+       "product": [
+        {
+         "property": "https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-ex-onko-tnm-cp-praefix",
+         "system": "https://www.uicc.org/resources/tnm",
+         "value": "c"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "code": "1352959003",
+     "display": "Union for International Cancer Control cT1a1 (qualifier value)",
+     "target": [
+      {
+       "code": "T1a1",
+       "display": "T1a1",
+       "equivalence": "equivalent",
+       "product": [
+        {
+         "property": "https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-ex-onko-tnm-cp-praefix",
+         "system": "https://www.uicc.org/resources/tnm",
+         "value": "c"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "code": "1352988002",
+     "display": "Union for International Cancer Control cT1a2 (qualifier value)",
+     "target": [
+      {
+       "code": "T1a2",
+       "display": "T1a2",
+       "equivalence": "equivalent",
+       "product": [
+        {
+         "property": "https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-ex-onko-tnm-cp-praefix",
+         "system": "https://www.uicc.org/resources/tnm",
+         "value": "c"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "code": "1352968001",
+     "display": "Union for International Cancer Control cT1b (qualifier value)",
+     "target": [
+      {
+       "code": "T1b",
+       "display": "T1b",
+       "equivalence": "equivalent",
+       "product": [
+        {
+         "property": "https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-ex-onko-tnm-cp-praefix",
+         "system": "https://www.uicc.org/resources/tnm",
+         "value": "c"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "code": "1352985004",
+     "display": "Union for International Cancer Control cT1b1 (qualifier value)",
+     "target": [
+      {
+       "code": "T1b1",
+       "display": "T1b1",
+       "equivalence": "equivalent",
+       "product": [
+        {
+         "property": "https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-ex-onko-tnm-cp-praefix",
+         "system": "https://www.uicc.org/resources/tnm",
+         "value": "c"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "code": "1352992009",
+     "display": "Union for International Cancer Control cT1b2 (qualifier value)",
+     "target": [
+      {
+       "code": "T1b2",
+       "display": "T1b2",
+       "equivalence": "equivalent",
+       "product": [
+        {
+         "property": "https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-ex-onko-tnm-cp-praefix",
+         "system": "https://www.uicc.org/resources/tnm",
+         "value": "c"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "code": "1352973007",
+     "display": "Union for International Cancer Control cT1c (qualifier value)",
+     "target": [
+      {
+       "code": "T1c",
+       "display": "T1c",
+       "equivalence": "equivalent",
+       "product": [
+        {
+         "property": "https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-ex-onko-tnm-cp-praefix",
+         "system": "https://www.uicc.org/resources/tnm",
+         "value": "c"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "code": "1352995006",
+     "display": "Union for International Cancer Control cT1c1 (qualifier value)",
+     "target": [
+      {
+       "code": "T1c1",
+       "display": "T1c1",
+       "equivalence": "equivalent",
+       "product": [
+        {
+         "property": "https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-ex-onko-tnm-cp-praefix",
+         "system": "https://www.uicc.org/resources/tnm",
+         "value": "c"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "code": "1352977008",
+     "display": "Union for International Cancer Control cT1c2 (qualifier value)",
+     "target": [
+      {
+       "code": "T1c2",
+       "display": "T1c2",
+       "equivalence": "equivalent",
+       "product": [
+        {
+         "property": "https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-ex-onko-tnm-cp-praefix",
+         "system": "https://www.uicc.org/resources/tnm",
+         "value": "c"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "code": "1352958006",
+     "display": "Union for International Cancer Control cT1c3 (qualifier value)",
+     "target": [
+      {
+       "code": "T1c3",
+       "display": "T1c3",
+       "equivalence": "equivalent",
+       "product": [
+        {
+         "property": "https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-ex-onko-tnm-cp-praefix",
+         "system": "https://www.uicc.org/resources/tnm",
+         "value": "c"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "code": "1352978003",
+     "display": "Union for International Cancer Control cT1d (qualifier value)",
+     "target": [
+      {
+       "code": "T1d",
+       "display": "T1d",
+       "equivalence": "equivalent",
+       "product": [
+        {
+         "property": "https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-ex-onko-tnm-cp-praefix",
+         "system": "https://www.uicc.org/resources/tnm",
+         "value": "c"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "code": "1352993004",
+     "display": "Union for International Cancer Control cT2 (qualifier value)",
+     "target": [
+      {
+       "code": "T2",
+       "display": "T2",
+       "equivalence": "equivalent",
+       "product": [
+        {
+         "property": "https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-ex-onko-tnm-cp-praefix",
+         "system": "https://www.uicc.org/resources/tnm",
+         "value": "c"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "code": "1352962000",
+     "display": "Union for International Cancer Control cT2a (qualifier value)",
+     "target": [
+      {
+       "code": "T2a",
+       "display": "T2a",
+       "equivalence": "equivalent",
+       "product": [
+        {
+         "property": "https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-ex-onko-tnm-cp-praefix",
+         "system": "https://www.uicc.org/resources/tnm",
+         "value": "c"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "code": "1352990001",
+     "display": "Union for International Cancer Control cT2a1 (qualifier value)",
+     "target": [
+      {
+       "code": "T2a1",
+       "display": "T2a1",
+       "equivalence": "equivalent",
+       "product": [
+        {
+         "property": "https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-ex-onko-tnm-cp-praefix",
+         "system": "https://www.uicc.org/resources/tnm",
+         "value": "c"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "code": "1352967006",
+     "display": "Union for International Cancer Control cT2a2 (qualifier value)",
+     "target": [
+      {
+       "code": "T2a2",
+       "display": "T2a2",
+       "equivalence": "equivalent",
+       "product": [
+        {
+         "property": "https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-ex-onko-tnm-cp-praefix",
+         "system": "https://www.uicc.org/resources/tnm",
+         "value": "c"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "code": "1352972002",
+     "display": "Union for International Cancer Control cT2b (qualifier value)",
+     "target": [
+      {
+       "code": "T2b",
+       "display": "T2b",
+       "equivalence": "equivalent",
+       "product": [
+        {
+         "property": "https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-ex-onko-tnm-cp-praefix",
+         "system": "https://www.uicc.org/resources/tnm",
+         "value": "c"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "code": "1352969009",
+     "display": "Union for International Cancer Control cT2c (qualifier value)",
+     "target": [
+      {
+       "code": "T2c",
+       "display": "T2c2",
+       "equivalence": "equivalent",
+       "product": [
+        {
+         "property": "https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-ex-onko-tnm-cp-praefix",
+         "system": "https://www.uicc.org/resources/tnm",
+         "value": "c"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "code": "1352971009",
+     "display": "Union for International Cancer Control cT2d (qualifier value)",
+     "target": [
+      {
+       "code": "T2d",
+       "display": "T2d",
+       "equivalence": "equivalent",
+       "product": [
+        {
+         "property": "https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-ex-onko-tnm-cp-praefix",
+         "system": "https://www.uicc.org/resources/tnm",
+         "value": "c"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "code": "1352966002",
+     "display": "Union for International Cancer Control cT3 (qualifier value)",
+     "target": [
+      {
+       "code": "T3",
+       "display": "T3",
+       "equivalence": "equivalent",
+       "product": [
+        {
+         "property": "https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-ex-onko-tnm-cp-praefix",
+         "system": "https://www.uicc.org/resources/tnm",
+         "value": "c"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "code": "1352989005",
+     "display": "Union for International Cancer Control cT3a (qualifier value)",
+     "target": [
+      {
+       "code": "T3a",
+       "display": "T3a",
+       "equivalence": "equivalent",
+       "product": [
+        {
+         "property": "https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-ex-onko-tnm-cp-praefix",
+         "system": "https://www.uicc.org/resources/tnm",
+         "value": "c"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "code": "1352991002",
+     "display": "Union for International Cancer Control cT3b (qualifier value)",
+     "target": [
+      {
+       "code": "T3b",
+       "display": "T3b",
+       "equivalence": "equivalent",
+       "product": [
+        {
+         "property": "https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-ex-onko-tnm-cp-praefix",
+         "system": "https://www.uicc.org/resources/tnm",
+         "value": "c"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "code": "1352976004",
+     "display": "Union for International Cancer Control cT3c (qualifier value)",
+     "target": [
+      {
+       "code": "T3c",
+       "display": "T3c",
+       "equivalence": "equivalent",
+       "product": [
+        {
+         "property": "https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-ex-onko-tnm-cp-praefix",
+         "system": "https://www.uicc.org/resources/tnm",
+         "value": "c"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "code": "1352994005",
+     "display": "Union for International Cancer Control cT3d (qualifier value)",
+     "target": [
+      {
+       "code": "T3d",
+       "display": "Td3",
+       "equivalence": "equivalent",
+       "product": [
+        {
+         "property": "https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-ex-onko-tnm-cp-praefix",
+         "system": "https://www.uicc.org/resources/tnm",
+         "value": "c"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "code": "1352974001",
+     "display": "Union for International Cancer Control cT3e (qualifier value)",
+     "target": [
+      {
+       "code": "T3e",
+       "display": "T3e",
+       "equivalence": "equivalent",
+       "product": [
+        {
+         "property": "https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-ex-onko-tnm-cp-praefix",
+         "system": "https://www.uicc.org/resources/tnm",
+         "value": "c"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "code": "1352997003",
+     "display": "Union for International Cancer Control cT4 (qualifier value)",
+     "target": [
+      {
+       "code": "T4",
+       "display": "T4",
+       "equivalence": "equivalent",
+       "product": [
+        {
+         "property": "https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-ex-onko-tnm-cp-praefix",
+         "system": "https://www.uicc.org/resources/tnm",
+         "value": "c"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "code": "1352982001",
+     "display": "Union for International Cancer Control cT4a (qualifier value)",
+     "target": [
+      {
+       "code": "T4a",
+       "display": "T4a",
+       "equivalence": "equivalent",
+       "product": [
+        {
+         "property": "https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-ex-onko-tnm-cp-praefix",
+         "system": "https://www.uicc.org/resources/tnm",
+         "value": "c"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "code": "1352960008",
+     "display": "Union for International Cancer Control cT4b (qualifier value)",
+     "target": [
+      {
+       "code": "T4b",
+       "display": "T4b",
+       "equivalence": "equivalent",
+       "product": [
+        {
+         "property": "https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-ex-onko-tnm-cp-praefix",
+         "system": "https://www.uicc.org/resources/tnm",
+         "value": "c"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "code": "1352980009",
+     "display": "Union for International Cancer Control cT4c (qualifier value)",
+     "target": [
+      {
+       "code": "T4c",
+       "display": "T4c",
+       "equivalence": "equivalent",
+       "product": [
+        {
+         "property": "https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-ex-onko-tnm-cp-praefix",
+         "system": "https://www.uicc.org/resources/tnm",
+         "value": "c"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "code": "1352963005",
+     "display": "Union for International Cancer Control cT4d (qualifier value)",
+     "target": [
+      {
+       "code": "T4d",
+       "display": "T4d",
+       "equivalence": "equivalent",
+       "product": [
+        {
+         "property": "https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-ex-onko-tnm-cp-praefix",
+         "system": "https://www.uicc.org/resources/tnm",
+         "value": "c"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "code": "1352981008",
+     "display": "Union for International Cancer Control cT4e (qualifier value)",
+     "target": [
+      {
+       "code": "T4e",
+       "display": "T4e",
+       "equivalence": "equivalent",
+       "product": [
+        {
+         "property": "https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-ex-onko-tnm-cp-praefix",
+         "system": "https://www.uicc.org/resources/tnm",
+         "value": "c"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "code": "1353039008",
+     "display": "Union for International Cancer Control cNX (qualifier value)",
+     "target": [
+      {
+       "code": "NX",
+       "display": "Nx",
+       "equivalence": "equivalent",
+       "product": [
+        {
+         "property": "https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-ex-onko-tnm-cp-praefix",
+         "system": "https://www.uicc.org/resources/tnm",
+         "value": "c"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "code": "1353041009",
+     "display": "Union for International Cancer Control cN0 (qualifier value)",
+     "target": [
+      {
+       "code": "N0",
+       "display": "N0",
+       "equivalence": "equivalent",
+       "product": [
+        {
+         "property": "https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-ex-onko-tnm-cp-praefix",
+         "system": "https://www.uicc.org/resources/tnm",
+         "value": "c"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "code": "1353043007",
+     "display": "Union for International Cancer Control cN1 (qualifier value)",
+     "target": [
+      {
+       "code": "N1",
+       "display": "N1",
+       "equivalence": "equivalent",
+       "product": [
+        {
+         "property": "https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-ex-onko-tnm-cp-praefix",
+         "system": "https://www.uicc.org/resources/tnm",
+         "value": "c"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "code": "1353046004",
+     "display": "Union for International Cancer Control cN1a (qualifier value)",
+     "target": [
+      {
+       "code": "N1a",
+       "display": "N1a",
+       "equivalence": "equivalent",
+       "product": [
+        {
+         "property": "https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-ex-onko-tnm-cp-praefix",
+         "system": "https://www.uicc.org/resources/tnm",
+         "value": "c"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "code": "1353048003",
+     "display": "Union for International Cancer Control cN1b (qualifier value)",
+     "target": [
+      {
+       "code": "N1b",
+       "display": "N1b",
+       "equivalence": "equivalent",
+       "product": [
+        {
+         "property": "https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-ex-onko-tnm-cp-praefix",
+         "system": "https://www.uicc.org/resources/tnm",
+         "value": "c"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "code": "1353044001",
+     "display": "Union for International Cancer Control cN1c (qualifier value)",
+     "target": [
+      {
+       "code": "N1c",
+       "display": "N1c",
+       "equivalence": "equivalent",
+       "product": [
+        {
+         "property": "https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-ex-onko-tnm-cp-praefix",
+         "system": "https://www.uicc.org/resources/tnm",
+         "value": "c"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "code": "1353047008",
+     "display": "Union for International Cancer Control cN2 (qualifier value)",
+     "target": [
+      {
+       "code": "N2",
+       "display": "N2",
+       "equivalence": "equivalent",
+       "product": [
+        {
+         "property": "https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-ex-onko-tnm-cp-praefix",
+         "system": "https://www.uicc.org/resources/tnm",
+         "value": "c"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "code": "1353050006",
+     "display": "Union for International Cancer Control cN2a (qualifier value)",
+     "target": [
+      {
+       "code": "N2a",
+       "display": "N2a",
+       "equivalence": "equivalent",
+       "product": [
+        {
+         "property": "https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-ex-onko-tnm-cp-praefix",
+         "system": "https://www.uicc.org/resources/tnm",
+         "value": "c"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "code": "1353055001",
+     "display": "Union for International Cancer Control cN2b (qualifier value)",
+     "target": [
+      {
+       "code": "N2b",
+       "display": "N2b",
+       "equivalence": "equivalent",
+       "product": [
+        {
+         "property": "https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-ex-onko-tnm-cp-praefix",
+         "system": "https://www.uicc.org/resources/tnm",
+         "value": "c"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "code": "1353049006",
+     "display": "Union for International Cancer Control cN2c (qualifier value)",
+     "target": [
+      {
+       "code": "N2c",
+       "display": "N2c",
+       "equivalence": "equivalent",
+       "product": [
+        {
+         "property": "https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-ex-onko-tnm-cp-praefix",
+         "system": "https://www.uicc.org/resources/tnm",
+         "value": "c"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "code": "1353053008",
+     "display": "Union for International Cancer Control cN3 (qualifier value)",
+     "target": [
+      {
+       "code": "N3",
+       "display": "N3",
+       "equivalence": "equivalent",
+       "product": [
+        {
+         "property": "https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-ex-onko-tnm-cp-praefix",
+         "system": "https://www.uicc.org/resources/tnm",
+         "value": "c"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "code": "1353057009",
+     "display": "Union for International Cancer Control cN3a (qualifier value)",
+     "target": [
+      {
+       "code": "N3a",
+       "display": "N3a",
+       "equivalence": "equivalent",
+       "product": [
+        {
+         "property": "https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-ex-onko-tnm-cp-praefix",
+         "system": "https://www.uicc.org/resources/tnm",
+         "value": "c"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "code": "1353054002",
+     "display": "Union for International Cancer Control cN3b (qualifier value)",
+     "target": [
+      {
+       "code": "N3b",
+       "display": "N3b",
+       "equivalence": "equivalent",
+       "product": [
+        {
+         "property": "https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-ex-onko-tnm-cp-praefix",
+         "system": "https://www.uicc.org/resources/tnm",
+         "value": "c"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "code": "1353051005",
+     "display": "Union for International Cancer Control cN3c (qualifier value)",
+     "target": [
+      {
+       "code": "N3c",
+       "display": "N3c",
+       "equivalence": "equivalent",
+       "product": [
+        {
+         "property": "https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-ex-onko-tnm-cp-praefix",
+         "system": "https://www.uicc.org/resources/tnm",
+         "value": "c"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "code": "1352512001",
+     "display": "Union for International Cancer Control cM0 (qualifier value)",
+     "target": [
+      {
+       "code": "M0",
+       "display": "M0",
+       "equivalence": "equivalent",
+       "product": [
+        {
+         "property": "https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-ex-onko-tnm-cp-praefix",
+         "system": "https://www.uicc.org/resources/tnm",
+         "value": "c"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "code": "1352513006",
+     "display": "Union for International Cancer Control cM1 (qualifier value)",
+     "target": [
+      {
+       "code": "M1",
+       "display": "M1",
+       "equivalence": "equivalent",
+       "product": [
+        {
+         "property": "https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-ex-onko-tnm-cp-praefix",
+         "system": "https://www.uicc.org/resources/tnm",
+         "value": "c"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "code": "1352517007",
+     "display": "Union for International Cancer Control cM1a (qualifier value)",
+     "target": [
+      {
+       "code": "M1a",
+       "display": "M1a",
+       "equivalence": "equivalent",
+       "product": [
+        {
+         "property": "https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-ex-onko-tnm-cp-praefix",
+         "system": "https://www.uicc.org/resources/tnm",
+         "value": "c"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "code": "1352514000",
+     "display": "Union for International Cancer Control cM1b (qualifier value)",
+     "target": [
+      {
+       "code": "M1b",
+       "display": "M1b",
+       "equivalence": "equivalent",
+       "product": [
+        {
+         "property": "https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-ex-onko-tnm-cp-praefix",
+         "system": "https://www.uicc.org/resources/tnm",
+         "value": "c"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "code": "1352516003",
+     "display": "Union for International Cancer Control cM1c (qualifier value)",
+     "target": [
+      {
+       "code": "M1c",
+       "display": "M1c",
+       "equivalence": "equivalent",
+       "product": [
+        {
+         "property": "https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-ex-onko-tnm-cp-praefix",
+         "system": "https://www.uicc.org/resources/tnm",
+         "value": "c"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "code": "1352510009",
+     "display": "Union for International Cancer Control cM1d (qualifier value)",
+     "target": [
+      {
+       "code": "M1d",
+       "display": "M1d",
+       "equivalence": "equivalent",
+       "product": [
+        {
+         "property": "https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-ex-onko-tnm-cp-praefix",
+         "system": "https://www.uicc.org/resources/tnm",
+         "value": "c"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "code": "1352532000",
+     "display": "Union for International Cancer Control pTX (qualifier value)",
+     "target": [
+      {
+       "code": "TX",
+       "display": "TX",
+       "equivalence": "equivalent",
+       "product": [
+        {
+         "property": "https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-ex-onko-tnm-cp-praefix",
+         "system": "https://www.uicc.org/resources/tnm",
+         "value": "p"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "code": "1352552004",
+     "display": "Union for International Cancer Control pT0 (qualifier value)",
+     "target": [
+      {
+       "code": "T0",
+       "display": "T0",
+       "equivalence": "equivalent",
+       "product": [
+        {
+         "property": "https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-ex-onko-tnm-cp-praefix",
+         "system": "https://www.uicc.org/resources/tnm",
+         "value": "p"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "code": "1352539009",
+     "display": "Union for International Cancer Control pTa (qualifier value)",
+     "target": [
+      {
+       "code": "Ta",
+       "display": "Ta",
+       "equivalence": "equivalent",
+       "product": [
+        {
+         "property": "https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-ex-onko-tnm-cp-praefix",
+         "system": "https://www.uicc.org/resources/tnm",
+         "value": "p"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "code": "1352558000",
+     "display": "Union for International Cancer Control pTis (qualifier value)",
+     "target": [
+      {
+       "code": "Tis",
+       "display": "Tis",
+       "equivalence": "equivalent",
+       "product": [
+        {
+         "property": "https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-ex-onko-tnm-cp-praefix",
+         "system": "https://www.uicc.org/resources/tnm",
+         "value": "p"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "code": "1352555002",
+     "display": "Union for International Cancer Control pTis(LAMN) (qualifier value)",
+     "target": [
+      {
+       "code": "Tis(LAMN)",
+       "display": "Tis(LAMN)",
+       "equivalence": "equivalent",
+       "product": [
+        {
+         "property": "https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-ex-onko-tnm-cp-praefix",
+         "system": "https://www.uicc.org/resources/tnm",
+         "value": "p"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "code": "1352535003",
+     "display": "Union for International Cancer Control pTis(DCIS) (qualifier value)",
+     "target": [
+      {
+       "code": "Tis(DCIS)",
+       "display": "Tis(DCIS)",
+       "equivalence": "equivalent",
+       "product": [
+        {
+         "property": "https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-ex-onko-tnm-cp-praefix",
+         "system": "https://www.uicc.org/resources/tnm",
+         "value": "p"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "code": "1351847000",
+     "display": "Union for International Cancer Control pTis(LCIS) (qualifier value)",
+     "target": [
+      {
+       "code": "Tis(LCIS)",
+       "display": "Tis(LCIS)",
+       "equivalence": "equivalent",
+       "product": [
+        {
+         "property": "https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-ex-onko-tnm-cp-praefix",
+         "system": "https://www.uicc.org/resources/tnm",
+         "value": "p"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "code": "1352563001",
+     "display": "Union for International Cancer Control pTis(Paget) (qualifier value)",
+     "target": [
+      {
+       "code": "Tis(Paget)",
+       "display": "Tis(Paget)",
+       "equivalence": "equivalent",
+       "product": [
+        {
+         "property": "https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-ex-onko-tnm-cp-praefix",
+         "system": "https://www.uicc.org/resources/tnm",
+         "value": "p"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "code": "1352559008",
+     "display": "Union for International Cancer Control pT1 (qualifier value)",
+     "target": [
+      {
+       "code": "T1",
+       "display": "T1",
+       "equivalence": "equivalent",
+       "product": [
+        {
+         "property": "https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-ex-onko-tnm-cp-praefix",
+         "system": "https://www.uicc.org/resources/tnm",
+         "value": "p"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "code": "1352562006",
+     "display": "Union for International Cancer Control pT1mi (qualifier value)",
+     "target": [
+      {
+       "code": "T1mi",
+       "display": "T1mi",
+       "equivalence": "equivalent",
+       "product": [
+        {
+         "property": "https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-ex-onko-tnm-cp-praefix",
+         "system": "https://www.uicc.org/resources/tnm",
+         "value": "p"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "code": "1352560003",
+     "display": "Union for International Cancer Control pT1a (qualifier value)",
+     "target": [
+      {
+       "code": "T1a",
+       "display": "T1a",
+       "equivalence": "equivalent",
+       "product": [
+        {
+         "property": "https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-ex-onko-tnm-cp-praefix",
+         "system": "https://www.uicc.org/resources/tnm",
+         "value": "p"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "code": "1352550007",
+     "display": "Union for International Cancer Control pT1a1 (qualifier value)",
+     "target": [
+      {
+       "code": "T1a1",
+       "display": "T1a1",
+       "equivalence": "equivalent",
+       "product": [
+        {
+         "property": "https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-ex-onko-tnm-cp-praefix",
+         "system": "https://www.uicc.org/resources/tnm",
+         "value": "p"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "code": "1352566009",
+     "display": "Union for International Cancer Control pT1a2 (qualifier value)",
+     "target": [
+      {
+       "code": "T1a2",
+       "display": "T1a2",
+       "equivalence": "equivalent",
+       "product": [
+        {
+         "property": "https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-ex-onko-tnm-cp-praefix",
+         "system": "https://www.uicc.org/resources/tnm",
+         "value": "p"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "code": "1352543008",
+     "display": "Union for International Cancer Control pT1b (qualifier value)",
+     "target": [
+      {
+       "code": "T1b",
+       "display": "T1b",
+       "equivalence": "equivalent",
+       "product": [
+        {
+         "property": "https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-ex-onko-tnm-cp-praefix",
+         "system": "https://www.uicc.org/resources/tnm",
+         "value": "p"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "code": "1352536002",
+     "display": "Union for International Cancer Control pT1b1 (qualifier value)",
+     "target": [
+      {
+       "code": "T1b1",
+       "display": "T1b1",
+       "equivalence": "equivalent",
+       "product": [
+        {
+         "property": "https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-ex-onko-tnm-cp-praefix",
+         "system": "https://www.uicc.org/resources/tnm",
+         "value": "p"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "code": "1352554003",
+     "display": "Union for International Cancer Control pT1b2 (qualifier value)",
+     "target": [
+      {
+       "code": "T1b2",
+       "display": "T1b2",
+       "equivalence": "equivalent",
+       "product": [
+        {
+         "property": "https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-ex-onko-tnm-cp-praefix",
+         "system": "https://www.uicc.org/resources/tnm",
+         "value": "p"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "code": "1352537006",
+     "display": "Union for International Cancer Control pT1c (qualifier value)",
+     "target": [
+      {
+       "code": "T1c",
+       "display": "T1c",
+       "equivalence": "equivalent",
+       "product": [
+        {
+         "property": "https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-ex-onko-tnm-cp-praefix",
+         "system": "https://www.uicc.org/resources/tnm",
+         "value": "p"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "code": "1352544002",
+     "display": "Union for International Cancer Control pT1c1 (qualifier value)",
+     "target": [
+      {
+       "code": "T1c1",
+       "display": "T1c1",
+       "equivalence": "equivalent",
+       "product": [
+        {
+         "property": "https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-ex-onko-tnm-cp-praefix",
+         "system": "https://www.uicc.org/resources/tnm",
+         "value": "p"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "code": "1352541005",
+     "display": "Union for International Cancer Control pT1c2 (qualifier value)",
+     "target": [
+      {
+       "code": "T1c2",
+       "display": "T1c2",
+       "equivalence": "equivalent",
+       "product": [
+        {
+         "property": "https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-ex-onko-tnm-cp-praefix",
+         "system": "https://www.uicc.org/resources/tnm",
+         "value": "p"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "code": "1352549007",
+     "display": "Union for International Cancer Control pT1c3 (qualifier value)",
+     "target": [
+      {
+       "code": "T1c3",
+       "display": "T1c3",
+       "equivalence": "equivalent",
+       "product": [
+        {
+         "property": "https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-ex-onko-tnm-cp-praefix",
+         "system": "https://www.uicc.org/resources/tnm",
+         "value": "p"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "code": "1352568005",
+     "display": "Union for International Cancer Control pT1d (qualifier value)",
+     "target": [
+      {
+       "code": "T1d",
+       "display": "T1d",
+       "equivalence": "equivalent",
+       "product": [
+        {
+         "property": "https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-ex-onko-tnm-cp-praefix",
+         "system": "https://www.uicc.org/resources/tnm",
+         "value": "p"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "code": "1352545001",
+     "display": "Union for International Cancer Control pT2 (qualifier value)",
+     "target": [
+      {
+       "code": "T2",
+       "display": "T2",
+       "equivalence": "equivalent",
+       "product": [
+        {
+         "property": "https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-ex-onko-tnm-cp-praefix",
+         "system": "https://www.uicc.org/resources/tnm",
+         "value": "p"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "code": "1352564007",
+     "display": "Union for International Cancer Control pT2a (qualifier value)",
+     "target": [
+      {
+       "code": "T2a",
+       "display": "T2a",
+       "equivalence": "equivalent",
+       "product": [
+        {
+         "property": "https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-ex-onko-tnm-cp-praefix",
+         "system": "https://www.uicc.org/resources/tnm",
+         "value": "p"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "code": "1352546000",
+     "display": "Union for International Cancer Control pT2a1 (qualifier value)",
+     "target": [
+      {
+       "code": "T2a1",
+       "display": "T2a1",
+       "equivalence": "equivalent",
+       "product": [
+        {
+         "property": "https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-ex-onko-tnm-cp-praefix",
+         "system": "https://www.uicc.org/resources/tnm",
+         "value": "p"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "code": "1352567000",
+     "display": "Union for International Cancer Control pT2a2 (qualifier value)",
+     "target": [
+      {
+       "code": "T2a2",
+       "display": "T2a2",
+       "equivalence": "equivalent",
+       "product": [
+        {
+         "property": "https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-ex-onko-tnm-cp-praefix",
+         "system": "https://www.uicc.org/resources/tnm",
+         "value": "p"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "code": "1352547009",
+     "display": "Union for International Cancer Control pT2b (qualifier value)",
+     "target": [
+      {
+       "code": "T2b",
+       "display": "T2b",
+       "equivalence": "equivalent",
+       "product": [
+        {
+         "property": "https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-ex-onko-tnm-cp-praefix",
+         "system": "https://www.uicc.org/resources/tnm",
+         "value": "p"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "code": "1352569002",
+     "display": "Union for International Cancer Control pT2c (qualifier value)",
+     "target": [
+      {
+       "code": "T2c",
+       "display": "T2c2",
+       "equivalence": "equivalent",
+       "product": [
+        {
+         "property": "https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-ex-onko-tnm-cp-praefix",
+         "system": "https://www.uicc.org/resources/tnm",
+         "value": "p"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "code": "1352548004",
+     "display": "Union for International Cancer Control pT2d (qualifier value)",
+     "target": [
+      {
+       "code": "T2d",
+       "display": "T2d",
+       "equivalence": "equivalent",
+       "product": [
+        {
+         "property": "https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-ex-onko-tnm-cp-praefix",
+         "system": "https://www.uicc.org/resources/tnm",
+         "value": "p"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "code": "1352533005",
+     "display": "Union for International Cancer Control pT3 (qualifier value)",
+     "target": [
+      {
+       "code": "T3",
+       "display": "T3",
+       "equivalence": "equivalent",
+       "product": [
+        {
+         "property": "https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-ex-onko-tnm-cp-praefix",
+         "system": "https://www.uicc.org/resources/tnm",
+         "value": "p"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "code": "1352551006",
+     "display": "Union for International Cancer Control pT3a (qualifier value)",
+     "target": [
+      {
+       "code": "T3a",
+       "display": "T3a",
+       "equivalence": "equivalent",
+       "product": [
+        {
+         "property": "https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-ex-onko-tnm-cp-praefix",
+         "system": "https://www.uicc.org/resources/tnm",
+         "value": "p"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "code": "1352534004",
+     "display": "Union for International Cancer Control pT3b (qualifier value)",
+     "target": [
+      {
+       "code": "T3b",
+       "display": "T3b",
+       "equivalence": "equivalent",
+       "product": [
+        {
+         "property": "https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-ex-onko-tnm-cp-praefix",
+         "system": "https://www.uicc.org/resources/tnm",
+         "value": "p"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "code": "1352556001",
+     "display": "Union for International Cancer Control pT3c (qualifier value)",
+     "target": [
+      {
+       "code": "T3c",
+       "display": "T3c",
+       "equivalence": "equivalent",
+       "product": [
+        {
+         "property": "https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-ex-onko-tnm-cp-praefix",
+         "system": "https://www.uicc.org/resources/tnm",
+         "value": "p"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "code": "1352531007",
+     "display": "Union for International Cancer Control pT3d (qualifier value)",
+     "target": [
+      {
+       "code": "T3d",
+       "display": "Td3",
+       "equivalence": "equivalent",
+       "product": [
+        {
+         "property": "https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-ex-onko-tnm-cp-praefix",
+         "system": "https://www.uicc.org/resources/tnm",
+         "value": "p"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "code": "1352553009",
+     "display": "Union for International Cancer Control pT4 (qualifier value)",
+     "target": [
+      {
+       "code": "T4",
+       "display": "T4",
+       "equivalence": "equivalent",
+       "product": [
+        {
+         "property": "https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-ex-onko-tnm-cp-praefix",
+         "system": "https://www.uicc.org/resources/tnm",
+         "value": "p"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "code": "1352538001",
+     "display": "Union for International Cancer Control pT4a (qualifier value)",
+     "target": [
+      {
+       "code": "T4a",
+       "display": "T4a",
+       "equivalence": "equivalent",
+       "product": [
+        {
+         "property": "https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-ex-onko-tnm-cp-praefix",
+         "system": "https://www.uicc.org/resources/tnm",
+         "value": "p"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "code": "1352561004",
+     "display": "Union for International Cancer Control pT4b (qualifier value)",
+     "target": [
+      {
+       "code": "T4b",
+       "display": "T4b",
+       "equivalence": "equivalent",
+       "product": [
+        {
+         "property": "https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-ex-onko-tnm-cp-praefix",
+         "system": "https://www.uicc.org/resources/tnm",
+         "value": "p"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "code": "1352540006",
+     "display": "Union for International Cancer Control pT4c (qualifier value)",
+     "target": [
+      {
+       "code": "T4c",
+       "display": "T4c",
+       "equivalence": "equivalent",
+       "product": [
+        {
+         "property": "https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-ex-onko-tnm-cp-praefix",
+         "system": "https://www.uicc.org/resources/tnm",
+         "value": "p"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "code": "1352557005",
+     "display": "Union for International Cancer Control pT4d (qualifier value)",
+     "target": [
+      {
+       "code": "T4d",
+       "display": "T4d",
+       "equivalence": "equivalent",
+       "product": [
+        {
+         "property": "https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-ex-onko-tnm-cp-praefix",
+         "system": "https://www.uicc.org/resources/tnm",
+         "value": "p"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "code": "1352542003",
+     "display": "Union for International Cancer Control pT4e (qualifier value)",
+     "target": [
+      {
+       "code": "T4e",
+       "display": "T4e",
+       "equivalence": "equivalent",
+       "product": [
+        {
+         "property": "https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-ex-onko-tnm-cp-praefix",
+         "system": "https://www.uicc.org/resources/tnm",
+         "value": "p"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "code": "1352605004",
+     "display": "Union for International Cancer Control pNX (qualifier value)",
+     "target": [
+      {
+       "code": "NX",
+       "display": "Nx",
+       "equivalence": "equivalent",
+       "product": [
+        {
+         "property": "https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-ex-onko-tnm-cp-praefix",
+         "system": "https://www.uicc.org/resources/tnm",
+         "value": "p"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "code": "1352621009",
+     "display": "Union for International Cancer Control pN0 (qualifier value)",
+     "target": [
+      {
+       "code": "N0",
+       "display": "N0",
+       "equivalence": "equivalent",
+       "product": [
+        {
+         "property": "https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-ex-onko-tnm-cp-praefix",
+         "system": "https://www.uicc.org/resources/tnm",
+         "value": "p"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "code": "1352614009",
+     "display": "Union for International Cancer Control pN1 (qualifier value)",
+     "target": [
+      {
+       "code": "N1",
+       "display": "N1",
+       "equivalence": "equivalent",
+       "product": [
+        {
+         "property": "https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-ex-onko-tnm-cp-praefix",
+         "system": "https://www.uicc.org/resources/tnm",
+         "value": "p"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "code": "1352620005",
+     "display": "Union for International Cancer Control pN1mi (qualifier value)",
+     "target": [
+      {
+       "code": "N1mi",
+       "display": "N1(mi)",
+       "equivalence": "equivalent",
+       "product": [
+        {
+         "property": "https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-ex-onko-tnm-cp-praefix",
+         "system": "https://www.uicc.org/resources/tnm",
+         "value": "p"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "code": "1352619004",
+     "display": "Union for International Cancer Control pN1a (qualifier value)",
+     "target": [
+      {
+       "code": "N1a",
+       "display": "N1a",
+       "equivalence": "equivalent",
+       "product": [
+        {
+         "property": "https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-ex-onko-tnm-cp-praefix",
+         "system": "https://www.uicc.org/resources/tnm",
+         "value": "p"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "code": "1352616006",
+     "display": "Union for International Cancer Control pN1b (qualifier value)",
+     "target": [
+      {
+       "code": "N1b",
+       "display": "N1b",
+       "equivalence": "equivalent",
+       "product": [
+        {
+         "property": "https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-ex-onko-tnm-cp-praefix",
+         "system": "https://www.uicc.org/resources/tnm",
+         "value": "p"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "code": "1352617002",
+     "display": "Union for International Cancer Control pN1c (qualifier value)",
+     "target": [
+      {
+       "code": "N1c",
+       "display": "N1c",
+       "equivalence": "equivalent",
+       "product": [
+        {
+         "property": "https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-ex-onko-tnm-cp-praefix",
+         "system": "https://www.uicc.org/resources/tnm",
+         "value": "p"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "code": "1352610000",
+     "display": "Union for International Cancer Control pN2 (qualifier value)",
+     "target": [
+      {
+       "code": "N2",
+       "display": "N2",
+       "equivalence": "equivalent",
+       "product": [
+        {
+         "property": "https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-ex-onko-tnm-cp-praefix",
+         "system": "https://www.uicc.org/resources/tnm",
+         "value": "p"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "code": "1352608002",
+     "display": "Union for International Cancer Control pN2a (qualifier value)",
+     "target": [
+      {
+       "code": "N2a",
+       "display": "N2a",
+       "equivalence": "equivalent",
+       "product": [
+        {
+         "property": "https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-ex-onko-tnm-cp-praefix",
+         "system": "https://www.uicc.org/resources/tnm",
+         "value": "p"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "code": "1352612008",
+     "display": "Union for International Cancer Control pN2b (qualifier value)",
+     "target": [
+      {
+       "code": "N2b",
+       "display": "N2b",
+       "equivalence": "equivalent",
+       "product": [
+        {
+         "property": "https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-ex-onko-tnm-cp-praefix",
+         "system": "https://www.uicc.org/resources/tnm",
+         "value": "p"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "code": "1352613003",
+     "display": "Union for International Cancer Control pN2c (qualifier value)",
+     "target": [
+      {
+       "code": "N2c",
+       "display": "N2c",
+       "equivalence": "equivalent",
+       "product": [
+        {
+         "property": "https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-ex-onko-tnm-cp-praefix",
+         "system": "https://www.uicc.org/resources/tnm",
+         "value": "p"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "code": "1352622002",
+     "display": "Union for International Cancer Control pN3 (qualifier value)",
+     "target": [
+      {
+       "code": "N3",
+       "display": "N3",
+       "equivalence": "equivalent",
+       "product": [
+        {
+         "property": "https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-ex-onko-tnm-cp-praefix",
+         "system": "https://www.uicc.org/resources/tnm",
+         "value": "p"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "code": "1352618007",
+     "display": "Union for International Cancer Control pN3a (qualifier value)",
+     "target": [
+      {
+       "code": "N3a",
+       "display": "N3a",
+       "equivalence": "equivalent",
+       "product": [
+        {
+         "property": "https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-ex-onko-tnm-cp-praefix",
+         "system": "https://www.uicc.org/resources/tnm",
+         "value": "p"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "code": "1352623007",
+     "display": "Union for International Cancer Control pN3b (qualifier value)",
+     "target": [
+      {
+       "code": "N3b",
+       "display": "N3b",
+       "equivalence": "equivalent",
+       "product": [
+        {
+         "property": "https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-ex-onko-tnm-cp-praefix",
+         "system": "https://www.uicc.org/resources/tnm",
+         "value": "p"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "code": "1352606003",
+     "display": "Union for International Cancer Control pN3c (qualifier value)",
+     "target": [
+      {
+       "code": "N3c",
+       "display": "N3c",
+       "equivalence": "equivalent",
+       "product": [
+        {
+         "property": "https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-ex-onko-tnm-cp-praefix",
+         "system": "https://www.uicc.org/resources/tnm",
+         "value": "p"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "code": "1352583000",
+     "display": "Union for International Cancer Control pM1 (qualifier value)",
+     "target": [
+      {
+       "code": "M1",
+       "display": "M1",
+       "equivalence": "equivalent",
+       "product": [
+        {
+         "property": "https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-ex-onko-tnm-cp-praefix",
+         "system": "https://www.uicc.org/resources/tnm",
+         "value": "p"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "code": "1352573004",
+     "display": "Union for International Cancer Control pM1a (qualifier value)",
+     "target": [
+      {
+       "code": "M1a",
+       "display": "M1a",
+       "equivalence": "equivalent",
+       "product": [
+        {
+         "property": "https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-ex-onko-tnm-cp-praefix",
+         "system": "https://www.uicc.org/resources/tnm",
+         "value": "p"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "code": "1352578008",
+     "display": "Union for International Cancer Control pM1b (qualifier value)",
+     "target": [
+      {
+       "code": "M1b",
+       "display": "M1b",
+       "equivalence": "equivalent",
+       "product": [
+        {
+         "property": "https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-ex-onko-tnm-cp-praefix",
+         "system": "https://www.uicc.org/resources/tnm",
+         "value": "p"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "code": "1352574005",
+     "display": "Union for International Cancer Control pM1c (qualifier value)",
+     "target": [
+      {
+       "code": "M1c",
+       "display": "M1c",
+       "equivalence": "equivalent",
+       "product": [
+        {
+         "property": "https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-ex-onko-tnm-cp-praefix",
+         "system": "https://www.uicc.org/resources/tnm",
+         "value": "p"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "code": "1352580002",
+     "display": "Union for International Cancer Control pM1d (qualifier value)",
+     "target": [
+      {
+       "code": "M1d",
+       "display": "M1d",
+       "equivalence": "equivalent",
+       "product": [
+        {
+         "property": "https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-ex-onko-tnm-cp-praefix",
+         "system": "https://www.uicc.org/resources/tnm",
+         "value": "p"
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "source": "https://www.uicc.org/resources/tnm",
+   "target": "https://www.uicc.org/resources/tnm",
+   "element": [
+    {
+     "code": "TX",
+     "display": "TX",
+     "target": [
+      {
+       "code": "TX",
+       "display": "TX",
+       "equivalence": "equal"
+      }
+     ]
+    },
+    {
+     "code": "T0",
+     "display": "T0",
+     "target": [
+      {
+       "code": "T0",
+       "display": "T0",
+       "equivalence": "equal"
+      }
+     ]
+    },
+    {
+     "code": "Ta",
+     "display": "Ta",
+     "target": [
+      {
+       "code": "Ta",
+       "display": "Ta",
+       "equivalence": "equal"
+      }
+     ]
+    },
+    {
+     "code": "Tis",
+     "display": "Tis",
+     "target": [
+      {
+       "code": "Tis",
+       "display": "Tis",
+       "equivalence": "equal"
+      }
+     ]
+    },
+    {
+     "code": "Tis(LAMN)",
+     "display": "Tis(LAMN)",
+     "target": [
+      {
+       "code": "Tis(LAMN)",
+       "display": "Tis(LAMN)",
+       "equivalence": "equal"
+      }
+     ]
+    },
+    {
+     "code": "Tis(DCIS)",
+     "display": "Tis(DCIS)",
+     "target": [
+      {
+       "code": "Tis(DCIS)",
+       "display": "Tis(DCIS)",
+       "equivalence": "equal"
+      }
+     ]
+    },
+    {
+     "code": "Tis(LCIS)",
+     "display": "Tis(LCIS)",
+     "target": [
+      {
+       "code": "Tis(LCIS)",
+       "display": "Tis(LCIS)",
+       "equivalence": "equal"
+      }
+     ]
+    },
+    {
+     "code": "Tis(Paget)",
+     "display": "Tis(Paget)",
+     "target": [
+      {
+       "code": "Tis(Paget)",
+       "display": "Tis(Paget)",
+       "equivalence": "equal"
+      }
+     ]
+    },
+    {
+     "code": "Tis(pu)",
+     "display": "Tis(pu)",
+     "target": [
+      {
+       "code": "Tis(pu)",
+       "display": "Tis(pu)",
+       "equivalence": "equal"
+      }
+     ]
+    },
+    {
+     "code": "Tis(pd)",
+     "display": "Tis(pd)",
+     "target": [
+      {
+       "code": "Tis(pd)",
+       "display": "Tis(pd)",
+       "equivalence": "equal"
+      }
+     ]
+    },
+    {
+     "code": "T1",
+     "display": "T1",
+     "target": [
+      {
+       "code": "T1",
+       "display": "T1",
+       "equivalence": "equal"
+      }
+     ]
+    },
+    {
+     "code": "T1mi",
+     "display": "T1mi",
+     "target": [
+      {
+       "code": "T1mi",
+       "display": "T1mi",
+       "equivalence": "equal"
+      }
+     ]
+    },
+    {
+     "code": "T1a",
+     "display": "T1a",
+     "target": [
+      {
+       "code": "T1a",
+       "display": "T1a",
+       "equivalence": "equal"
+      }
+     ]
+    },
+    {
+     "code": "T1a1",
+     "display": "T1a1",
+     "target": [
+      {
+       "code": "T1a1",
+       "display": "T1a1",
+       "equivalence": "equal"
+      }
+     ]
+    },
+    {
+     "code": "T1a2",
+     "display": "T1a2",
+     "target": [
+      {
+       "code": "T1a2",
+       "display": "T1a2",
+       "equivalence": "equal"
+      }
+     ]
+    },
+    {
+     "code": "T1b",
+     "display": "T1b",
+     "target": [
+      {
+       "code": "T1b",
+       "display": "T1b",
+       "equivalence": "equal"
+      }
+     ]
+    },
+    {
+     "code": "T1b1",
+     "display": "T1b1",
+     "target": [
+      {
+       "code": "T1b1",
+       "display": "T1b1",
+       "equivalence": "equal"
+      }
+     ]
+    },
+    {
+     "code": "T1b2",
+     "display": "T1b2",
+     "target": [
+      {
+       "code": "T1b2",
+       "display": "T1b2",
+       "equivalence": "equal"
+      }
+     ]
+    },
+    {
+     "code": "T1b3",
+     "display": "T1b3",
+     "target": [
+      {
+       "code": "T1b3",
+       "display": "T1b3",
+       "equivalence": "equal"
+      }
+     ]
+    },
+    {
+     "code": "T1c",
+     "display": "T1c",
+     "target": [
+      {
+       "code": "T1c",
+       "display": "T1c",
+       "equivalence": "equal"
+      }
+     ]
+    },
+    {
+     "code": "T1c1",
+     "display": "T1c1",
+     "target": [
+      {
+       "code": "T1c1",
+       "display": "T1c1",
+       "equivalence": "equal"
+      }
+     ]
+    },
+    {
+     "code": "T1c2",
+     "display": "T1c2",
+     "target": [
+      {
+       "code": "T1c2",
+       "display": "T1c2",
+       "equivalence": "equal"
+      }
+     ]
+    },
+    {
+     "code": "T1c3",
+     "display": "T1c3",
+     "target": [
+      {
+       "code": "T1c3",
+       "display": "T1c3",
+       "equivalence": "equal"
+      }
+     ]
+    },
+    {
+     "code": "T1d",
+     "display": "T1d",
+     "target": [
+      {
+       "code": "T1d",
+       "display": "T1d",
+       "equivalence": "equal"
+      }
+     ]
+    },
+    {
+     "code": "T2",
+     "display": "T2",
+     "target": [
+      {
+       "code": "T2",
+       "display": "T2",
+       "equivalence": "equal"
+      }
+     ]
+    },
+    {
+     "code": "T2a",
+     "display": "T2a",
+     "target": [
+      {
+       "code": "T2a",
+       "display": "T2a",
+       "equivalence": "equal"
+      }
+     ]
+    },
+    {
+     "code": "T2a1",
+     "display": "T2a1",
+     "target": [
+      {
+       "code": "T2a1",
+       "display": "T2a1",
+       "equivalence": "equal"
+      }
+     ]
+    },
+    {
+     "code": "T2a2",
+     "display": "T2a2",
+     "target": [
+      {
+       "code": "T2a2",
+       "display": "T2a2",
+       "equivalence": "equal"
+      }
+     ]
+    },
+    {
+     "code": "T2b",
+     "display": "T2b",
+     "target": [
+      {
+       "code": "T2b",
+       "display": "T2b",
+       "equivalence": "equal"
+      }
+     ]
+    },
+    {
+     "code": "T2c",
+     "display": "T2c",
+     "target": [
+      {
+       "code": "T2c",
+       "display": "T2c",
+       "equivalence": "equal"
+      }
+     ]
+    },
+    {
+     "code": "T2d",
+     "display": "T2d",
+     "target": [
+      {
+       "code": "T2d",
+       "display": "T2d",
+       "equivalence": "equal"
+      }
+     ]
+    },
+    {
+     "code": "T3",
+     "display": "T3",
+     "target": [
+      {
+       "code": "T3",
+       "display": "T3",
+       "equivalence": "equal"
+      }
+     ]
+    },
+    {
+     "code": "T3a",
+     "display": "T3a",
+     "target": [
+      {
+       "code": "T3a",
+       "display": "T3a",
+       "equivalence": "equal"
+      }
+     ]
+    },
+    {
+     "code": "T3b",
+     "display": "T3b",
+     "target": [
+      {
+       "code": "T3b",
+       "display": "T3b",
+       "equivalence": "equal"
+      }
+     ]
+    },
+    {
+     "code": "T3c",
+     "display": "T3c",
+     "target": [
+      {
+       "code": "T3c",
+       "display": "T3c",
+       "equivalence": "equal"
+      }
+     ]
+    },
+    {
+     "code": "T3d",
+     "display": "T3d",
+     "target": [
+      {
+       "code": "T3d",
+       "display": "T3d",
+       "equivalence": "equal"
+      }
+     ]
+    },
+    {
+     "code": "T3e",
+     "display": "T3e",
+     "target": [
+      {
+       "code": "T3e",
+       "display": "T3e",
+       "equivalence": "equal"
+      }
+     ]
+    },
+    {
+     "code": "T4",
+     "display": "T4",
+     "target": [
+      {
+       "code": "T4",
+       "display": "T4",
+       "equivalence": "equal"
+      }
+     ]
+    },
+    {
+     "code": "T4a",
+     "display": "T4a",
+     "target": [
+      {
+       "code": "T4a",
+       "display": "T4a",
+       "equivalence": "equal"
+      }
+     ]
+    },
+    {
+     "code": "T4b",
+     "display": "T4b",
+     "target": [
+      {
+       "code": "T4b",
+       "display": "T4b",
+       "equivalence": "equal"
+      }
+     ]
+    },
+    {
+     "code": "T4c",
+     "display": "T4c",
+     "target": [
+      {
+       "code": "T4c",
+       "display": "T4c",
+       "equivalence": "equal"
+      }
+     ]
+    },
+    {
+     "code": "T4d",
+     "display": "T4d",
+     "target": [
+      {
+       "code": "T4d",
+       "display": "T4d",
+       "equivalence": "equal"
+      }
+     ]
+    },
+    {
+     "code": "T4e",
+     "display": "T4e",
+     "target": [
+      {
+       "code": "T4e",
+       "display": "T4e",
+       "equivalence": "equal"
+      }
+     ]
+    },
+    {
+     "code": "NX",
+     "display": "Nx",
+     "target": [
+      {
+       "code": "NX",
+       "display": "Nx",
+       "equivalence": "equal"
+      }
+     ]
+    },
+    {
+     "code": "N0",
+     "display": "N0",
+     "target": [
+      {
+       "code": "N0",
+       "display": "N0",
+       "equivalence": "equal"
+      }
+     ]
+    },
+    {
+     "code": "N1",
+     "display": "N1",
+     "target": [
+      {
+       "code": "N1",
+       "display": "N1",
+       "equivalence": "equal"
+      }
+     ]
+    },
+    {
+     "code": "N1mi",
+     "display": "N1(mi)",
+     "target": [
+      {
+       "code": "N1mi",
+       "display": "N1(mi)",
+       "equivalence": "equal"
+      }
+     ]
+    },
+    {
+     "code": "N1a",
+     "display": "N1a",
+     "target": [
+      {
+       "code": "N1a",
+       "display": "N1a",
+       "equivalence": "equal"
+      }
+     ]
+    },
+    {
+     "code": "N1b",
+     "display": "N1b",
+     "target": [
+      {
+       "code": "N1b",
+       "display": "N1b",
+       "equivalence": "equal"
+      }
+     ]
+    },
+    {
+     "code": "N1c",
+     "display": "N1c",
+     "target": [
+      {
+       "code": "N1c",
+       "display": "N1c",
+       "equivalence": "equal"
+      }
+     ]
+    },
+    {
+     "code": "N2",
+     "display": "N2",
+     "target": [
+      {
+       "code": "N2",
+       "display": "N2",
+       "equivalence": "equal"
+      }
+     ]
+    },
+    {
+     "code": "N2a",
+     "display": "N2a",
+     "target": [
+      {
+       "code": "N2a",
+       "display": "N2a",
+       "equivalence": "equal"
+      }
+     ]
+    },
+    {
+     "code": "N2b",
+     "display": "N2b",
+     "target": [
+      {
+       "code": "N2b",
+       "display": "N2b",
+       "equivalence": "equal"
+      }
+     ]
+    },
+    {
+     "code": "N2c",
+     "display": "N2c",
+     "target": [
+      {
+       "code": "N2c",
+       "display": "N2c",
+       "equivalence": "equal"
+      }
+     ]
+    },
+    {
+     "code": "N3",
+     "display": "N3",
+     "target": [
+      {
+       "code": "N3",
+       "display": "N3",
+       "equivalence": "equal"
+      }
+     ]
+    },
+    {
+     "code": "N3a",
+     "display": "N3a",
+     "target": [
+      {
+       "code": "N3a",
+       "display": "N3a",
+       "equivalence": "equal"
+      }
+     ]
+    },
+    {
+     "code": "N3b",
+     "display": "N3b",
+     "target": [
+      {
+       "code": "N3b",
+       "display": "N3b",
+       "equivalence": "equal"
+      }
+     ]
+    },
+    {
+     "code": "N3c",
+     "display": "N3c",
+     "target": [
+      {
+       "code": "N3c",
+       "display": "N3c",
+       "equivalence": "equal"
+      }
+     ]
+    },
+    {
+     "code": "M0",
+     "display": "M0",
+     "target": [
+      {
+       "code": "M0",
+       "display": "M0",
+       "equivalence": "equal"
+      }
+     ]
+    },
+    {
+     "code": "M1",
+     "display": "M1",
+     "target": [
+      {
+       "code": "M1",
+       "display": "M1",
+       "equivalence": "equal"
+      }
+     ]
+    },
+    {
+     "code": "M1a",
+     "display": "M1a",
+     "target": [
+      {
+       "code": "M1a",
+       "display": "M1a",
+       "equivalence": "equal"
+      }
+     ]
+    },
+    {
+     "code": "M1b",
+     "display": "M1b",
+     "target": [
+      {
+       "code": "M1b",
+       "display": "M1b",
+       "equivalence": "equal"
+      }
+     ]
+    },
+    {
+     "code": "M1c",
+     "display": "M1c",
+     "target": [
+      {
+       "code": "M1c",
+       "display": "M1c",
+       "equivalence": "equal"
+      }
+     ]
+    },
+    {
+     "code": "M1c1",
+     "display": "M1c1",
+     "target": [
+      {
+       "code": "M1c1",
+       "display": "M1c1",
+       "equivalence": "equal"
+      }
+     ]
+    },
+    {
+     "code": "M1c2",
+     "display": "M1c2",
+     "target": [
+      {
+       "code": "M1c2",
+       "display": "M1c2",
+       "equivalence": "equal"
+      }
+     ]
+    },
+    {
+     "code": "M1d",
+     "display": "M1d",
+     "target": [
+      {
+       "code": "M1d",
+       "display": "M1d",
+       "equivalence": "equal"
+      }
+     ]
+    },
+    {
+     "code": "MX",
+     "display": "MX",
+     "target": [
+      {
+       "code": "MX",
+       "display": "MX",
+       "equivalence": "equal"
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

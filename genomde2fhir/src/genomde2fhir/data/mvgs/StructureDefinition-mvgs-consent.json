@@ -1,0 +1,108 @@
+{
+ "resourceType": "StructureDefinition",
+ "id": "mvgs-consent",
+ "url": "https://genomde.de/fhir/StructureDefinition/mvgs-consent",
+ "version": "0.1.0",
+ "name": "MVGS_CONSENT",
+ "title": "MV-GenomSeq declaration of participation",
+ "status": "draft",
+ "experimental": false,
+ "publisher": "KohlbacherLab (genomDE2FHIR)",
+ "description": "Consent of a patient/donor to the Modellvorhaben Genomsequenzierung (mvConsent): one nested provision per consent module (permit/deny, signature date, domain from mvgs-cs-mv-consent-domain). mii-pr-consent-einwilligung cannot be used because provision.provision.code is required-bound to the MII Broad-Consent policies (DISCUSS-TD #35).",
+ "fhirVersion": "4.0.1",
+ "kind": "resource",
+ "abstract": false,
+ "type": "Consent",
+ "baseDefinition": "http://hl7.org/fhir/StructureDefinition/Consent",
+ "derivation": "constraint",
+ "differential": {
+  "element": [
+   {
+    "id": "Consent",
+    "path": "Consent",
+    "short": "MV-GenomSeq declaration of participation",
+    "definition": "Consent of a patient/donor to the Modellvorhaben Genomsequenzierung (mvConsent): one nested provision per consent module (permit/deny, signature date, domain from mvgs-cs-mv-consent-domain). mii-pr-consent-einwilligung cannot be used because provision.provision.code is required-bound to the MII Broad-Consent policies (DISCUSS-TD #35)."
+   },
+   {
+    "id": "Consent.status",
+    "path": "Consent.status",
+    "mustSupport": true
+   },
+   {
+    "id": "Consent.category",
+    "path": "Consent.category",
+    "min": 1,
+    "mustSupport": true
+   },
+   {
+    "id": "Consent.patient",
+    "path": "Consent.patient",
+    "min": 1,
+    "mustSupport": true
+   },
+   {
+    "id": "Consent.dateTime",
+    "path": "Consent.dateTime",
+    "short": "Presentation date (mvConsent.presentationDate), else the earliest signature date",
+    "min": 1,
+    "mustSupport": true
+   },
+   {
+    "id": "Consent.policyRule",
+    "path": "Consent.policyRule",
+    "short": "Version of the declaration of participation (policyRule.text = mvConsent.version)",
+    "min": 1,
+    "mustSupport": true
+   },
+   {
+    "id": "Consent.policyRule.text",
+    "path": "Consent.policyRule.text",
+    "min": 1,
+    "mustSupport": true
+   },
+   {
+    "id": "Consent.provision",
+    "path": "Consent.provision",
+    "min": 1,
+    "mustSupport": true
+   },
+   {
+    "id": "Consent.provision.provision",
+    "path": "Consent.provision.provision",
+    "short": "One entry per mvConsent.scope[]",
+    "min": 1,
+    "mustSupport": true
+   },
+   {
+    "id": "Consent.provision.provision.type",
+    "path": "Consent.provision.provision.type",
+    "min": 1,
+    "mustSupport": true
+   },
+   {
+    "id": "Consent.provision.provision.period",
+    "path": "Consent.provision.provision.period",
+    "min": 1,
+    "mustSupport": true
+   },
+   {
+    "id": "Consent.provision.provision.period.start",
+    "path": "Consent.provision.provision.period.start",
+    "short": "Signature date (scope[].date)",
+    "min": 1,
+    "mustSupport": true
+   },
+   {
+    "id": "Consent.provision.provision.code",
+    "path": "Consent.provision.provision.code",
+    "min": 1,
+    "max": "1",
+    "mustSupport": true,
+    "binding": {
+     "strength": "required",
+     "valueSet": "https://genomde.de/fhir/ValueSet/mvgs-vs-mv-consent-domain"
+    }
+   }
+  ]
+ }
+}

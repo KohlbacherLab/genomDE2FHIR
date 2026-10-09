@@ -1,0 +1,260 @@
+{
+ "metaData": {
+  "submission": {
+   "date": "2025-12-22",
+   "type": "correction",
+   "submitterId": "143411136",
+   "clinicalDataNodeId": "KDKHD0006",
+   "diseaseType": "oncological",
+   "genomicDataCenterId": "GRZHDT035"
+  },
+  "coverageType": "GKV",
+  "mvConsent": {
+   "version": "Einwilligung Modellvorhaben 64e v1 (2025-03-03)",
+   "scope": [
+    {
+     "type": "permit",
+     "date": "2025-11-23",
+     "domain": "mvSequencing"
+    },
+    {
+     "type": "permit",
+     "date": "2025-11-23",
+     "domain": "reIdentification"
+    },
+    {
+     "type": "permit",
+     "date": "2025-11-23",
+     "domain": "caseIdentification"
+    }
+   ]
+  },
+  "researchConsents": [
+   {
+    "schemaVersion": "2025.0.1",
+    "presentationDate": "2025-11-23",
+    "noScopeJustification": "other patient-related reason"
+   }
+  ],
+  "tanC": "fa1ea67559323a8fe6998f2f051a406a5f7c76ed06ce0247b46afce625446c24",
+  "gender": "female",
+  "birthDate": "1957-09",
+  "addressAGS": "09162",
+  "decisionToInclude": true,
+  "molecularBoardDecisionDate": "2025-12-08",
+  "localCaseId": "onco-variants-fixture-1"
+ },
+ "case": {
+  "diagnosisOd": {
+   "mainDiagnosis": {
+    "code": "C18.0",
+    "system": "http://fhir.de/CodeSystem/bfarm/icd-10-gm",
+    "version": "2025",
+    "date": "2024-03-18"
+   },
+   "ecogPerformanceStatusScore": "3",
+   "germlineDiagnosisConfirmed": false,
+   "histology": {
+    "code": "8140/3",
+    "system": "ICD-O3-M",
+    "version": "rev2"
+   },
+   "topography": {
+    "code": "C18.0",
+    "system": "ICD-O3-T",
+    "version": "rev2"
+   },
+   "libraryType": "wes",
+   "hpoTerms": [
+    {
+     "code": "HP:0100871",
+     "system": "https://hpo.jax.org/app/",
+     "text": "Adenocarcinoma of the colon"
+    }
+   ],
+   "grading": "2",
+   "tnmClassifications": [
+    {
+     "code": "1353525001",
+     "system": "http://snomed.info/sct",
+     "version": "2025-03-01",
+     "display": "pT4",
+     "text": "pT4"
+    },
+    {
+     "code": "1229951001",
+     "system": "http://snomed.info/sct",
+     "version": "2025-03-01",
+     "display": "cN3",
+     "text": "cN3"
+    },
+    {
+     "code": "1229893007",
+     "system": "http://snomed.info/sct",
+     "version": "2025-03-01",
+     "display": "cM1a",
+     "text": "cM1a"
+    }
+   ]
+  },
+  "priorDiagnostics": [
+   {
+    "type": "single",
+    "date": "2024-03-11",
+    "simpleVariants": [
+     {
+      "gene": {
+       "code": "HGNC:6770",
+       "system": "https://www.genenames.org/",
+       "display": "SMAD4"
+      },
+      "dnaChange": "c.1081C>T"
+     }
+    ]
+   }
+  ]
+ },
+ "molecular": {
+  "smallVariants": [
+   {
+    "identifier": "sv-1",
+    "genomicSource": "somatic",
+    "gene": {
+     "code": "HGNC:7989",
+     "system": "https://www.genenames.org/",
+     "display": "NRAS",
+     "version": "2025-06"
+    },
+    "transcriptId": {
+     "code": "NM_002524",
+     "system": "https://www.ncbi.nlm.nih.gov/refseq/",
+     "version": "5",
+     "display": "NRAS transcript"
+    },
+    "chromosome": "1",
+    "startPosition": 114713908,
+    "endPosition": 114713908,
+    "ref": "C",
+    "alt": "A",
+    "dnaChange": "c.181C>A",
+    "proteinChange": "p.Gln61Lys",
+    "variantTypes": [
+     {
+      "code": "SO:0001483",
+      "system": "http://www.sequenceontology.org",
+      "version": "2024-11-18",
+      "display": "SNV"
+     }
+    ],
+    "localization": "coding",
+    "loh": true
+   },
+   {
+    "identifier": "sv-2",
+    "genomicSource": "germline",
+    "gene": {
+     "code": "HGNC:1100",
+     "display": "BRCA1"
+    },
+    "transcriptId": {
+     "code": "ENST00000357654.9",
+     "system": "Ensembl"
+    },
+    "chromosome": "X",
+    "startPosition": 200,
+    "endPosition": 205,
+    "ref": "AGTCAG",
+    "alt": "A",
+    "dnaChange": "c.68_72del",
+    "variantTypes": [
+     {
+      "code": "SO:0000159",
+      "system": "http://sequenceontology.org",
+      "version": "2024-11-18",
+      "display": "deletion"
+     },
+     {
+      "code": "SO:0001589",
+      "system": "http://www.sequenceontology.org",
+      "version": "2024-11-18",
+      "display": "frameshift_variant"
+     }
+    ],
+    "localization": "inRegulatoryElements",
+    "loh": false
+   },
+   {
+    "identifier": "sv-3",
+    "genomicSource": "somatic",
+    "gene": {
+     "code": "HGNC:11998",
+     "system": "https://www.genenames.org/",
+     "display": "TP53"
+    },
+    "transcriptId": {
+     "code": "tx-local-17",
+     "system": "https://example.org/local-transcripts"
+    },
+    "chromosome": "MT",
+    "startPosition": 500,
+    "endPosition": 400,
+    "ref": "G",
+    "alt": "T",
+    "dnaChange": "c.215C>G",
+    "proteinChange": "p.Pro72Arg",
+    "localization": "notInCodingAndNotInRegulatoryElements"
+   },
+   {
+    "identifier": "sv-3",
+    "genomicSource": "somatic",
+    "gene": {
+     "code": "HGNC:3236",
+     "system": "https://www.genenames.org/",
+     "display": "EGFR"
+    },
+    "transcriptId": {
+     "code": "NM_005228.5",
+     "system": "https://www.ncbi.nlm.nih.gov/refseq"
+    },
+    "chromosome": "Y",
+    "startPosition": 10,
+    "endPosition": 10,
+    "ref": "T",
+    "alt": "G",
+    "dnaChange": "NM_005228.5:c.2573T>G",
+    "proteinChange": "p.Leu858Arg",
+    "localization": "coding"
+   }
+  ]
+ },
+ "plan": {
+  "carePlanOd": {
+   "molecularBoardDecisionDate": "2025-12-08",
+   "studyRecommended": false,
+   "counsellingRecommended": false,
+   "reEvaluationRecommended": false,
+   "interventionRecommended": false
+  },
+  "recommendedSystemicTherapies": [
+   {
+    "identifier": "therapy-rt2e68xgvy",
+    "type": "inLabel",
+    "substances": [
+     {
+      "code": {
+       "code": "L01XC03",
+       "system": "http://www.whocc.no/atc",
+       "version": "2025"
+      }
+     }
+    ],
+    "evidenceLevel": "m1A",
+    "priority": 1,
+    "therapeuticStrategy": "ZS",
+    "evidenceLevelDetails": [
+     "iv"
+    ]
+   }
+  ]
+ }
+}

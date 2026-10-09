@@ -1,0 +1,33 @@
+{
+ "resourceType": "CodeSystem",
+ "id": "mvgs-cs-molecular-feature",
+ "url": "https://genomde.de/fhir/CodeSystem/mvgs-cs-molecular-feature",
+ "version": "0.1.0",
+ "name": "MVGS_CS_MOLECULAR_FEATURE",
+ "title": "MV-GenomSeq molecular features",
+ "status": "draft",
+ "experimental": false,
+ "publisher": "KohlbacherLab (genomDE2FHIR)",
+ "description": "Observation/component codes for genomDE molecular findings without a MII biomarker concept (DISCUSS-TD #19, #20).",
+ "caseSensitive": true,
+ "valueSet": "https://genomde.de/fhir/ValueSet/mvgs-vs-molecular-feature",
+ "content": "complete",
+ "count": 3,
+ "concept": [
+  {
+   "code": "loh",
+   "display": "Loss of heterozygosity at the variant locus",
+   "definition": "Boolean flag per simple variant (KDK smallVariants[].loh)."
+  },
+  {
+   "code": "sbs-signature",
+   "display": "COSMIC single base substitution signature",
+   "definition": "Mutational signature from the COSMIC SBS catalogue (KDK sbsSignatures[])."
+  },
+  {
+   "code": "expression-reference",
+   "display": "Expression assessment basis",
+   "definition": "Reference cohort or basis of an expression assessment (KDK expressionVariants[].reference)."
+  }
+ ]
+}

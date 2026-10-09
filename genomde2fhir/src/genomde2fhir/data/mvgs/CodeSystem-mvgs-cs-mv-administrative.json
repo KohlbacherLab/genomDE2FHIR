@@ -1,0 +1,32 @@
+{
+ "resourceType": "CodeSystem",
+ "id": "mvgs-cs-mv-administrative",
+ "url": "https://genomde.de/fhir/CodeSystem/mvgs-cs-mv-administrative",
+ "version": "0.1.0",
+ "name": "MVGS_CS_MV_ADMINISTRATIVE",
+ "title": "MV-GenomSeq administrative concepts",
+ "status": "draft",
+ "experimental": false,
+ "publisher": "KohlbacherLab (genomDE2FHIR)",
+ "description": "Codes for administrative MV-GenomSeq facts that have no standard concept: the indication board (case conference deciding on inclusion), the Modellvorhaben genome sequencing it decides on, and the statement that no research consent is available.",
+ "caseSensitive": true,
+ "content": "complete",
+ "count": 3,
+ "concept": [
+  {
+   "code": "indication-board",
+   "display": "Fallkonferenz zur Indikationsstellung (MV GenomSeq)",
+   "definition": "Multidisciplinary case conference in the field of diagnostics deciding on the inclusion of the insured person in the Modellvorhaben Genomsequenzierung."
+  },
+  {
+   "code": "mv-genome-sequencing",
+   "display": "Genomsequenzierung im Modellvorhaben",
+   "definition": "Genome sequencing within the Modellvorhaben Genomsequenzierung (§ 64e SGB V)."
+  },
+  {
+   "code": "research-consent-absent",
+   "display": "Forschungseinwilligung liegt nicht vor",
+   "definition": "No research (Broad) consent can be submitted for the patient; the value states why."
+  }
+ ]
+}

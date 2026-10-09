@@ -1,0 +1,297 @@
+{
+ "metaData": {
+  "submission": {
+   "date": "2026-04-06",
+   "type": "initial",
+   "submitterId": "161608203",
+   "clinicalDataNodeId": "KDKHD0006",
+   "diseaseType": "oncological",
+   "genomicDataCenterId": "GRZVVT754"
+  },
+  "coverageType": "PKV",
+  "mvConsent": {
+   "version": "Einwilligung Modellvorhaben 64e v1 (2025-03-03)",
+   "scope": [
+    {
+     "type": "permit",
+     "date": "2026-03-11",
+     "domain": "mvSequencing"
+    },
+    {
+     "type": "permit",
+     "date": "2026-03-11",
+     "domain": "reIdentification"
+    },
+    {
+     "type": "deny",
+     "date": "2026-03-11",
+     "domain": "caseIdentification"
+    }
+   ]
+  },
+  "researchConsents": [
+   {
+    "schemaVersion": "2025.0.1",
+    "presentationDate": "2026-03-11",
+    "noScopeJustification": "consent information cannot be submitted by LE due to technical reason"
+   }
+  ],
+  "tanC": "2627caba103d3de0e42a153f71f4f90e45e310689f7f64b4bfb0b782e5bc1acc",
+  "gender": "female",
+  "birthDate": "1957-02",
+  "addressAGS": "12053",
+  "decisionToInclude": true,
+  "molecularBoardDecisionDate": "2026-04-02"
+ },
+ "case": {
+  "diagnosisOd": {
+   "mainDiagnosis": {
+    "code": "C50.9",
+    "system": "http://fhir.de/CodeSystem/bfarm/icd-10-gm",
+    "version": "2025",
+    "date": "2025-10-17"
+   },
+   "ecogPerformanceStatusScore": "0",
+   "germlineDiagnosisConfirmed": false,
+   "histology": {
+    "code": "8500/3",
+    "system": "ICD-O3-M",
+    "version": "rev2"
+   },
+   "topography": {
+    "code": "C50.9",
+    "system": "ICD-O3-T",
+    "version": "rev2"
+   },
+   "libraryType": "wes",
+   "grading": "2",
+   "tnmClassifications": [
+    {
+     "code": "1353521005",
+     "system": "http://snomed.info/sct",
+     "version": "2025-03-01",
+     "display": "pT2",
+     "text": "pT2"
+    },
+    {
+     "code": "1229949000",
+     "system": "http://snomed.info/sct",
+     "version": "2025-03-01",
+     "display": "pN1",
+     "text": "pN1"
+    },
+    {
+     "code": "1229892002",
+     "system": "http://snomed.info/sct",
+     "version": "2025-03-01",
+     "display": "cM1",
+     "text": "cM1"
+    }
+   ]
+  },
+  "priorDiagnostics": [
+   {
+    "type": "exome",
+    "date": "2023-09-16",
+    "simpleVariants": [
+     {
+      "gene": {
+       "code": "HGNC:9588",
+       "system": "https://www.genenames.org/",
+       "display": "PTEN"
+      },
+      "dnaChange": "c.388C>T"
+     }
+    ]
+   }
+  ]
+ },
+ "molecular": {
+  "smallVariants": [
+   {
+    "identifier": "sv-pten-gswa2k",
+    "genomicSource": "somatic",
+    "gene": {
+     "code": "HGNC:9588",
+     "system": "https://www.genenames.org/",
+     "display": "PTEN"
+    },
+    "transcriptId": {
+     "code": "NM_000314.8",
+     "system": "https://www.ncbi.nlm.nih.gov/refseq/"
+    },
+    "chromosome": "10",
+    "startPosition": 89692905,
+    "endPosition": 89692905,
+    "ref": "A",
+    "alt": "A",
+    "dnaChange": "c.388C>T",
+    "localization": "coding",
+    "loh": false,
+    "proteinChange": "p.Arg130Ter"
+   },
+   {
+    "identifier": "sv-erbb2-b64yko",
+    "genomicSource": "somatic",
+    "gene": {
+     "code": "HGNC:3430",
+     "system": "https://www.genenames.org/",
+     "display": "ERBB2"
+    },
+    "transcriptId": {
+     "code": "NM_004448.4",
+     "system": "https://www.ncbi.nlm.nih.gov/refseq/"
+    },
+    "chromosome": "17",
+    "startPosition": 39723966,
+    "endPosition": 39723966,
+    "ref": "G",
+    "alt": "A",
+    "dnaChange": "c.2329G>A",
+    "localization": "coding",
+    "loh": false,
+    "proteinChange": "p.Val777Leu"
+   }
+  ],
+  "structuralVariants": [
+   {
+    "identifier": "str-cdk4-pten-sog2",
+    "genomicSource": "somatic",
+    "geneA": {
+     "code": "HGNC:1773",
+     "system": "https://www.genenames.org/",
+     "display": "CDK4"
+    },
+    "geneB": {
+     "code": "HGNC:9588",
+     "system": "https://www.genenames.org/",
+     "display": "PTEN"
+    },
+    "structureType": "duplicationOfGeneSegments",
+    "sequenceType": "RNA",
+    "localization": "coding"
+   }
+  ],
+  "complexBiomarkers": [
+   {
+    "identifier": "cb-atfexm92",
+    "tmb": 49.3,
+    "hrdHigh": false,
+    "lstHigh": false,
+    "taiHigh": false,
+    "ploidy": 4
+   },
+   {
+    "identifier": "cb-only-id"
+   },
+   {
+    "identifier": "cb-tmb-only",
+    "tmb": 12.5
+   },
+   {
+    "identifier": "cb-flags",
+    "hrdHigh": true,
+    "lstHigh": true
+   }
+  ],
+  "sbsSignatures": [
+   {
+    "identifier": "sbs-0hbctc12",
+    "version": "COSMIC v3.3",
+    "name": [
+     "SBS13"
+    ]
+   },
+   {
+    "identifier": "sbs-edge",
+    "version": "COSMIC v3.4",
+    "name": [
+     "SBS 6",
+     "sbs7a",
+     "SBS6",
+     "Signature X"
+    ]
+   },
+   {
+    "identifier": "sbs-nover",
+    "name": [
+     "SBS-40"
+    ]
+   }
+  ],
+  "expressionVariants": [
+   {
+    "identifier": "ev-high",
+    "gene": {
+     "system": "https://www.genenames.org/",
+     "version": "2024-10",
+     "code": "HGNC:3236",
+     "display": "EGFR"
+    },
+    "expressionType": "highExpression",
+    "reference": "Vergleichskohorte von 400 Patienten"
+   },
+   {
+    "identifier": "ev-low",
+    "gene": {
+     "code": "HGNC:1100",
+     "display": "BRCA1"
+    },
+    "expressionType": "lowExpression",
+    "reference": "TCGA BRCA"
+   },
+   {
+    "identifier": "ev-normal",
+    "gene": {
+     "code": "HGNC:11998",
+     "display": "TP53"
+    },
+    "expressionType": "normalExpression",
+    "reference": "interne Referenz"
+   },
+   {
+    "identifier": "ev-none",
+    "gene": {
+     "code": "HGNC:7029",
+     "display": "MLH1"
+    },
+    "expressionType": "noExpression",
+    "reference": "Normalgewebe"
+   }
+  ]
+ },
+ "plan": {
+  "carePlanOd": {
+   "molecularBoardDecisionDate": "2026-04-02",
+   "studyRecommended": false,
+   "counsellingRecommended": false,
+   "reEvaluationRecommended": false,
+   "interventionRecommended": false,
+   "otherRecommendations": [
+    "WW"
+   ]
+  },
+  "recommendedSystemicTherapies": [
+   {
+    "identifier": "therapy-3c2eunl6xc",
+    "type": "inLabel",
+    "substances": [
+     {
+      "code": {
+       "code": "L01FF02",
+       "system": "http://www.whocc.no/atc",
+       "version": "2025"
+      }
+     }
+    ],
+    "evidenceLevel": "m1A",
+    "priority": 1,
+    "therapeuticStrategy": "IM",
+    "evidenceLevelDetails": [
+     "iv",
+     "Z"
+    ]
+   }
+  ]
+ }
+}

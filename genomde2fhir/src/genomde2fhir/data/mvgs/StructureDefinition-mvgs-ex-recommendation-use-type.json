@@ -1,0 +1,62 @@
+{
+ "resourceType": "StructureDefinition",
+ "id": "mvgs-ex-recommendation-use-type",
+ "url": "https://genomde.de/fhir/StructureDefinition/mvgs-ex-recommendation-use-type",
+ "version": "0.1.0",
+ "name": "MVGS_EX_RECOMMENDATION_USE_TYPE",
+ "title": "Recommendation use type",
+ "status": "draft",
+ "experimental": false,
+ "publisher": "KohlbacherLab (genomDE2FHIR)",
+ "description": "Regulatory use type (in-label, off-label, compassionate use, secondary preventive) of an MTB therapy recommendation; no element on mii-pr-mtb-therapieempfehlung (DISCUSS-TD #16, REPRESENTATIONS #16).",
+ "fhirVersion": "4.0.1",
+ "kind": "complex-type",
+ "abstract": false,
+ "context": [
+  {
+   "type": "element",
+   "expression": "MedicationRequest"
+  },
+  {
+   "type": "element",
+   "expression": "RequestGroup"
+  }
+ ],
+ "type": "Extension",
+ "baseDefinition": "http://hl7.org/fhir/StructureDefinition/Extension",
+ "derivation": "constraint",
+ "differential": {
+  "element": [
+   {
+    "id": "Extension",
+    "path": "Extension",
+    "short": "Recommendation use type",
+    "definition": "Regulatory use type (in-label, off-label, compassionate use, secondary preventive) of an MTB therapy recommendation; no element on mii-pr-mtb-therapieempfehlung (DISCUSS-TD #16, REPRESENTATIONS #16)."
+   },
+   {
+    "id": "Extension.extension",
+    "path": "Extension.extension",
+    "max": "0"
+   },
+   {
+    "id": "Extension.url",
+    "path": "Extension.url",
+    "fixedUri": "https://genomde.de/fhir/StructureDefinition/mvgs-ex-recommendation-use-type"
+   },
+   {
+    "id": "Extension.value[x]",
+    "path": "Extension.value[x]",
+    "min": 1,
+    "type": [
+     {
+      "code": "Coding"
+     }
+    ],
+    "binding": {
+     "strength": "required",
+     "valueSet": "https://genomde.de/fhir/ValueSet/mvgs-vs-recommendation-use-type"
+    }
+   }
+  ]
+ }
+}

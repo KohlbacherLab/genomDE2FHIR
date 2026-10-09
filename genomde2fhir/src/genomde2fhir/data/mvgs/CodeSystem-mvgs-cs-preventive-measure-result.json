@@ -1,0 +1,37 @@
+{
+ "resourceType": "CodeSystem",
+ "id": "mvgs-cs-preventive-measure-result",
+ "url": "https://genomde.de/fhir/CodeSystem/mvgs-cs-preventive-measure-result",
+ "version": "0.1.0",
+ "name": "MVGS_CS_PREVENTIVE_MEASURE_RESULT",
+ "title": "MV-GenomSeq preventive measure result",
+ "status": "draft",
+ "experimental": false,
+ "publisher": "KohlbacherLab (genomDE2FHIR)",
+ "description": "Result of a preventive (early-detection) measure for hereditary tumour cases, KDK followUp.followUpOds[].preventiveMeasures[].preventiveMeasureResult. No MII concept exists (DISCUSS-TD #5). The concept 'preventive-measure-result' is the observable used as Observation.code; the other concepts are its values.",
+ "caseSensitive": true,
+ "content": "complete",
+ "count": 4,
+ "concept": [
+  {
+   "code": "preventive-measure-result",
+   "display": "Result of preventive measure",
+   "definition": "Observable: outcome of a preventive / early-detection examination recommended for a hereditary tumour predisposition."
+  },
+  {
+   "code": "noFindings",
+   "display": "No findings",
+   "definition": "The examination showed no pathological findings."
+  },
+  {
+   "code": "malignoma",
+   "display": "Malignancy",
+   "definition": "The examination detected a malignant tumour."
+  },
+  {
+   "code": "unclear",
+   "display": "Unclear finding",
+   "definition": "The examination showed a finding that needs clarification."
+  }
+ ]
+}

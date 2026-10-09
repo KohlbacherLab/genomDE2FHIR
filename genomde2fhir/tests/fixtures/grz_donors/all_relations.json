@@ -1,0 +1,759 @@
+{
+ "$schema": "https://raw.githubusercontent.com/BfArM-MVH/MVGenomseq/refs/tags/v1.1.4/GRZ/grz-schema.json",
+ "submission": {
+  "submissionDate": "2024-10-15",
+  "submissionType": "test",
+  "tanG": "8237d8ab7cc966c57dd7bda5774004b4cacafbb5881d0ca12df51d2ba967f393",
+  "localCaseId": "FIXTURE-DONORS-1",
+  "coverageType": "GKV",
+  "submitterId": "500000005",
+  "genomicDataCenterId": "GRZMNO005",
+  "clinicalDataNodeId": "KDKMNO005",
+  "diseaseType": "oncological",
+  "genomicStudyType": "trio",
+  "genomicStudySubtype": "tumor+germline",
+  "labName": "Synthetic Sequencing Lab"
+ },
+ "donors": [
+  {
+   "donorPseudonym": "8237d8ab7cc966c57dd7bda5774004b4cacafbb5881d0ca12df51d2ba967f393",
+   "gender": "other",
+   "relation": "index",
+   "mvConsent": {
+    "presentationDate": "2024-07-01",
+    "version": "Patient Info TE Consent MVGenomSeq vers01",
+    "scope": [
+     {
+      "type": "permit",
+      "date": "2024-07-01",
+      "domain": "mvSequencing"
+     },
+     {
+      "type": "permit",
+      "date": "2024-07-01",
+      "domain": "reIdentification"
+     }
+    ]
+   },
+   "researchConsents": [
+    {
+     "schemaVersion": "2025.0.1",
+     "presentationDate": "2024-01-15",
+     "scope": {}
+    }
+   ],
+   "labData": [
+    {
+     "labDataName": "Blood DNA index-0-0",
+     "tissueOntology": {
+      "name": "UBERON",
+      "version": "2024"
+     },
+     "tissueTypeId": "UBERON:0000178",
+     "tissueTypeName": "blood",
+     "sampleDate": "2024-07-10",
+     "sampleConservation": "fresh-tissue",
+     "sequenceType": "dna",
+     "sequenceSubtype": "germline",
+     "fragmentationMethod": "sonication",
+     "libraryType": "wgs",
+     "libraryPrepKit": "NEBNext Ultra II",
+     "libraryPrepKitManufacturer": "NEB",
+     "sequencerModel": "NovaSeq X Plus",
+     "sequencerManufacturer": "Illumina",
+     "kitName": "NovaSeq X 25B Reagent Kit",
+     "kitManufacturer": "Illumina",
+     "enrichmentKitManufacturer": "none",
+     "enrichmentKitDescription": "na",
+     "barcode": "BC040",
+     "sequencingLayout": "paired-end",
+     "sequenceData": {
+      "bioinformaticsPipelineName": "nf-core/sarek",
+      "bioinformaticsPipelineVersion": "3.5.0",
+      "referenceGenome": "GRCh38",
+      "percentBasesAboveQualityThreshold": {
+       "minimumQuality": 30,
+       "percent": 92
+      },
+      "meanDepthOfCoverage": 42,
+      "minCoverage": 28,
+      "targetedRegionsAboveMinCoverage": 0.9,
+      "nonCodingVariants": true,
+      "callerUsed": [
+       {
+        "name": "GATK HaplotypeCaller",
+        "version": "4.5.0"
+       },
+       {
+        "name": "DeepVariant",
+        "version": "1.6.1"
+       }
+      ],
+      "files": [
+       {
+        "filePath": "donor_001/FLOWEE01-1_R1_001.fastq.gz",
+        "fileType": "fastq",
+        "checksumType": "sha256",
+        "fileChecksum": "fc9d95c0568b409792e61d476782ee1da2b2ad9048e525e8db74a4a8b8d7d26b",
+        "fileSizeInBytes": 12000000000,
+        "readOrder": "R1",
+        "readLength": 151,
+        "flowcellId": "FLOWEE01",
+        "laneId": "1"
+       },
+       {
+        "filePath": "donor_001/FLOWEE01-1_R2_001.fastq.gz",
+        "fileType": "fastq",
+        "checksumType": "sha256",
+        "fileChecksum": "13eee3d9bab49c09e879d6197cb0f3032c7c173bb9e4fdd44f5ab5d6a47da5d5",
+        "fileSizeInBytes": 13000000000,
+        "readOrder": "R2",
+        "readLength": 151,
+        "flowcellId": "FLOWEE01",
+        "laneId": "1"
+       },
+       {
+        "filePath": "donor_001/FLOWEE01-2_R1_001.fastq.gz",
+        "fileType": "fastq",
+        "checksumType": "sha256",
+        "fileChecksum": "0ba7bd6933347b3cba17b8c5229a5e0d0fdd44ccd8a5f7592d0490d7fceb3dfe",
+        "fileSizeInBytes": 12000000000,
+        "readOrder": "R1",
+        "readLength": 151,
+        "flowcellId": "FLOWEE01",
+        "laneId": "2"
+       },
+       {
+        "filePath": "donor_001/FLOWEE01-2_R2_001.fastq.gz",
+        "fileType": "fastq",
+        "checksumType": "sha256",
+        "fileChecksum": "d3aaaa36ce94fbb8576e20bc035f064d7d27b68ad6bb8534047a8b4089535b41",
+        "fileSizeInBytes": 13000000000,
+        "readOrder": "R2",
+        "readLength": 151,
+        "flowcellId": "FLOWEE01",
+        "laneId": "2"
+       },
+       {
+        "filePath": "donor_001/gatk_hc.vcf.gz",
+        "fileType": "vcf",
+        "checksumType": "sha256",
+        "fileChecksum": "39ec116f35458a68660ebed675d133e573cd18fc9424d60cc4df8bf978140785",
+        "fileSizeInBytes": 5000000
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "donorPseudonym": "fixture-donor-mother-1",
+   "gender": "female",
+   "relation": "mother",
+   "mvConsent": {
+    "presentationDate": "2024-07-01",
+    "version": "Patient Info TE Consent MVGenomSeq vers01",
+    "scope": [
+     {
+      "type": "permit",
+      "date": "2024-07-01",
+      "domain": "mvSequencing"
+     }
+    ]
+   },
+   "researchConsents": [
+    {
+     "schemaVersion": "2025.0.1",
+     "presentationDate": "2024-01-15",
+     "scope": {}
+    }
+   ],
+   "labData": [
+    {
+     "labDataName": "Blood DNA mother-1-0",
+     "tissueOntology": {
+      "name": "UBERON",
+      "version": "2024"
+     },
+     "tissueTypeId": "UBERON:0000178",
+     "tissueTypeName": "blood",
+     "sampleDate": "2024-07-10",
+     "sampleConservation": "fresh-tissue",
+     "sequenceType": "dna",
+     "sequenceSubtype": "germline",
+     "fragmentationMethod": "sonication",
+     "libraryType": "wgs",
+     "libraryPrepKit": "NEBNext Ultra II",
+     "libraryPrepKitManufacturer": "NEB",
+     "sequencerModel": "NovaSeq X Plus",
+     "sequencerManufacturer": "Illumina",
+     "kitName": "NovaSeq X 25B Reagent Kit",
+     "kitManufacturer": "Illumina",
+     "enrichmentKitManufacturer": "none",
+     "enrichmentKitDescription": "na",
+     "barcode": "BC041",
+     "sequencingLayout": "paired-end",
+     "sequenceData": {
+      "bioinformaticsPipelineName": "nf-core/sarek",
+      "bioinformaticsPipelineVersion": "3.5.0",
+      "referenceGenome": "GRCh38",
+      "percentBasesAboveQualityThreshold": {
+       "minimumQuality": 30,
+       "percent": 90
+      },
+      "meanDepthOfCoverage": 36,
+      "minCoverage": 23,
+      "targetedRegionsAboveMinCoverage": 0.87,
+      "nonCodingVariants": true,
+      "callerUsed": [
+       {
+        "name": "GATK HaplotypeCaller",
+        "version": "4.5.0"
+       }
+      ],
+      "files": [
+       {
+        "filePath": "donor_002/FLOWEE02-1_R1_001.fastq.gz",
+        "fileType": "fastq",
+        "checksumType": "sha256",
+        "fileChecksum": "6afb11e90b4bc7b16c3f7aaa4d949f5cc2037949a679789e4c16ef1ada5b63fd",
+        "fileSizeInBytes": 12000000000,
+        "readOrder": "R1",
+        "readLength": 151,
+        "flowcellId": "FLOWEE02",
+        "laneId": "1"
+       },
+       {
+        "filePath": "donor_002/FLOWEE02-1_R2_001.fastq.gz",
+        "fileType": "fastq",
+        "checksumType": "sha256",
+        "fileChecksum": "d961ce8b16177e4639a96076ea307ed7ddee8c465ab568d1e360c43220acbecd",
+        "fileSizeInBytes": 13000000000,
+        "readOrder": "R2",
+        "readLength": 151,
+        "flowcellId": "FLOWEE02",
+        "laneId": "1"
+       },
+       {
+        "filePath": "donor_002/gatk_hc.vcf.gz",
+        "fileType": "vcf",
+        "checksumType": "sha256",
+        "fileChecksum": "8d39f25de0af968b76c89418ec243be42bb5b7904c0e1f1a88a5fed8360970e2",
+        "fileSizeInBytes": 5000000
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "donorPseudonym": "fixture-donor-father-2",
+   "gender": "male",
+   "relation": "father",
+   "mvConsent": {
+    "version": "Patient Info TE Consent MVGenomSeq vers01",
+    "scope": [
+     {
+      "type": "permit",
+      "date": "2024-07-01",
+      "domain": "mvSequencing"
+     }
+    ]
+   },
+   "researchConsents": [
+    {
+     "schemaVersion": "2025.0.1",
+     "presentationDate": "2024-01-15",
+     "scope": {}
+    }
+   ],
+   "labData": [
+    {
+     "labDataName": "Blood DNA mother-2-0",
+     "tissueOntology": {
+      "name": "UBERON",
+      "version": "2024"
+     },
+     "tissueTypeId": "UBERON:0000178",
+     "tissueTypeName": "blood",
+     "sampleDate": "2024-07-10",
+     "sampleConservation": "fresh-tissue",
+     "sequenceType": "dna",
+     "sequenceSubtype": "germline",
+     "fragmentationMethod": "sonication",
+     "libraryType": "wgs",
+     "libraryPrepKit": "NEBNext Ultra II",
+     "libraryPrepKitManufacturer": "NEB",
+     "sequencerModel": "NovaSeq X Plus",
+     "sequencerManufacturer": "Illumina",
+     "kitName": "NovaSeq X 25B Reagent Kit",
+     "kitManufacturer": "Illumina",
+     "enrichmentKitManufacturer": "none",
+     "enrichmentKitDescription": "na",
+     "barcode": "BC041",
+     "sequencingLayout": "paired-end",
+     "sequenceData": {
+      "bioinformaticsPipelineName": "nf-core/sarek",
+      "bioinformaticsPipelineVersion": "3.5.0",
+      "referenceGenome": "GRCh38",
+      "percentBasesAboveQualityThreshold": {
+       "minimumQuality": 30,
+       "percent": 90
+      },
+      "meanDepthOfCoverage": 36,
+      "minCoverage": 23,
+      "targetedRegionsAboveMinCoverage": 0.87,
+      "nonCodingVariants": true,
+      "callerUsed": [
+       {
+        "name": "GATK HaplotypeCaller",
+        "version": "4.5.0"
+       }
+      ],
+      "files": [
+       {
+        "filePath": "donor_002/FLOWEE02-1_R1_001.fastq.gz",
+        "fileType": "fastq",
+        "checksumType": "sha256",
+        "fileChecksum": "6afb11e90b4bc7b16c3f7aaa4d949f5cc2037949a679789e4c16ef1ada5b63fd",
+        "fileSizeInBytes": 12000000000,
+        "readOrder": "R1",
+        "readLength": 151,
+        "flowcellId": "FLOWEE02",
+        "laneId": "1"
+       },
+       {
+        "filePath": "donor_002/FLOWEE02-1_R2_001.fastq.gz",
+        "fileType": "fastq",
+        "checksumType": "sha256",
+        "fileChecksum": "d961ce8b16177e4639a96076ea307ed7ddee8c465ab568d1e360c43220acbecd",
+        "fileSizeInBytes": 13000000000,
+        "readOrder": "R2",
+        "readLength": 151,
+        "flowcellId": "FLOWEE02",
+        "laneId": "1"
+       },
+       {
+        "filePath": "donor_002/gatk_hc.vcf.gz",
+        "fileType": "vcf",
+        "checksumType": "sha256",
+        "fileChecksum": "8d39f25de0af968b76c89418ec243be42bb5b7904c0e1f1a88a5fed8360970e2",
+        "fileSizeInBytes": 5000000
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "donorPseudonym": "fixture-donor-brother-3",
+   "gender": "unknown",
+   "relation": "brother",
+   "mvConsent": {
+    "presentationDate": "2024-07-01",
+    "version": "Patient Info TE Consent MVGenomSeq vers01",
+    "scope": [
+     {
+      "type": "deny",
+      "date": "2024-01-02",
+      "domain": "reIdentification"
+     },
+     {
+      "type": "permit",
+      "date": "2024-01-02",
+      "domain": "mvSequencing"
+     },
+     {
+      "type": "permit",
+      "date": "2024-01-02",
+      "domain": "caseIdentification"
+     }
+    ]
+   },
+   "researchConsents": [
+    {
+     "schemaVersion": "2025.0.1",
+     "presentationDate": "2024-01-15",
+     "scope": {}
+    }
+   ],
+   "labData": [
+    {
+     "labDataName": "Blood DNA mother-3-0",
+     "tissueOntology": {
+      "name": "UBERON",
+      "version": "2024"
+     },
+     "tissueTypeId": "UBERON:0000178",
+     "tissueTypeName": "blood",
+     "sampleDate": "2024-07-10",
+     "sampleConservation": "fresh-tissue",
+     "sequenceType": "dna",
+     "sequenceSubtype": "germline",
+     "fragmentationMethod": "sonication",
+     "libraryType": "wgs",
+     "libraryPrepKit": "NEBNext Ultra II",
+     "libraryPrepKitManufacturer": "NEB",
+     "sequencerModel": "NovaSeq X Plus",
+     "sequencerManufacturer": "Illumina",
+     "kitName": "NovaSeq X 25B Reagent Kit",
+     "kitManufacturer": "Illumina",
+     "enrichmentKitManufacturer": "none",
+     "enrichmentKitDescription": "na",
+     "barcode": "BC041",
+     "sequencingLayout": "paired-end",
+     "sequenceData": {
+      "bioinformaticsPipelineName": "nf-core/sarek",
+      "bioinformaticsPipelineVersion": "3.5.0",
+      "referenceGenome": "GRCh38",
+      "percentBasesAboveQualityThreshold": {
+       "minimumQuality": 30,
+       "percent": 90
+      },
+      "meanDepthOfCoverage": 36,
+      "minCoverage": 23,
+      "targetedRegionsAboveMinCoverage": 0.87,
+      "nonCodingVariants": true,
+      "callerUsed": [
+       {
+        "name": "GATK HaplotypeCaller",
+        "version": "4.5.0"
+       }
+      ],
+      "files": [
+       {
+        "filePath": "donor_002/FLOWEE02-1_R1_001.fastq.gz",
+        "fileType": "fastq",
+        "checksumType": "sha256",
+        "fileChecksum": "6afb11e90b4bc7b16c3f7aaa4d949f5cc2037949a679789e4c16ef1ada5b63fd",
+        "fileSizeInBytes": 12000000000,
+        "readOrder": "R1",
+        "readLength": 151,
+        "flowcellId": "FLOWEE02",
+        "laneId": "1"
+       },
+       {
+        "filePath": "donor_002/FLOWEE02-1_R2_001.fastq.gz",
+        "fileType": "fastq",
+        "checksumType": "sha256",
+        "fileChecksum": "d961ce8b16177e4639a96076ea307ed7ddee8c465ab568d1e360c43220acbecd",
+        "fileSizeInBytes": 13000000000,
+        "readOrder": "R2",
+        "readLength": 151,
+        "flowcellId": "FLOWEE02",
+        "laneId": "1"
+       },
+       {
+        "filePath": "donor_002/gatk_hc.vcf.gz",
+        "fileType": "vcf",
+        "checksumType": "sha256",
+        "fileChecksum": "8d39f25de0af968b76c89418ec243be42bb5b7904c0e1f1a88a5fed8360970e2",
+        "fileSizeInBytes": 5000000
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "donorPseudonym": "fixture-donor-sister-4",
+   "gender": "female",
+   "relation": "sister",
+   "mvConsent": {
+    "presentationDate": "2024-07-01",
+    "version": "Patient Info TE Consent MVGenomSeq vers01",
+    "scope": [
+     {
+      "type": "permit",
+      "date": "2024-07-01",
+      "domain": "mvSequencing"
+     }
+    ]
+   },
+   "researchConsents": [
+    {
+     "schemaVersion": "2025.0.1",
+     "presentationDate": "2024-01-03",
+     "noScopeJustification": "patient refuses to sign consent"
+    }
+   ],
+   "labData": [
+    {
+     "labDataName": "Blood DNA mother-4-0",
+     "tissueOntology": {
+      "name": "UBERON",
+      "version": "2024"
+     },
+     "tissueTypeId": "UBERON:0000178",
+     "tissueTypeName": "blood",
+     "sampleDate": "2024-07-10",
+     "sampleConservation": "fresh-tissue",
+     "sequenceType": "dna",
+     "sequenceSubtype": "germline",
+     "fragmentationMethod": "sonication",
+     "libraryType": "wgs",
+     "libraryPrepKit": "NEBNext Ultra II",
+     "libraryPrepKitManufacturer": "NEB",
+     "sequencerModel": "NovaSeq X Plus",
+     "sequencerManufacturer": "Illumina",
+     "kitName": "NovaSeq X 25B Reagent Kit",
+     "kitManufacturer": "Illumina",
+     "enrichmentKitManufacturer": "none",
+     "enrichmentKitDescription": "na",
+     "barcode": "BC041",
+     "sequencingLayout": "paired-end",
+     "sequenceData": {
+      "bioinformaticsPipelineName": "nf-core/sarek",
+      "bioinformaticsPipelineVersion": "3.5.0",
+      "referenceGenome": "GRCh38",
+      "percentBasesAboveQualityThreshold": {
+       "minimumQuality": 30,
+       "percent": 90
+      },
+      "meanDepthOfCoverage": 36,
+      "minCoverage": 23,
+      "targetedRegionsAboveMinCoverage": 0.87,
+      "nonCodingVariants": true,
+      "callerUsed": [
+       {
+        "name": "GATK HaplotypeCaller",
+        "version": "4.5.0"
+       }
+      ],
+      "files": [
+       {
+        "filePath": "donor_002/FLOWEE02-1_R1_001.fastq.gz",
+        "fileType": "fastq",
+        "checksumType": "sha256",
+        "fileChecksum": "6afb11e90b4bc7b16c3f7aaa4d949f5cc2037949a679789e4c16ef1ada5b63fd",
+        "fileSizeInBytes": 12000000000,
+        "readOrder": "R1",
+        "readLength": 151,
+        "flowcellId": "FLOWEE02",
+        "laneId": "1"
+       },
+       {
+        "filePath": "donor_002/FLOWEE02-1_R2_001.fastq.gz",
+        "fileType": "fastq",
+        "checksumType": "sha256",
+        "fileChecksum": "d961ce8b16177e4639a96076ea307ed7ddee8c465ab568d1e360c43220acbecd",
+        "fileSizeInBytes": 13000000000,
+        "readOrder": "R2",
+        "readLength": 151,
+        "flowcellId": "FLOWEE02",
+        "laneId": "1"
+       },
+       {
+        "filePath": "donor_002/gatk_hc.vcf.gz",
+        "fileType": "vcf",
+        "checksumType": "sha256",
+        "fileChecksum": "8d39f25de0af968b76c89418ec243be42bb5b7904c0e1f1a88a5fed8360970e2",
+        "fileSizeInBytes": 5000000
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "donorPseudonym": "fixture-donor-child-5",
+   "gender": "male",
+   "relation": "child",
+   "mvConsent": {
+    "presentationDate": "2024-07-01",
+    "version": "Patient Info TE Consent MVGenomSeq vers01",
+    "scope": [
+     {
+      "type": "permit",
+      "date": "2024-07-01",
+      "domain": "mvSequencing"
+     }
+    ]
+   },
+   "researchConsents": [
+    {
+     "schemaVersion": "2025.0.1",
+     "presentationDate": "2024-01-15",
+     "scope": {}
+    }
+   ],
+   "labData": [
+    {
+     "labDataName": "Blood DNA mother-5-0",
+     "tissueOntology": {
+      "name": "UBERON",
+      "version": "2024"
+     },
+     "tissueTypeId": "UBERON:0000178",
+     "tissueTypeName": "blood",
+     "sampleDate": "2024-07-10",
+     "sampleConservation": "fresh-tissue",
+     "sequenceType": "dna",
+     "sequenceSubtype": "germline",
+     "fragmentationMethod": "sonication",
+     "libraryType": "wgs",
+     "libraryPrepKit": "NEBNext Ultra II",
+     "libraryPrepKitManufacturer": "NEB",
+     "sequencerModel": "NovaSeq X Plus",
+     "sequencerManufacturer": "Illumina",
+     "kitName": "NovaSeq X 25B Reagent Kit",
+     "kitManufacturer": "Illumina",
+     "enrichmentKitManufacturer": "none",
+     "enrichmentKitDescription": "na",
+     "barcode": "BC041",
+     "sequencingLayout": "paired-end",
+     "sequenceData": {
+      "bioinformaticsPipelineName": "nf-core/sarek",
+      "bioinformaticsPipelineVersion": "3.5.0",
+      "referenceGenome": "GRCh38",
+      "percentBasesAboveQualityThreshold": {
+       "minimumQuality": 30,
+       "percent": 90
+      },
+      "meanDepthOfCoverage": 36,
+      "minCoverage": 23,
+      "targetedRegionsAboveMinCoverage": 0.87,
+      "nonCodingVariants": true,
+      "callerUsed": [
+       {
+        "name": "GATK HaplotypeCaller",
+        "version": "4.5.0"
+       }
+      ],
+      "files": [
+       {
+        "filePath": "donor_002/FLOWEE02-1_R1_001.fastq.gz",
+        "fileType": "fastq",
+        "checksumType": "sha256",
+        "fileChecksum": "6afb11e90b4bc7b16c3f7aaa4d949f5cc2037949a679789e4c16ef1ada5b63fd",
+        "fileSizeInBytes": 12000000000,
+        "readOrder": "R1",
+        "readLength": 151,
+        "flowcellId": "FLOWEE02",
+        "laneId": "1"
+       },
+       {
+        "filePath": "donor_002/FLOWEE02-1_R2_001.fastq.gz",
+        "fileType": "fastq",
+        "checksumType": "sha256",
+        "fileChecksum": "d961ce8b16177e4639a96076ea307ed7ddee8c465ab568d1e360c43220acbecd",
+        "fileSizeInBytes": 13000000000,
+        "readOrder": "R2",
+        "readLength": 151,
+        "flowcellId": "FLOWEE02",
+        "laneId": "1"
+       },
+       {
+        "filePath": "donor_002/gatk_hc.vcf.gz",
+        "fileType": "vcf",
+        "checksumType": "sha256",
+        "fileChecksum": "8d39f25de0af968b76c89418ec243be42bb5b7904c0e1f1a88a5fed8360970e2",
+        "fileSizeInBytes": 5000000
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "donorPseudonym": "fixture-donor-other-6",
+   "gender": "unknown",
+   "relation": "other",
+   "mvConsent": {
+    "presentationDate": "2024-07-01",
+    "version": "Patient Info TE Consent MVGenomSeq vers01",
+    "scope": [
+     {
+      "type": "permit",
+      "date": "2024-07-01",
+      "domain": "mvSequencing"
+     }
+    ]
+   },
+   "researchConsents": [
+    {
+     "schemaVersion": "2025.0.1",
+     "presentationDate": "2024-01-15",
+     "scope": {}
+    }
+   ],
+   "labData": [
+    {
+     "labDataName": "Blood DNA mother-6-0",
+     "tissueOntology": {
+      "name": "UBERON",
+      "version": "2024"
+     },
+     "tissueTypeId": "UBERON:0000178",
+     "tissueTypeName": "blood",
+     "sampleDate": "2024-07-10",
+     "sampleConservation": "fresh-tissue",
+     "sequenceType": "dna",
+     "sequenceSubtype": "germline",
+     "fragmentationMethod": "sonication",
+     "libraryType": "wgs",
+     "libraryPrepKit": "NEBNext Ultra II",
+     "libraryPrepKitManufacturer": "NEB",
+     "sequencerModel": "NovaSeq X Plus",
+     "sequencerManufacturer": "Illumina",
+     "kitName": "NovaSeq X 25B Reagent Kit",
+     "kitManufacturer": "Illumina",
+     "enrichmentKitManufacturer": "none",
+     "enrichmentKitDescription": "na",
+     "barcode": "BC041",
+     "sequencingLayout": "paired-end",
+     "sequenceData": {
+      "bioinformaticsPipelineName": "nf-core/sarek",
+      "bioinformaticsPipelineVersion": "3.5.0",
+      "referenceGenome": "GRCh38",
+      "percentBasesAboveQualityThreshold": {
+       "minimumQuality": 30,
+       "percent": 90
+      },
+      "meanDepthOfCoverage": 36,
+      "minCoverage": 23,
+      "targetedRegionsAboveMinCoverage": 0.87,
+      "nonCodingVariants": true,
+      "callerUsed": [
+       {
+        "name": "GATK HaplotypeCaller",
+        "version": "4.5.0"
+       }
+      ],
+      "files": [
+       {
+        "filePath": "donor_002/FLOWEE02-1_R1_001.fastq.gz",
+        "fileType": "fastq",
+        "checksumType": "sha256",
+        "fileChecksum": "6afb11e90b4bc7b16c3f7aaa4d949f5cc2037949a679789e4c16ef1ada5b63fd",
+        "fileSizeInBytes": 12000000000,
+        "readOrder": "R1",
+        "readLength": 151,
+        "flowcellId": "FLOWEE02",
+        "laneId": "1"
+       },
+       {
+        "filePath": "donor_002/FLOWEE02-1_R2_001.fastq.gz",
+        "fileType": "fastq",
+        "checksumType": "sha256",
+        "fileChecksum": "d961ce8b16177e4639a96076ea307ed7ddee8c465ab568d1e360c43220acbecd",
+        "fileSizeInBytes": 13000000000,
+        "readOrder": "R2",
+        "readLength": 151,
+        "flowcellId": "FLOWEE02",
+        "laneId": "1"
+       },
+       {
+        "filePath": "donor_002/gatk_hc.vcf.gz",
+        "fileType": "vcf",
+        "checksumType": "sha256",
+        "fileChecksum": "8d39f25de0af968b76c89418ec243be42bb5b7904c0e1f1a88a5fed8360970e2",
+        "fileSizeInBytes": 5000000
+       }
+      ]
+     }
+    }
+   ]
+  }
+ ]
+}

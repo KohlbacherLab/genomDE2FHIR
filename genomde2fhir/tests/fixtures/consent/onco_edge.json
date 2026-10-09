@@ -1,0 +1,236 @@
+{
+ "metaData": {
+  "submission": {
+   "date": "2026-04-22",
+   "type": "correction",
+   "submitterId": "195384932",
+   "clinicalDataNodeId": "KDKHD0006",
+   "diseaseType": "hereditary",
+   "genomicDataCenterId": "GRZHD0001"
+  },
+  "coverageType": "GPV",
+  "mvConsent": {
+   "version": "Patient Info TE Consent MVGenomSeq vers01",
+   "scope": [
+    {
+     "type": "permit",
+     "date": "2026-03-22",
+     "domain": "mvSequencing"
+    },
+    {
+     "type": "deny",
+     "date": "2026-03-23",
+     "domain": "reIdentification"
+    },
+    {
+     "type": "permit",
+     "date": "2026-03-21",
+     "domain": "caseIdentification"
+    }
+   ]
+  },
+  "researchConsents": [
+   {
+    "schemaVersion": "2025.0.1",
+    "presentationDate": "2026-03-20",
+    "scope": {
+     "resourceType": "Consent",
+     "id": "549706a7-ac34-4b1c-a14b-fe8d3f38837b",
+     "meta": {
+      "lastUpdated": "2025-02-11T21:50:46.037+01:00",
+      "profile": [
+       "https://www.medizininformatik-initiative.de/fhir/modul-consent/StructureDefinition/mii-pr-consent-einwilligung"
+      ]
+     },
+     "extension": [
+      {
+       "url": "http://fhir.de/ConsentManagement/StructureDefinition/DomainReference",
+       "extension": [
+        {
+         "url": "domain",
+         "valueReference": {
+          "reference": "ResearchStudy/c946ae17-e3e6-4178-b5ea-15f95aaeeeb4"
+         }
+        },
+        {
+         "url": "status",
+         "valueCoding": {
+          "system": "http://hl7.org/fhir/publication-status",
+          "code": "active"
+         }
+        }
+       ]
+      }
+     ],
+     "status": "active",
+     "scope": {
+      "coding": [
+       {
+        "system": "http://terminology.hl7.org/CodeSystem/consentscope",
+        "code": "research"
+       }
+      ]
+     },
+     "category": [
+      {
+       "coding": [
+        {
+         "system": "http://fhir.de/ConsentManagement/CodeSystem/ResultType",
+         "code": "consent-status"
+        }
+       ]
+      },
+      {
+       "coding": [
+        {
+         "system": "https://www.medizininformatik-initiative.de/fhir/modul-consent/CodeSystem/mii-cs-consent-consent_category",
+         "code": "2.16.840.1.113883.3.1937.777.24.2.184"
+        }
+       ]
+      }
+     ],
+     "patient": {
+      "reference": "Patient/c45a15ae-e8b8-11ef-9ddc-0242ac120002",
+      "display": "Pseudonym xyz"
+     },
+     "dateTime": "2025-02-11",
+     "organization": [
+      {
+       "display": "MII"
+      }
+     ],
+     "policy": [
+      {
+       "uri": "2.16.840.1.113883.3.1937.777.24.2.2079"
+      }
+     ],
+     "provision": {
+      "type": "deny",
+      "period": {
+       "start": "2025-02-11",
+       "end": "2025-02-11"
+      },
+      "provision": [
+       {
+        "type": "permit",
+        "period": {
+         "start": "2025-02-11T00:00:00+01:00",
+         "end": "2055-02-11T00:00:00+01:00"
+        },
+        "code": [
+         {
+          "coding": [
+           {
+            "system": "urn:oid:2.16.840.1.113883.3.1937.777.24.5.3",
+            "code": "2.16.840.1.113883.3.1937.777.24.5.3.2",
+            "display": "IDAT erheben"
+           }
+          ]
+         }
+        ]
+       },
+       {
+        "type": "deny",
+        "period": {
+         "start": "2025-02-11T00:00:00+01:00",
+         "end": "2055-02-11T00:00:00+01:00"
+        },
+        "code": [
+         {
+          "coding": [
+           {
+            "system": "urn:oid:2.16.840.1.113883.3.1937.777.24.5.3",
+            "code": "2.16.840.1.113883.3.1937.777.24.5.3.12",
+            "display": "KKDAT 5J retrospektiv speichern verarbeiten"
+           }
+          ]
+         }
+        ]
+       },
+       {
+        "type": "deny",
+        "period": {
+         "start": "2025-02-11T00:00:00+01:00",
+         "end": "2055-02-11T00:00:00+01:00"
+        },
+        "code": [
+         {
+          "coding": [
+           {
+            "system": "urn:oid:2.16.840.1.113883.3.1937.777.24.5.3",
+            "code": "2.16.840.1.113883.3.1937.777.24.5.3.22",
+            "display": "BIOMAT wissenschaftlich nutzen EU DSGVO NIVEAU"
+           }
+          ]
+         }
+        ]
+       }
+      ]
+     },
+     "performer": [
+      {
+       "reference": "Patient/c45a15ae-e8b8-11ef-9ddc-0242ac120002",
+       "display": "Pseudonym xyz"
+      }
+     ]
+    }
+   },
+   {
+    "presentationDate": "2026-03-10",
+    "noScopeJustification": "patient unable to consent"
+   },
+   {
+    "presentationDate": "2026-03-11",
+    "noScopeJustification": "patient refuses to sign consent"
+   },
+   {
+    "presentationDate": "2026-03-12",
+    "noScopeJustification": "patient did not return consent documents"
+   },
+   {
+    "presentationDate": "2026-03-13",
+    "noScopeJustification": "other patient-related reason"
+   },
+   {
+    "presentationDate": "2026-03-14",
+    "noScopeJustification": "consent information cannot be submitted by LE due to technical reason"
+   },
+   {
+    "presentationDate": "2026-03-15",
+    "noScopeJustification": "consent is not implemented at LE due to organizational issues"
+   }
+  ],
+  "tanC": "662508b1c1a9ffb236ea247719ebba8a400eef0cfd645ecc5c4b730b87604c25",
+  "gender": "male",
+  "birthDate": "1978-05",
+  "addressAGS": "02000",
+  "decisionToInclude": false,
+  "molecularBoardDecisionDate": "2026-04-08",
+  "rejectionJustification": "probablyNoGeneticCause",
+  "localCaseId": "CONSENT-EDGE-1"
+ },
+ "case": {
+  "diagnosisOd": {
+   "mainDiagnosis": {
+    "code": "C15.9",
+    "system": "http://fhir.de/CodeSystem/bfarm/icd-10-gm",
+    "version": "2025",
+    "date": "2021-04-16"
+   },
+   "ecogPerformanceStatusScore": "1",
+   "germlineDiagnosisConfirmed": false,
+   "histology": {
+    "code": "8140/3",
+    "system": "ICD-O3-M",
+    "version": "rev2"
+   },
+   "topography": {
+    "code": "C15.9",
+    "system": "ICD-O3-T",
+    "version": "rev2"
+   },
+   "libraryType": "none",
+   "grading": "2"
+  }
+ }
+}

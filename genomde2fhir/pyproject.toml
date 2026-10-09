@@ -1,0 +1,45 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "genomde2fhir"
+version = "0.1.0"
+description = "Convert genomDE / MV-GenomSeq Datenkranz JSON (KDK oncology, KDK rare disease, GRZ) into MII KDS FHIR R4 transaction Bundles (2027.0.0 ballot profile set)."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "KohlbacherLab" }]
+keywords = ["fhir", "genomde", "mv-genomseq", "datenkranz", "mii", "kerndatensatz", "bfarm", "kdk", "grz"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Topic :: Scientific/Engineering :: Bio-Informatics",
+    "Intended Audience :: Healthcare Industry",
+]
+dependencies = [
+    "fhir.resources>=8.3,<9",   # structural check of every emitted resource (R4B models = R4 for all types we emit)
+]
+
+[project.optional-dependencies]
+# input schema validation + branch detection; install from git until it is on PyPI:
+#   pip install "genomde-dk-validator @ git+https://github.com/KohlbacherLab/genomde-dk-validator@v1.1.2"
+input = ["genomde-dk-validator>=1.1.2"]
+dev = ["pytest>=8", "genomde-dk-validator>=1.1.2"]
+
+[project.urls]
+Homepage = "https://github.com/KohlbacherLab/genomDE2FHIR"
+Repository = "https://github.com/KohlbacherLab/genomDE2FHIR"
+
+[project.scripts]
+genomde2fhir = "genomde2fhir.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+genomde2fhir = ["data/*.json", "data/mapping/*.csv", "data/mvgs/*.json"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

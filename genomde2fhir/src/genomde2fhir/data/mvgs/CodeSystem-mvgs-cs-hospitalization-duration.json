@@ -1,0 +1,47 @@
+{
+ "resourceType": "CodeSystem",
+ "id": "mvgs-cs-hospitalization-duration",
+ "url": "https://genomde.de/fhir/CodeSystem/mvgs-cs-hospitalization-duration",
+ "version": "0.1.0",
+ "name": "MVGS_CS_HOSPITALIZATION_DURATION",
+ "title": "MV-GenomSeq hospitalisation duration (banded days)",
+ "status": "draft",
+ "experimental": false,
+ "publisher": "KohlbacherLab (genomDE2FHIR)",
+ "description": "Estimated total duration in days of case-relevant inpatient pre-treatment, banded as delivered by the BfArM Datenkranz (KDK rare disease case.priorRds[].hospitalizationDuration). Interim until the Seltene module ships a concept (ballot comment HDB-975; DISCUSS-TD #33, REPRESENTATIONS #33). Band codes are the KDK literals; 'unknown' is not a code (Observation.dataAbsentReason). The concept 'hospitalization-duration' is the Observation.code; it is not part of the value set mvgs-vs-hospitalization-duration (band codes only), so CodeSystem.valueSet (whole code system) is not set.",
+ "caseSensitive": true,
+ "content": "complete",
+ "count": 6,
+ "concept": [
+  {
+   "code": "hospitalization-duration",
+   "display": "Duration of case-relevant inpatient pre-treatment (days, banded)",
+   "definition": "Estimated total number of days of inpatient treatment related to the rare disease before the current case (KDK hospitalizationDuration)."
+  },
+  {
+   "code": "none",
+   "display": "None",
+   "definition": "No inpatient days."
+  },
+  {
+   "code": "upToFive",
+   "display": "Up to 5 days",
+   "definition": "1 to 5 inpatient days."
+  },
+  {
+   "code": "upToFifteen",
+   "display": "Up to 15 days",
+   "definition": "6 to 15 inpatient days."
+  },
+  {
+   "code": "upToFifty",
+   "display": "Up to 50 days",
+   "definition": "16 to 50 inpatient days."
+  },
+  {
+   "code": "moreThanFifty",
+   "display": "More than 50 days",
+   "definition": "More than 50 inpatient days."
+  }
+ ]
+}

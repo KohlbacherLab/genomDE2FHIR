@@ -1,0 +1,319 @@
+{
+ "metaData": {
+  "submission": {
+   "date": "2026-04-21",
+   "type": "test",
+   "submitterId": "260840108",
+   "clinicalDataNodeId": "KDKTUE005",
+   "genomicDataCenterId": "GRZTUE002",
+   "diseaseType": "oncological"
+  },
+  "coverageType": "GKV",
+  "mvConsent": {
+   "presentationDate": "2026-03-23",
+   "version": "Patient Info TE Consent MVGenomSeq vers01",
+   "scope": [
+    {
+     "date": "2026-03-24",
+     "domain": "mvSequencing",
+     "type": "permit"
+    },
+    {
+     "date": "2026-03-24",
+     "domain": "reIdentification",
+     "type": "permit"
+    },
+    {
+     "date": "2026-03-24",
+     "domain": "caseIdentification",
+     "type": "permit"
+    }
+   ]
+  },
+  "researchConsents": [],
+  "tanC": "EC4C815CADF96D5202AE7B6C9AC31B74C4AAFC65C631F2DA171469E1D81DA671",
+  "gender": "male",
+  "birthDate": "1963-05",
+  "addressAGS": "12345",
+  "decisionToInclude": true,
+  "molecularBoardDecisionDate": "2026-04-07",
+  "localCaseId": "onco-cnv-sv-fixture-01"
+ },
+ "case": {
+  "diagnosisOd": {
+   "mainDiagnosis": {
+    "code": "C71.9",
+    "display": "Bösartige Neubildung: Gehirn, nicht näher bezeichnet",
+    "system": "http://fhir.de/CodeSystem/bfarm/icd-10-gm",
+    "version": "2026",
+    "date": "2022-08-01"
+   },
+   "ecogPerformanceStatusScore": "1",
+   "germlineDiagnosisConfirmed": false,
+   "histology": {
+    "code": "9431/1",
+    "display": "Angiozentrisches Gliom",
+    "system": "urn:oid:2.16.840.1.113883.6.43.1",
+    "version": "Zweite Revision"
+   },
+   "topography": {
+    "code": "C71.9",
+    "display": "Gehirn o.n.A.",
+    "system": "urn:oid:2.16.840.1.113883.6.43.1",
+    "version": "Zweite Revision"
+   },
+   "grading": "M",
+   "tnmClassifications": [
+    {
+     "code": "TX",
+     "display": "TX",
+     "system": "UICC",
+     "version": "8th ed."
+    },
+    {
+     "code": "NX",
+     "display": "NX",
+     "system": "UICC",
+     "version": "8th ed."
+    },
+    {
+     "code": "M1",
+     "display": "M1",
+     "system": "UICC",
+     "version": "8th ed."
+    }
+   ],
+   "additionalClassification": [
+    {
+     "key": "metastasized",
+     "system": "dnpm-dip/mtb/diagnosis/kds-tumor-spread"
+    }
+   ],
+   "libraryType": "wgs_lr"
+  },
+  "priorDiagnostic": {
+   "type": "other",
+   "date": "2026-04-21"
+  },
+  "priorProcedures": [
+   {
+    "treatmentType": "A",
+    "intention": "K",
+    "therapyStartDate": "2024-11-21",
+    "therapyEndDate": "2025-02-20",
+    "substances": [
+     {
+      "code": {
+       "code": "L01FX21",
+       "display": "Naxitamab",
+       "system": "http://fhir.de/CodeSystem/bfarm/atc",
+       "version": "2025"
+      }
+     }
+    ],
+    "terminationReasonOBDS": "P"
+   }
+  ]
+ },
+ "molecular": {
+  "copyNumberVariants": [
+   {
+    "identifier": "cnv-completeLoss",
+    "genomicSource": "somatic",
+    "cnvType": "completeLoss",
+    "gene": {
+     "code": "HGNC:1100",
+     "display": "BRCA1",
+     "system": "https://www.genenames.org/",
+     "version": "2026-07-01"
+    },
+    "chromosome": "17",
+    "localization": "coding",
+    "startPosition": 43044295,
+    "endPosition": 43125364
+   },
+   {
+    "identifier": "cnv-heterozygousLoss",
+    "genomicSource": "germline",
+    "cnvType": "heterozygousLoss",
+    "gene": {
+     "code": "HGNC:1100",
+     "display": "BRCA1",
+     "system": "https://www.genenames.org/"
+    },
+    "chromosome": "X",
+    "localization": "inRegulatoryElements",
+    "startPosition": 43044295,
+    "endPosition": 43125364
+   },
+   {
+    "identifier": "cnv-loss",
+    "genomicSource": "somatic",
+    "cnvType": "loss",
+    "gene": {
+     "code": "HGNC:3236",
+     "display": "EGFR"
+    },
+    "chromosome": "Y",
+    "localization": "notInCodingAndNotInRegulatoryElements"
+   },
+   {
+    "identifier": "cnv-lowLevelGain",
+    "genomicSource": "somatic",
+    "cnvType": "lowLevelGain",
+    "gene": {
+     "code": "HGNC:1100",
+     "display": "BRCA1",
+     "system": "https://www.genenames.org/"
+    },
+    "chromosome": "7",
+    "localization": "coding",
+    "startPosition": 55019017
+   },
+   {
+    "identifier": "cnv-highLevelGain",
+    "genomicSource": "somatic",
+    "cnvType": "highLevelGain",
+    "gene": {
+     "code": "HGNC:1100",
+     "display": "BRCA1",
+     "system": "https://www.genenames.org/"
+    },
+    "chromosome": "12",
+    "localization": "inRegulatoryElements",
+    "endPosition": 69000000
+   },
+   {
+    "identifier": "cnv-gain",
+    "genomicSource": "somatic",
+    "cnvType": "gain",
+    "gene": {
+     "code": "HGNC:1100",
+     "display": "BRCA1",
+     "system": "https://www.genenames.org/"
+    },
+    "chromosome": "1",
+    "localization": "notInCodingAndNotInRegulatoryElements",
+    "startPosition": 2000,
+    "endPosition": 1000
+   },
+   {
+    "identifier": "cnv-completeLoss",
+    "genomicSource": "somatic",
+    "cnvType": "completeLoss",
+    "gene": {
+     "code": "HGNC:1100",
+     "display": "BRCA1",
+     "system": "https://www.genenames.org/",
+     "version": "2026-07-01"
+    },
+    "chromosome": "17",
+    "localization": "coding",
+    "startPosition": 43044295,
+    "endPosition": 43125364
+   }
+  ],
+  "structuralVariants": [
+   {
+    "identifier": "sv-translocation",
+    "genomicSource": "germline",
+    "geneA": {
+     "code": "HGNC:1316",
+     "display": "EML4",
+     "system": "https://www.genenames.org/",
+     "version": "2026-07-01"
+    },
+    "geneB": {
+     "code": "HGNC:427",
+     "display": "ALK",
+     "system": "https://www.genenames.org/"
+    },
+    "structureType": "translocation",
+    "sequenceType": "DNA",
+    "localization": "coding",
+    "description": "t(2;2)(p23;p21)"
+   },
+   {
+    "identifier": "sv-translocationWithCodingRegion",
+    "genomicSource": "somatic",
+    "geneA": {
+     "code": "HGNC:1316",
+     "display": "EML4",
+     "system": "https://www.genenames.org/"
+    },
+    "geneB": {
+     "code": "HGNC:427",
+     "display": "ALK",
+     "system": "https://www.genenames.org/",
+     "version": "2026-07-01"
+    },
+    "structureType": "translocationWithCodingRegion",
+    "sequenceType": "RNA",
+    "localization": "inRegulatoryElements"
+   },
+   {
+    "identifier": "sv-translocationWithNonCodingRegion",
+    "genomicSource": "germline",
+    "geneA": {
+     "code": "HGNC:1316",
+     "display": "EML4",
+     "system": "https://www.genenames.org/"
+    },
+    "geneB": {
+     "code": "HGNC:427",
+     "display": "ALK",
+     "system": "https://www.genenames.org/"
+    },
+    "structureType": "translocationWithNonCodingRegion",
+    "sequenceType": "DNA",
+    "localization": "notInCodingAndNotInRegulatoryElements"
+   },
+   {
+    "identifier": "sv-inversion",
+    "genomicSource": "somatic",
+    "geneA": {
+     "code": "HGNC:1316",
+     "display": "EML4"
+    },
+    "geneB": {
+     "code": "HGNC:427",
+     "display": "ALK"
+    },
+    "structureType": "inversion",
+    "sequenceType": "DNA",
+    "localization": "coding"
+   },
+   {
+    "identifier": "sv-deletionOfGeneSegments",
+    "genomicSource": "germline",
+    "geneA": {
+     "code": "HGNC:1316",
+     "display": "EML4"
+    },
+    "geneB": {
+     "code": "HGNC:427",
+     "display": "ALK"
+    },
+    "structureType": "deletionOfGeneSegments",
+    "sequenceType": "RNA",
+    "localization": "inRegulatoryElements",
+    "description": "chr2:g.29446394_42396490del"
+   },
+   {
+    "identifier": "sv-duplicationOfGeneSegments",
+    "genomicSource": "somatic",
+    "geneA": {
+     "code": "HGNC:1316",
+     "display": "EML4"
+    },
+    "geneB": {
+     "code": "HGNC:427",
+     "display": "ALK"
+    },
+    "structureType": "duplicationOfGeneSegments",
+    "sequenceType": "DNA",
+    "localization": "notInCodingAndNotInRegulatoryElements"
+   }
+  ]
+ }
+}

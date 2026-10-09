@@ -1,0 +1,92 @@
+{
+ "resourceType": "CodeSystem",
+ "id": "mvgs-cs-cnv-type",
+ "url": "https://genomde.de/fhir/CodeSystem/mvgs-cs-cnv-type",
+ "version": "0.1.0",
+ "name": "MVGS_CS_CNV_TYPE",
+ "title": "MV-GenomSeq copy number alteration type",
+ "status": "draft",
+ "experimental": false,
+ "publisher": "KohlbacherLab (genomDE2FHIR)",
+ "description": "Six-level copy number alteration type of the BfArM KDK (molecular.copyNumberVariants[].cnvType). MII MTB `component:cnv-type` uses the undefined DNPM/bwHC system http://bwhc.de/mtb/genetics-copy-number-variant with three levels only (loss, low-level-gain, high-level-gain); this CodeSystem keeps the full ordinal (DISCUSS-TD #17, REPRESENTATIONS #17).",
+ "caseSensitive": true,
+ "valueSet": "https://genomde.de/fhir/ValueSet/mvgs-vs-cnv-type",
+ "content": "complete",
+ "count": 6,
+ "property": [
+  {
+   "code": "order",
+   "uri": "http://hl7.org/fhir/concept-properties#order",
+   "type": "integer",
+   "description": "Ordinal position from strongest loss to strongest gain (unspecified levels between)"
+  }
+ ],
+ "concept": [
+  {
+   "code": "completeLoss",
+   "display": "Complete loss",
+   "definition": "Homozygous (complete) loss of the gene copies.",
+   "property": [
+    {
+     "code": "order",
+     "valueInteger": 1
+    }
+   ]
+  },
+  {
+   "code": "heterozygousLoss",
+   "display": "Heterozygous loss",
+   "definition": "Loss of one gene copy (heterozygous deletion).",
+   "property": [
+    {
+     "code": "order",
+     "valueInteger": 2
+    }
+   ]
+  },
+  {
+   "code": "loss",
+   "display": "Loss",
+   "definition": "Copy number loss, extent not specified.",
+   "property": [
+    {
+     "code": "order",
+     "valueInteger": 3
+    }
+   ]
+  },
+  {
+   "code": "gain",
+   "display": "Gain",
+   "definition": "Copy number gain, level not specified.",
+   "property": [
+    {
+     "code": "order",
+     "valueInteger": 4
+    }
+   ]
+  },
+  {
+   "code": "lowLevelGain",
+   "display": "Low-level gain",
+   "definition": "Low-level copy number gain.",
+   "property": [
+    {
+     "code": "order",
+     "valueInteger": 5
+    }
+   ]
+  },
+  {
+   "code": "highLevelGain",
+   "display": "High-level gain",
+   "definition": "High-level copy number gain (amplification).",
+   "property": [
+    {
+     "code": "order",
+     "valueInteger": 6
+    }
+   ]
+  }
+ ]
+}

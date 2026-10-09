@@ -1,0 +1,420 @@
+{
+ "metaData": {
+  "submission": {
+   "date": "2026-04-21",
+   "type": "test",
+   "submitterId": "260840108",
+   "clinicalDataNodeId": "KDKTUE002",
+   "genomicDataCenterId": "GRZTUE002",
+   "diseaseType": "rare"
+  },
+  "coverageType": "GKV",
+  "mvConsent": {
+   "presentationDate": "2026-03-23",
+   "version": "Patient Info TE Consent MVGenomSeq vers01",
+   "scope": [
+    {
+     "date": "2026-03-24",
+     "domain": "mvSequencing",
+     "type": "permit"
+    },
+    {
+     "date": "2026-03-24",
+     "domain": "reIdentification",
+     "type": "permit"
+    },
+    {
+     "date": "2026-03-24",
+     "domain": "caseIdentification",
+     "type": "permit"
+    }
+   ]
+  },
+  "researchConsents": [],
+  "tanC": "538113D189B1250C24F2215ADEC7BCD4A323E356A7B9CDF7675EE49F5113323E",
+  "gender": "female",
+  "birthDate": "1976-01",
+  "addressAGS": "12345",
+  "decisionToInclude": true,
+  "molecularBoardDecisionDate": "2026-04-07"
+ },
+ "case": {
+  "diagnosisRd": {
+   "phenotypes": [
+    {
+     "code": "HP:0100871",
+     "display": "Abnormal palm morphology",
+     "system": "https://hpo.jax.org",
+     "version": "2025-10-22"
+    },
+    {
+     "code": "HP:0100863",
+     "display": "Aplasia of the femoral neck",
+     "system": "https://hpo.jax.org",
+     "version": "2025-10-22"
+    },
+    {
+     "code": "HP:0100877",
+     "display": "Renal diverticulum",
+     "system": "https://hpo.jax.org",
+     "version": "2025-10-22"
+    },
+    {
+     "code": "HP:0100864",
+     "display": "Short femoral neck",
+     "system": "https://hpo.jax.org",
+     "version": "2025-10-22"
+    }
+   ],
+   "symptomOnsetDate": "2025-10",
+   "molecularBoardDecisionDate": "2026-04-07",
+   "diagnosticExtent": "duoGenome",
+   "libraryType": "wes",
+   "diagnosticAssessment": "suspectedGeneticDiagnosis",
+   "diagnoses": [
+    {
+     "code": "I65332",
+     "display": "Isolierte Lävokardie",
+     "system": "https://www.bfarm.de/DE/Kodiersysteme/Terminologien/Alpha-ID-SE",
+     "version": "2025"
+    },
+    {
+     "code": "ORPHA:95854",
+     "display": "Laevokardie",
+     "system": "https://www.orpha.net",
+     "version": "4.7"
+    },
+    {
+     "code": "Q24.1",
+     "display": "Lävokardie",
+     "system": "http://fhir.de/CodeSystem/bfarm/icd-10-gm",
+     "version": "2026"
+    }
+   ],
+   "diagnosisGmfcs": "II"
+  },
+  "priorRd": {
+   "genomicTestType": "exome",
+   "genomicStudyType": "single",
+   "diagnosticDate": "2026-04-21",
+   "diagnosticResult": "unclearVariantInGeneticDisease",
+   "hospitalizationPeriods": "upToTen",
+   "hospitalizationDuration": "upToFifty",
+   "zseContactDate": "2026-04"
+  }
+ },
+ "molecular": {
+  "smallVariants": [
+   {
+    "identifier": "SNV-1",
+    "genes": [
+     {
+      "code": "HGNC:11998",
+      "display": "TP53",
+      "system": "https://www.genenames.org/"
+     }
+    ],
+    "chromosome": "17",
+    "startPosition": 7673802,
+    "endPosition": 7673802,
+    "ref": "C",
+    "alt": "T",
+    "localization": [
+     {
+      "code": "codingRegion",
+      "display": "CodingRegion",
+      "system": "bfarm/mvh/variant/localization"
+     },
+     {
+      "code": "splicingRegion",
+      "display": "SplicingRegion",
+      "system": "bfarm/mvh/variant/localization"
+     }
+    ],
+    "cdnaChange": "NM_000546.6:c.818G>A",
+    "gdnaChange": "NC_000017.11:g.7673802C>T",
+    "proteinChange": "NP_000537.3:p.Arg273His",
+    "acmgClass": "5",
+    "acmgCriteria": [
+     {
+      "value": "PVS1",
+      "modifier": "pvs"
+     },
+     {
+      "value": "PM2"
+     }
+    ],
+    "zygosity": "heterozygous",
+    "segregationAnalysis": "deNovo",
+    "modeOfInheritance": "dominant",
+    "diagnosticSignificance": "primary",
+    "externalId": "17677",
+    "publications": [
+     "20301425",
+     "PMID:12345678"
+    ]
+   },
+   {
+    "identifier": "SNV-2",
+    "genes": [
+     {
+      "code": "HGNC:4284",
+      "display": "GJB2",
+      "system": "https://www.genenames.org/"
+     }
+    ],
+    "chromosome": "MT",
+    "startPosition": 3243,
+    "endPosition": 3243,
+    "ref": "A",
+    "alt": "G",
+    "localization": [
+     {
+      "code": "regulatoryRegion",
+      "display": "RegulatoryRegion",
+      "system": "bfarm/mvh/variant/localization"
+     }
+    ],
+    "cdnaChange": "NC_012920.1:m.3243A>G",
+    "gdnaChange": "NC_012920.1:m.3243A>G",
+    "proteinChange": "p.Trp24Ter (p.Trp24*)",
+    "acmgClass": "4",
+    "zygosity": "heteroplasmic",
+    "segregationAnalysis": "fromMother",
+    "modeOfInheritance": "mitochondrial",
+    "diagnosticSignificance": "incidental",
+    "externalId": "VCV000009595.27",
+    "publications": [
+     "doi:10.1000/xyz"
+    ]
+   },
+   {
+    "identifier": "SNV-3",
+    "chromosome": "X",
+    "startPosition": 100,
+    "endPosition": 101,
+    "ref": "C",
+    "alt": "T",
+    "localization": [
+     {
+      "code": "intronic",
+      "display": "Intronic",
+      "system": "bfarm/mvh/variant/localization"
+     }
+    ],
+    "zygosity": "hemi",
+    "segregationAnalysis": "fromFather",
+    "modeOfInheritance": "XLinked",
+    "acmgClass": "3",
+    "diagnosticSignificance": "candidate",
+    "gdnaChange": "NC_000023.11:g.33344590_33344592=/dup",
+    "proteinChange": "NP_003997.1:p.(Gly56Ala^Ser^Cys)"
+   },
+   {
+    "identifier": "SNV-4",
+    "chromosome": "1",
+    "startPosition": 500,
+    "endPosition": 500,
+    "ref": "T",
+    "alt": "C",
+    "localization": [
+     {
+      "code": "intergenic",
+      "display": "Intergenic",
+      "system": "bfarm/mvh/variant/localization"
+     }
+    ],
+    "zygosity": "homozygous",
+    "segregationAnalysis": "fromMotherAndFather",
+    "modeOfInheritance": "recessive",
+    "acmgClass": "2"
+   },
+   {
+    "identifier": "SNV-5",
+    "chromosome": "2",
+    "startPosition": 10,
+    "endPosition": 10,
+    "ref": "A",
+    "alt": "T",
+    "zygosity": "compHet",
+    "segregationAnalysis": "notPerformed",
+    "modeOfInheritance": "unclear",
+    "acmgClass": "1"
+   },
+   {
+    "identifier": "SNV-6",
+    "chromosome": "3",
+    "startPosition": 20,
+    "endPosition": 20,
+    "ref": "G",
+    "alt": "C",
+    "zygosity": "homoplasmic"
+   },
+   {
+    "identifier": "SNV-6",
+    "chromosome": "3",
+    "startPosition": 30,
+    "endPosition": 30,
+    "ref": "G",
+    "alt": "T"
+   }
+  ],
+  "copyNumberVariants": [
+   {
+    "identifier": "CNV-1",
+    "genes": [
+     {
+      "code": "HGNC:3236",
+      "display": "EGFR",
+      "system": "https://www.genenames.org/"
+     },
+     {
+      "code": "HGNC:7029",
+      "display": "MET",
+      "system": "https://www.genenames.org/"
+     }
+    ],
+    "chromosome": "7",
+    "startPosition": 55000000,
+    "endPosition": 56000000,
+    "type": "gain",
+    "localization": [
+     {
+      "code": "codingRegion",
+      "display": "CodingRegion",
+      "system": "bfarm/mvh/variant/localization"
+     }
+    ],
+    "gdnaChange": "NC_000007.14:g.55000000_56000000dup",
+    "acmgClass": "4",
+    "acmgCriteria": [
+     {
+      "value": "PS1",
+      "modifier": "ps"
+     },
+     {
+      "value": "BP4",
+      "modifier": "bm"
+     }
+    ],
+    "zygosity": "heterozygous",
+    "segregationAnalysis": "deNovo",
+    "modeOfInheritance": "dominant",
+    "diagnosticSignificance": "primary"
+   },
+   {
+    "identifier": "CNV-2",
+    "chromosome": "22",
+    "startPosition": 2000,
+    "endPosition": 1000,
+    "type": "loss",
+    "cdnaChange": "NC_000022.11:g.1000_2000del",
+    "gdnaChange": "NC_000023.11:g.(31060227_31100351)_(33274278_33417151)dup"
+   }
+  ],
+  "structuralVariants": [
+   {
+    "identifier": "SV-1",
+    "genes": [
+     {
+      "code": "HGNC:1100",
+      "display": "BRCA1",
+      "system": "https://www.genenames.org/"
+     }
+    ],
+    "description": "46,XX,t(1;3)(p31;q21)",
+    "localization": [
+     {
+      "code": "intronic",
+      "display": "Intronic",
+      "system": "bfarm/mvh/variant/localization"
+     }
+    ],
+    "acmgClass": "3",
+    "acmgCriteria": [
+     {
+      "value": "PP3",
+      "modifier": "pp"
+     }
+    ],
+    "zygosity": "heterozygous",
+    "segregationAnalysis": "fromFather",
+    "modeOfInheritance": "recessive",
+    "diagnosticSignificance": "candidate",
+    "externalId": "abc-not-clinvar",
+    "publications": [
+     "31234567"
+    ]
+   },
+   {
+    "identifier": "SV-2"
+   }
+  ]
+ },
+ "plan": {
+  "carePlanRd": {
+   "molecularBoardDecisionDate": "2026-04-21",
+   "studyRecommended": true,
+   "counsellingRecommended": true,
+   "reEvaluationRecommended": true,
+   "therapyRecommended": true,
+   "clinicalManagementRecommended": true,
+   "clinicalManagementDescriptions": [
+    "diseaseSpecificAmbulatoryCare"
+   ]
+  },
+  "recommendedStudies": [
+   {
+    "identifier": "5197b680-3c08-4972-857f-ad7fcef19cd3",
+    "register": "NCT",
+    "name": "N/A",
+    "id": "NCT42624734",
+    "variantReferences": [
+     "01adaaba-34f5-4dd0-9984-2f9329aab3f3"
+    ]
+   }
+  ],
+  "recommendedTherapies": [
+   {
+    "identifier": "57ba0e43-de26-4f19-b79c-08f0cd1cd0ea",
+    "type": "symptomatic",
+    "strategy": "nutrition",
+    "variantReferences": [
+     "01adaaba-34f5-4dd0-9984-2f9329aab3f3"
+    ]
+   }
+  ]
+ },
+ "followUp": {
+  "followUpRds": [
+   {
+    "followUpDate": "2026-04-21",
+    "phenotypes": [
+     {
+      "code": "HP:0100871",
+      "system": "https://hpo.jax.org",
+      "change": "noLongerObserved"
+     },
+     {
+      "code": "HP:0100863",
+      "system": "https://hpo.jax.org",
+      "change": "noLongerObserved"
+     },
+     {
+      "code": "HP:0100877",
+      "system": "https://hpo.jax.org",
+      "change": "degraded"
+     },
+     {
+      "code": "HP:0100864",
+      "system": "https://hpo.jax.org",
+      "change": "noLongerObserved"
+     }
+    ],
+    "diagnosisEstablished": false,
+    "diseaseProgression": "Notes on the disease...",
+    "vitalStatus": "living"
+   }
+  ]
+ }
+}

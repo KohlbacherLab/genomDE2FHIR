@@ -1,0 +1,68 @@
+{
+ "resourceType": "CodeSystem",
+ "id": "mvgs-cs-grz-library-type",
+ "url": "https://genomde.de/fhir/CodeSystem/mvgs-cs-grz-library-type",
+ "version": "0.1.0",
+ "name": "MVGS_CS_GRZ_LIBRARY_TYPE",
+ "title": "MV-GenomSeq GRZ library type",
+ "status": "draft",
+ "experimental": false,
+ "publisher": "KohlbacherLab (genomDE2FHIR)",
+ "description": "BfArM GRZ donors[].labData[].libraryType: sequencing library type; the suffix _lr marks long-read sequencing. Carried as genomic-study-analysis Procedure.code next to the MII/GR method-type (which has no long-read concept).",
+ "caseSensitive": true,
+ "valueSet": "https://genomde.de/fhir/ValueSet/mvgs-vs-grz-library-type",
+ "content": "complete",
+ "count": 10,
+ "concept": [
+  {
+   "code": "panel",
+   "display": "Gene panel",
+   "definition": "Targeted gene panel, short-read sequencing."
+  },
+  {
+   "code": "panel_lr",
+   "display": "Gene panel, long-read",
+   "definition": "Targeted gene panel, long-read sequencing."
+  },
+  {
+   "code": "wes",
+   "display": "Whole exome sequencing",
+   "definition": "Whole exome, short-read sequencing."
+  },
+  {
+   "code": "wes_lr",
+   "display": "Whole exome sequencing, long-read",
+   "definition": "Whole exome, long-read sequencing."
+  },
+  {
+   "code": "wgs",
+   "display": "Whole genome sequencing",
+   "definition": "Whole genome, short-read sequencing."
+  },
+  {
+   "code": "wgs_lr",
+   "display": "Whole genome sequencing, long-read",
+   "definition": "Whole genome, long-read sequencing."
+  },
+  {
+   "code": "wxs",
+   "display": "Whole exome sequencing (WXS)",
+   "definition": "Whole exome (GDC term WXS), short-read sequencing."
+  },
+  {
+   "code": "wxs_lr",
+   "display": "Whole exome sequencing (WXS), long-read",
+   "definition": "Whole exome (GDC term WXS), long-read sequencing."
+  },
+  {
+   "code": "other",
+   "display": "Other",
+   "definition": "Another library type."
+  },
+  {
+   "code": "unknown",
+   "display": "Unknown",
+   "definition": "The library type is not known."
+  }
+ ]
+}

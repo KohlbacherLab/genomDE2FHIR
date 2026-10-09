@@ -1,0 +1,43 @@
+{
+ "resourceType": "CodeSystem",
+ "id": "mvgs-cs-grz-sample-conservation",
+ "url": "https://genomde.de/fhir/CodeSystem/mvgs-cs-grz-sample-conservation",
+ "version": "0.1.0",
+ "name": "MVGS_CS_GRZ_SAMPLE_CONSERVATION",
+ "title": "MV-GenomSeq GRZ sample conservation",
+ "status": "draft",
+ "experimental": false,
+ "publisher": "KohlbacherLab (genomDE2FHIR)",
+ "description": "BfArM GRZ donors[].labData[].sampleConservation. ffpe and cryo-frozen map to SNOMED CT laboratory procedures for Specimen.processing (mvgs-cm-grz-sample-conservation-sct); fresh-tissue has no processing step.",
+ "caseSensitive": true,
+ "valueSet": "https://genomde.de/fhir/ValueSet/mvgs-vs-grz-sample-conservation",
+ "content": "complete",
+ "count": 5,
+ "concept": [
+  {
+   "code": "fresh-tissue",
+   "display": "Fresh tissue",
+   "definition": "Unfixed, unfrozen sample."
+  },
+  {
+   "code": "cryo-frozen",
+   "display": "Cryo-frozen",
+   "definition": "Sample frozen for preservation (no temperature given by the source)."
+  },
+  {
+   "code": "ffpe",
+   "display": "FFPE",
+   "definition": "Formalin-fixed, paraffin-embedded sample."
+  },
+  {
+   "code": "other",
+   "display": "Other",
+   "definition": "Another conservation method."
+  },
+  {
+   "code": "unknown",
+   "display": "Unknown",
+   "definition": "The conservation method is not known."
+  }
+ ]
+}

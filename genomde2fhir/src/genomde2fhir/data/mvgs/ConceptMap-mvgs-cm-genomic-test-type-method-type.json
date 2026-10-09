@@ -1,0 +1,133 @@
+{
+ "resourceType": "ConceptMap",
+ "id": "mvgs-cm-genomic-test-type-method-type",
+ "url": "https://genomde.de/fhir/ConceptMap/mvgs-cm-genomic-test-type-method-type",
+ "version": "0.1.0",
+ "status": "draft",
+ "experimental": false,
+ "publisher": "KohlbacherLab (genomDE2FHIR)",
+ "name": "MVGS_CM_GENOMIC_TEST_TYPE_METHOD_TYPE",
+ "title": "MV-GenomSeq genomic test type to MTB genomic analysis method type",
+ "description": "KDK case.priorDiagnostics[].type to the code for mii-pr-mtb-genomic-study-analysis extension:method-type (required mii-vs-mtb-genomic-analysis-method-type = MII CS + GR genomic-study-method-type-cs). `single` has no concept (no method given) and `none` yields no study (REVIEW-TD-2026-10-06 A, DISCUSS-TD #12).",
+ "sourceUri": "https://genomde.de/fhir/ValueSet/mvgs-vs-genomic-test-type",
+ "targetUri": "https://www.medizininformatik-initiative.de/fhir/ext/modul-mtb/ValueSet/mii-vs-mtb-genomic-analysis-method-type",
+ "group": [
+  {
+   "source": "https://genomde.de/fhir/CodeSystem/mvgs-cs-genomic-test-type",
+   "target": "https://www.medizininformatik-initiative.de/fhir/ext/modul-mtb/CodeSystem/mii-cs-mtb-genomic-analysis-method-type",
+   "element": [
+    {
+     "code": "exome",
+     "display": "Exome sequencing",
+     "target": [
+      {
+       "code": "whole-exom-sequencing",
+       "display": "Whole Exom Sequencing (WES)",
+       "equivalence": "equivalent"
+      }
+     ]
+    },
+    {
+     "code": "genomeShortRead",
+     "display": "Genome sequencing, short read",
+     "target": [
+      {
+       "code": "whole-genom-sequencing",
+       "display": "Whole Genom Sequencing (WGS)",
+       "equivalence": "wider",
+       "comment": "read length (short read) not expressible"
+      }
+     ]
+    },
+    {
+     "code": "genomeLongRead",
+     "display": "Genome sequencing, long read",
+     "target": [
+      {
+       "code": "whole-genom-sequencing",
+       "display": "Whole Genom Sequencing (WGS)",
+       "equivalence": "wider",
+       "comment": "read length (long read) not expressible"
+      }
+     ]
+    },
+    {
+     "code": "panel",
+     "display": "Gene panel",
+     "target": [
+      {
+       "code": "gene-panel",
+       "display": "Genpanel",
+       "equivalence": "equivalent"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "source": "https://genomde.de/fhir/CodeSystem/mvgs-cs-genomic-test-type",
+   "target": "http://hl7.org/fhir/uv/genomics-reporting/CodeSystem/genomic-study-method-type-cs",
+   "element": [
+    {
+     "code": "array",
+     "display": "Array",
+     "target": [
+      {
+       "code": "microarray",
+       "display": "Microarray",
+       "equivalence": "equivalent"
+      }
+     ]
+    },
+    {
+     "code": "karyotyping",
+     "display": "Karyotyping",
+     "target": [
+      {
+       "code": "karyotyping",
+       "display": "Karyotyping",
+       "equivalence": "equivalent"
+      }
+     ]
+    },
+    {
+     "code": "other",
+     "display": "Other",
+     "target": [
+      {
+       "code": "other",
+       "display": "Other",
+       "equivalence": "equivalent"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "source": "https://genomde.de/fhir/CodeSystem/mvgs-cs-genomic-test-type",
+   "target": "http://hl7.org/fhir/uv/genomics-reporting/CodeSystem/genomic-study-method-type-cs",
+   "element": [
+    {
+     "code": "single",
+     "display": "Single-gene test",
+     "target": [
+      {
+       "equivalence": "unmatched",
+       "comment": "no single-gene method concept in the MII or GR code system (ballot)"
+      }
+     ]
+    },
+    {
+     "code": "none",
+     "display": "None",
+     "target": [
+      {
+       "equivalence": "unmatched",
+       "comment": "no test performed: no genomic study is emitted"
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,88 @@
+{
+ "resourceType": "ConceptMap",
+ "id": "mvgs-cm-cnv-type-so",
+ "url": "https://genomde.de/fhir/ConceptMap/mvgs-cm-cnv-type-so",
+ "version": "0.1.0",
+ "name": "MVGS_CM_CNV_TYPE_SO",
+ "title": "MV-GenomSeq CNV type to Sequence Ontology",
+ "status": "draft",
+ "experimental": false,
+ "publisher": "KohlbacherLab (genomDE2FHIR)",
+ "description": "KDK copyNumberVariants[].cnvType to SO copy_number_gain / copy_number_loss for `component:coding-change-type` (binary, derived; the level is kept in `component:cnv-type`) (REVIEW-TD-2026-10-06 A, REPRESENTATIONS #17).",
+ "sourceUri": "https://genomde.de/fhir/ValueSet/mvgs-vs-cnv-type",
+ "targetUri": "http://hl7.org/fhir/uv/genomics-reporting/ValueSet/dna-change-type-vs",
+ "group": [
+  {
+   "source": "https://genomde.de/fhir/CodeSystem/mvgs-cs-cnv-type",
+   "target": "http://www.sequenceontology.org",
+   "element": [
+    {
+     "code": "completeLoss",
+     "display": "Complete loss",
+     "target": [
+      {
+       "code": "SO:0001743",
+       "display": "copy_number_loss",
+       "equivalence": "wider"
+      }
+     ]
+    },
+    {
+     "code": "heterozygousLoss",
+     "display": "Heterozygous loss",
+     "target": [
+      {
+       "code": "SO:0001743",
+       "display": "copy_number_loss",
+       "equivalence": "wider"
+      }
+     ]
+    },
+    {
+     "code": "loss",
+     "display": "Loss",
+     "target": [
+      {
+       "code": "SO:0001743",
+       "display": "copy_number_loss",
+       "equivalence": "equivalent"
+      }
+     ]
+    },
+    {
+     "code": "gain",
+     "display": "Gain",
+     "target": [
+      {
+       "code": "SO:0001742",
+       "display": "copy_number_gain",
+       "equivalence": "equivalent"
+      }
+     ]
+    },
+    {
+     "code": "lowLevelGain",
+     "display": "Low-level gain",
+     "target": [
+      {
+       "code": "SO:0001742",
+       "display": "copy_number_gain",
+       "equivalence": "wider"
+      }
+     ]
+    },
+    {
+     "code": "highLevelGain",
+     "display": "High-level gain",
+     "target": [
+      {
+       "code": "SO:0001742",
+       "display": "copy_number_gain",
+       "equivalence": "wider"
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

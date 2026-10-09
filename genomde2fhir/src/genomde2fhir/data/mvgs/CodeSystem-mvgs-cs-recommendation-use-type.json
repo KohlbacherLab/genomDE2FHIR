@@ -1,0 +1,38 @@
+{
+ "resourceType": "CodeSystem",
+ "id": "mvgs-cs-recommendation-use-type",
+ "url": "https://genomde.de/fhir/CodeSystem/mvgs-cs-recommendation-use-type",
+ "version": "0.1.0",
+ "name": "MVGS_CS_RECOMMENDATION_USE_TYPE",
+ "title": "MV-GenomSeq recommendation use type",
+ "status": "draft",
+ "experimental": false,
+ "publisher": "KohlbacherLab (genomDE2FHIR)",
+ "description": "Regulatory use type of an MTB systemic therapy recommendation outside a clinical trial (KDK OncologyPlan recommendedSystemicTherapies[].type). mii-cs-mtb-zulassungsstatus has only in-label/off-label/leitlinie and is bound only to prior therapies (DISCUSS-TD #16). The KDK value 'unknown' is not a code: the extension is omitted instead.",
+ "caseSensitive": true,
+ "valueSet": "https://genomde.de/fhir/ValueSet/mvgs-vs-recommendation-use-type",
+ "content": "complete",
+ "count": 4,
+ "concept": [
+  {
+   "code": "inLabel",
+   "display": "In-label",
+   "definition": "Use within the approved indication (Zulassung)."
+  },
+  {
+   "code": "offLabel",
+   "display": "Off-label",
+   "definition": "Use outside the approved indication."
+  },
+  {
+   "code": "compassionateUse",
+   "display": "Compassionate use",
+   "definition": "Use of a not (yet) approved medicinal product within a compassionate use programme."
+  },
+  {
+   "code": "secPreventive",
+   "display": "Secondary preventive",
+   "definition": "Systemic therapy recommended for secondary prevention."
+  }
+ ]
+}

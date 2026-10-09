@@ -1,0 +1,63 @@
+{
+ "resourceType": "StructureDefinition",
+ "id": "mvgs-ex-evidence-level",
+ "url": "https://genomde.de/fhir/StructureDefinition/mvgs-ex-evidence-level",
+ "version": "0.1.0",
+ "name": "MVGS_EX_EVIDENCE_LEVEL",
+ "title": "Evidence level (study recommendation)",
+ "status": "draft",
+ "experimental": false,
+ "publisher": "KohlbacherLab (genomDE2FHIR)",
+ "description": "Evidence grading of an MTB study inclusion recommendation with the MII MTB code systems: exactly one coding from mii-cs-mtb-empfehlung-evidenzgrad plus 0..* codings from mii-cs-mtb-empfehlung-evidenzgrad-zusatzverweis (as mii-ex-mtb-empfehlung-evidenzgraduierung, whose context excludes ServiceRequest; DISCUSS-TD #15, REPRESENTATIONS #15). KDK 'Z(FDA)' is coded Z with the qualifier in CodeableConcept.text.",
+ "fhirVersion": "4.0.1",
+ "kind": "complex-type",
+ "abstract": false,
+ "context": [
+  {
+   "type": "element",
+   "expression": "ServiceRequest"
+  }
+ ],
+ "type": "Extension",
+ "baseDefinition": "http://hl7.org/fhir/StructureDefinition/Extension",
+ "derivation": "constraint",
+ "differential": {
+  "element": [
+   {
+    "id": "Extension",
+    "path": "Extension",
+    "short": "Evidence level (study recommendation)",
+    "definition": "Evidence grading of an MTB study inclusion recommendation with the MII MTB code systems: exactly one coding from mii-cs-mtb-empfehlung-evidenzgrad plus 0..* codings from mii-cs-mtb-empfehlung-evidenzgrad-zusatzverweis (as mii-ex-mtb-empfehlung-evidenzgraduierung, whose context excludes ServiceRequest; DISCUSS-TD #15, REPRESENTATIONS #15). KDK 'Z(FDA)' is coded Z with the qualifier in CodeableConcept.text."
+   },
+   {
+    "id": "Extension.extension",
+    "path": "Extension.extension",
+    "max": "0"
+   },
+   {
+    "id": "Extension.url",
+    "path": "Extension.url",
+    "fixedUri": "https://genomde.de/fhir/StructureDefinition/mvgs-ex-evidence-level"
+   },
+   {
+    "id": "Extension.value[x]",
+    "path": "Extension.value[x]",
+    "min": 1,
+    "type": [
+     {
+      "code": "CodeableConcept"
+     }
+    ],
+    "binding": {
+     "strength": "required",
+     "valueSet": "https://genomde.de/fhir/ValueSet/mvgs-vs-evidence-level"
+    }
+   },
+   {
+    "id": "Extension.value[x].coding",
+    "path": "Extension.value[x].coding",
+    "min": 1
+   }
+  ]
+ }
+}

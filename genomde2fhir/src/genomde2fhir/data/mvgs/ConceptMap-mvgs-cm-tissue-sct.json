@@ -1,0 +1,203 @@
+{
+ "resourceType": "ConceptMap",
+ "id": "mvgs-cm-tissue-sct",
+ "url": "https://genomde.de/fhir/ConceptMap/mvgs-cm-tissue-sct",
+ "version": "0.1.0",
+ "name": "MVGS_CM_TISSUE_SCT",
+ "title": "MV-GenomSeq GRZ tissue to SNOMED CT specimen type",
+ "status": "draft",
+ "experimental": false,
+ "publisher": "KohlbacherLab (genomDE2FHIR)",
+ "description": "GRZ labData.tissueTypeId (UBERON or BRENDA Tissue Ontology CURIE) to the SNOMED CT specimen concept for SpecimenCore Specimen.type.coding:sct (1..*, mii-vs-biobank-probenart-sct, extensible). Element displays are the ontology labels; the converter maps only when tissueTypeName agrees with the label and keeps the original coding next to the SNOMED coding (REPRESENTATIONS, GRZ Specimen).",
+ "targetUri": "https://www.medizininformatik-initiative.de/fhir/ext/modul-biobank/ValueSet/mii-vs-biobank-probenart-sct",
+ "group": [
+  {
+   "source": "http://purl.obolibrary.org/obo/uberon.owl",
+   "target": "http://snomed.info/sct",
+   "element": [
+    {
+     "code": "UBERON:0000178",
+     "display": "blood",
+     "target": [
+      {
+       "code": "119297000",
+       "display": "Blood specimen",
+       "equivalence": "relatedto"
+      }
+     ]
+    },
+    {
+     "code": "UBERON:0001836",
+     "display": "saliva",
+     "target": [
+      {
+       "code": "119342007",
+       "display": "Saliva specimen",
+       "equivalence": "relatedto"
+      }
+     ]
+    },
+    {
+     "code": "UBERON:0000479",
+     "display": "tissue",
+     "target": [
+      {
+       "code": "119376003",
+       "display": "Tissue specimen",
+       "equivalence": "relatedto"
+      }
+     ]
+    },
+    {
+     "code": "UBERON:0002048",
+     "display": "lung",
+     "target": [
+      {
+       "code": "127458004",
+       "display": "Specimen from lung",
+       "equivalence": "relatedto"
+      }
+     ]
+    },
+    {
+     "code": "UBERON:0000310",
+     "display": "breast",
+     "target": [
+      {
+       "code": "127456000",
+       "display": "Specimen from breast",
+       "equivalence": "relatedto"
+      }
+     ]
+    },
+    {
+     "code": "UBERON:0002106",
+     "display": "spleen",
+     "target": [
+      {
+       "code": "433308004",
+       "display": "Specimen from spleen",
+       "equivalence": "relatedto"
+      }
+     ]
+    },
+    {
+     "code": "UBERON:0002107",
+     "display": "liver",
+     "target": [
+      {
+       "code": "119383005",
+       "display": "Specimen from liver",
+       "equivalence": "relatedto"
+      }
+     ]
+    },
+    {
+     "code": "UBERON:0001264",
+     "display": "pancreas",
+     "target": [
+      {
+       "code": "127469001",
+       "display": "Specimen from pancreas",
+       "equivalence": "relatedto"
+      }
+     ]
+    },
+    {
+     "code": "UBERON:0001150",
+     "display": "body of pancreas",
+     "target": [
+      {
+       "code": "127469001",
+       "display": "Specimen from pancreas",
+       "equivalence": "wider"
+      }
+     ]
+    },
+    {
+     "code": "UBERON:0000955",
+     "display": "brain",
+     "target": [
+      {
+       "code": "119398007",
+       "display": "Specimen from brain",
+       "equivalence": "relatedto"
+      }
+     ]
+    },
+    {
+     "code": "UBERON:0002367",
+     "display": "prostate gland",
+     "target": [
+      {
+       "code": "119386002",
+       "display": "Specimen from prostate",
+       "equivalence": "relatedto"
+      }
+     ]
+    },
+    {
+     "code": "UBERON:0001155",
+     "display": "colon",
+     "target": [
+      {
+       "code": "119382000",
+       "display": "Specimen from colon",
+       "equivalence": "relatedto"
+      }
+     ]
+    },
+    {
+     "code": "UBERON:0002113",
+     "display": "kidney",
+     "target": [
+      {
+       "code": "127473003",
+       "display": "Specimen from kidney",
+       "equivalence": "relatedto"
+      }
+     ]
+    },
+    {
+     "code": "UBERON:0002046",
+     "display": "thyroid gland",
+     "target": [
+      {
+       "code": "399680007",
+       "display": "Specimen from thyroid",
+       "equivalence": "relatedto"
+      }
+     ]
+    },
+    {
+     "code": "UBERON:0002112",
+     "display": "smooth muscle of esophagus",
+     "target": [
+      {
+       "code": "127463000",
+       "display": "Specimen from esophagus",
+       "equivalence": "wider"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "source": "http://purl.obolibrary.org/obo/bto.owl",
+   "target": "http://snomed.info/sct",
+   "element": [
+    {
+     "code": "BTO:0000089",
+     "display": "blood",
+     "target": [
+      {
+       "code": "119297000",
+       "display": "Blood specimen",
+       "equivalence": "relatedto"
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

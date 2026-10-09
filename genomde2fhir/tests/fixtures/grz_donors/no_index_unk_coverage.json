@@ -1,0 +1,219 @@
+{
+ "$schema": "https://raw.githubusercontent.com/BfArM-MVH/MVGenomseq/refs/tags/v1.1.4/GRZ/grz-schema.json",
+ "submission": {
+  "submissionDate": "2024-10-15",
+  "submissionType": "correction",
+  "tanG": "8237d8ab7cc966c57dd7bda5774004b4cacafbb5881d0ca12df51d2ba967f393",
+  "localCaseId": "FIXTURE-DONORS-2",
+  "coverageType": "UNK",
+  "submitterId": "500000005",
+  "genomicDataCenterId": "GRZMNO005",
+  "clinicalDataNodeId": "KDKMNO005",
+  "diseaseType": "hereditary",
+  "genomicStudyType": "duo",
+  "genomicStudySubtype": "germline-only",
+  "labName": "Uniklinik Tuebingen Humangenetik"
+ },
+ "donors": [
+  {
+   "donorPseudonym": "fixture-noindex-a",
+   "gender": "female",
+   "relation": "mother",
+   "mvConsent": {
+    "presentationDate": "2024-07-01",
+    "version": "Patient Info TE Consent MVGenomSeq vers01",
+    "scope": [
+     {
+      "type": "permit",
+      "date": "2024-07-01",
+      "domain": "mvSequencing"
+     }
+    ]
+   },
+   "researchConsents": [
+    {
+     "schemaVersion": "2025.0.1",
+     "presentationDate": "2024-01-15",
+     "scope": {}
+    }
+   ],
+   "labData": [
+    {
+     "labDataName": "Blood DNA mother-b0-0",
+     "tissueOntology": {
+      "name": "UBERON",
+      "version": "2024"
+     },
+     "tissueTypeId": "UBERON:0000178",
+     "tissueTypeName": "blood",
+     "sampleDate": "2024-07-10",
+     "sampleConservation": "fresh-tissue",
+     "sequenceType": "dna",
+     "sequenceSubtype": "germline",
+     "fragmentationMethod": "sonication",
+     "libraryType": "wgs",
+     "libraryPrepKit": "NEBNext Ultra II",
+     "libraryPrepKitManufacturer": "NEB",
+     "sequencerModel": "NovaSeq X Plus",
+     "sequencerManufacturer": "Illumina",
+     "kitName": "NovaSeq X 25B Reagent Kit",
+     "kitManufacturer": "Illumina",
+     "enrichmentKitManufacturer": "none",
+     "enrichmentKitDescription": "na",
+     "barcode": "BC041",
+     "sequencingLayout": "paired-end",
+     "sequenceData": {
+      "bioinformaticsPipelineName": "nf-core/sarek",
+      "bioinformaticsPipelineVersion": "3.5.0",
+      "referenceGenome": "GRCh38",
+      "percentBasesAboveQualityThreshold": {
+       "minimumQuality": 30,
+       "percent": 90
+      },
+      "meanDepthOfCoverage": 36,
+      "minCoverage": 23,
+      "targetedRegionsAboveMinCoverage": 0.87,
+      "nonCodingVariants": true,
+      "callerUsed": [
+       {
+        "name": "GATK HaplotypeCaller",
+        "version": "4.5.0"
+       }
+      ],
+      "files": [
+       {
+        "filePath": "donor_002/FLOWEE02-1_R1_001.fastq.gz",
+        "fileType": "fastq",
+        "checksumType": "sha256",
+        "fileChecksum": "6afb11e90b4bc7b16c3f7aaa4d949f5cc2037949a679789e4c16ef1ada5b63fd",
+        "fileSizeInBytes": 12000000000,
+        "readOrder": "R1",
+        "readLength": 151,
+        "flowcellId": "FLOWEE02",
+        "laneId": "1"
+       },
+       {
+        "filePath": "donor_002/FLOWEE02-1_R2_001.fastq.gz",
+        "fileType": "fastq",
+        "checksumType": "sha256",
+        "fileChecksum": "d961ce8b16177e4639a96076ea307ed7ddee8c465ab568d1e360c43220acbecd",
+        "fileSizeInBytes": 13000000000,
+        "readOrder": "R2",
+        "readLength": 151,
+        "flowcellId": "FLOWEE02",
+        "laneId": "1"
+       },
+       {
+        "filePath": "donor_002/gatk_hc.vcf.gz",
+        "fileType": "vcf",
+        "checksumType": "sha256",
+        "fileChecksum": "8d39f25de0af968b76c89418ec243be42bb5b7904c0e1f1a88a5fed8360970e2",
+        "fileSizeInBytes": 5000000
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "donorPseudonym": "fixture-noindex-b",
+   "gender": "male",
+   "relation": "father",
+   "mvConsent": {
+    "presentationDate": "2024-07-01",
+    "version": "Patient Info TE Consent MVGenomSeq vers01",
+    "scope": [
+     {
+      "type": "permit",
+      "date": "2024-07-01",
+      "domain": "mvSequencing"
+     }
+    ]
+   },
+   "researchConsents": [
+    {
+     "schemaVersion": "2025.0.1",
+     "presentationDate": "2024-01-15",
+     "scope": {}
+    }
+   ],
+   "labData": [
+    {
+     "labDataName": "Blood DNA father-b1-0",
+     "tissueOntology": {
+      "name": "UBERON",
+      "version": "2024"
+     },
+     "tissueTypeId": "UBERON:0000178",
+     "tissueTypeName": "blood",
+     "sampleDate": "2024-07-10",
+     "sampleConservation": "fresh-tissue",
+     "sequenceType": "dna",
+     "sequenceSubtype": "germline",
+     "fragmentationMethod": "sonication",
+     "libraryType": "wgs",
+     "libraryPrepKit": "NEBNext Ultra II",
+     "libraryPrepKitManufacturer": "NEB",
+     "sequencerModel": "NovaSeq X Plus",
+     "sequencerManufacturer": "Illumina",
+     "kitName": "NovaSeq X 25B Reagent Kit",
+     "kitManufacturer": "Illumina",
+     "enrichmentKitManufacturer": "none",
+     "enrichmentKitDescription": "na",
+     "barcode": "BC042",
+     "sequencingLayout": "paired-end",
+     "sequenceData": {
+      "bioinformaticsPipelineName": "nf-core/sarek",
+      "bioinformaticsPipelineVersion": "3.5.0",
+      "referenceGenome": "GRCh38",
+      "percentBasesAboveQualityThreshold": {
+       "minimumQuality": 30,
+       "percent": 89
+      },
+      "meanDepthOfCoverage": 34,
+      "minCoverage": 22,
+      "targetedRegionsAboveMinCoverage": 0.86,
+      "nonCodingVariants": true,
+      "callerUsed": [
+       {
+        "name": "GATK HaplotypeCaller",
+        "version": "4.5.0"
+       }
+      ],
+      "files": [
+       {
+        "filePath": "donor_003/FLOWEE03-1_R1_001.fastq.gz",
+        "fileType": "fastq",
+        "checksumType": "sha256",
+        "fileChecksum": "aebe7b07249d9a881423b5d15ca9cf4b94010207e7d7b87067580f0e9c656d59",
+        "fileSizeInBytes": 12000000000,
+        "readOrder": "R1",
+        "readLength": 151,
+        "flowcellId": "FLOWEE03",
+        "laneId": "1"
+       },
+       {
+        "filePath": "donor_003/FLOWEE03-1_R2_001.fastq.gz",
+        "fileType": "fastq",
+        "checksumType": "sha256",
+        "fileChecksum": "cf57591c0cc0a2781a2d7eebfe95583c4a42722a44cf652e342b615be9397765",
+        "fileSizeInBytes": 13000000000,
+        "readOrder": "R2",
+        "readLength": 151,
+        "flowcellId": "FLOWEE03",
+        "laneId": "1"
+       },
+       {
+        "filePath": "donor_003/gatk_hc.vcf.gz",
+        "fileType": "vcf",
+        "checksumType": "sha256",
+        "fileChecksum": "1957d3da568ec79bbf66056f190545d4fddc03ccd048f60c11115dcdb05ac288",
+        "fileSizeInBytes": 5000000
+       }
+      ]
+     }
+    }
+   ]
+  }
+ ]
+}

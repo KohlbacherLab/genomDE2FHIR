@@ -1,0 +1,41 @@
+{
+ "resourceType": "ValueSet",
+ "id": "mvgs-vs-hospitalization-duration",
+ "url": "https://genomde.de/fhir/ValueSet/mvgs-vs-hospitalization-duration",
+ "version": "0.1.0",
+ "name": "MVGS_VS_HOSPITALIZATION_DURATION",
+ "title": "MV-GenomSeq hospitalisation duration (banded days)",
+ "status": "draft",
+ "experimental": false,
+ "publisher": "KohlbacherLab (genomDE2FHIR)",
+ "description": "Band codes of MV-GenomSeq hospitalisation duration (banded days) (the Observation.code concept is excluded).",
+ "compose": {
+  "include": [
+   {
+    "system": "https://genomde.de/fhir/CodeSystem/mvgs-cs-hospitalization-duration",
+    "concept": [
+     {
+      "code": "none",
+      "display": "None"
+     },
+     {
+      "code": "upToFive",
+      "display": "Up to 5 days"
+     },
+     {
+      "code": "upToFifteen",
+      "display": "Up to 15 days"
+     },
+     {
+      "code": "upToFifty",
+      "display": "Up to 50 days"
+     },
+     {
+      "code": "moreThanFifty",
+      "display": "More than 50 days"
+     }
+    ]
+   }
+  ]
+ }
+}
