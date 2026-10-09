@@ -1,0 +1,12 @@
+/// url = 'https://genomde.de/fhir/StructureMap/EngineQuirkQ4'
+/// name = 'EngineQuirkQ4'
+/// title = 'Engine probe: fml-edit-safe quirk Q4 (target variable re-used in a later rule) - expected: target context not known'
+/// status = 'draft'
+
+uses "https://genomde.de/fhir/StructureDefinition/DatenkranzOncology" alias Datenkranz as source
+uses "http://hl7.org/fhir/StructureDefinition/Patient" alias Patient as target
+
+group main(source src : Datenkranz, target pat : Patient) {
+  src -> pat.identifier as id, id.system = 'urn:q4' "bind";
+  src -> id.value = 'rebound' "rebind";
+}

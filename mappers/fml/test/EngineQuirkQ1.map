@@ -1,0 +1,17 @@
+/// url = 'https://genomde.de/fhir/StructureMap/EngineQuirkQ1'
+/// name = 'EngineQuirkQ1'
+/// title = 'Engine probe: fml-edit-safe quirk Q1 (bare where-not-equal vs parenthesised and .not() negation)'
+/// status = 'draft'
+
+uses "https://genomde.de/fhir/StructureDefinition/DatenkranzOncology" alias Datenkranz as source
+uses "http://hl7.org/fhir/StructureDefinition/Patient" alias Patient as target
+
+group main(source src : Datenkranz, target pat : Patient) {
+  src.metaData as md then Md(md, pat) "md";
+}
+
+group Md(source md, target pat : Patient) {
+  md.gender as g where (g != 'female') -> pat.identifier as id, id.system = 'urn:q1:paren', id.value = g "paren";
+  md.gender as g where (g = 'female').not() -> pat.identifier as id, id.system = 'urn:q1:not', id.value = g "not";
+  md.gender as g where g = 'male' -> pat.identifier as id, id.system = 'urn:q1:eq', id.value = g "eq";
+}

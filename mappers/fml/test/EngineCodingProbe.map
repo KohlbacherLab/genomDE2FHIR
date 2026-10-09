@@ -1,0 +1,14 @@
+/// url = 'https://genomde.de/fhir/StructureMap/EngineCodingProbe'
+/// name = 'EngineCodingProbe'
+/// title = 'Engine probe: the c() transform and its display argument'
+/// status = 'draft'
+
+uses "https://genomde.de/fhir/StructureDefinition/DatenkranzOncology" alias Datenkranz as source
+uses "http://hl7.org/fhir/StructureDefinition/Observation" alias Observation as target
+
+group main(source src : Datenkranz, target obs : Observation) {
+  src -> obs.code as cc, cc.coding = c('http://loinc.org', '57016-8', 'my own display') "known-system-other-display";
+  src -> obs.category as cc, cc.coding = c('urn:probe:unknown-system', 'x', 'my display') "unknown-system";
+  src -> obs.method as cc, cc.coding = c('https://fhir.kbv.de/CodeSystem/KBV_CS_FOR_Payor_Type_KBV', 'SKT', 'Sonstige Kostentraeger') "kbv";
+  src -> obs.bodySite as cc, cc.coding as cd, cd.system = 'urn:probe:unknown-system', cd.code = 'x', cd.display = 'explicit display' "explicit";
+}

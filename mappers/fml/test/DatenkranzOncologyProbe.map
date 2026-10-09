@@ -1,0 +1,44 @@
+/// url = 'https://genomde.de/fhir/StructureMap/DatenkranzOncologyProbe'
+/// name = 'DatenkranzOncologyProbe'
+/// title = 'Probe map: DatenkranzOncology logical model as FML source'
+/// status = 'draft'
+
+// Smoke test for the generated logical model (scripts/schema_to_logical.py), not a production map.
+// $transform a raw KDK oncology Datenkranz JSON with this map: the source parses against
+// https://genomde.de/fhir/StructureDefinition/DatenkranzOncology and a Patient comes back.
+
+uses "https://genomde.de/fhir/StructureDefinition/DatenkranzOncology" alias Datenkranz as source
+uses "http://hl7.org/fhir/StructureDefinition/Patient" alias Patient as target
+
+group main(source src : Datenkranz, target pat : Patient) {
+  src.metaData as meta then Meta(meta, pat) "meta";
+  src.case as cs then Case(cs, pat) "case";
+  src.plan as pl then Plan(pl, pat) "plan";
+}
+
+group Meta(source meta, target pat : Patient) {
+  meta.tanC as t -> pat.identifier as id, id.system = 'https://genomde.de/fhir/sid/probe-tanc', id.value = t "tanc";
+  meta.birthDate as bd -> pat.birthDate = bd "birthdate";
+}
+
+group Case(source cs, target pat : Patient) {
+  cs.diagnosisOd as dx then Diagnosis(dx, pat) "dx";
+}
+
+group Diagnosis(source dx, target pat : Patient) {
+  dx.mainDiagnosis as md then MainDiagnosis(md, pat) "main";
+}
+
+group MainDiagnosis(source md, target pat : Patient) {
+  md.code as c -> pat.identifier as id, id.system = 'https://genomde.de/fhir/sid/probe-main-diagnosis', id.value = c "md-code";
+}
+
+// recommendedStudies[].id coincides with the inherited Element.id of the BackboneElement: probe that FML reads it
+group Plan(source pl, target pat : Patient) {
+  pl.recommendedStudies as rs then Study(rs, pat) "studies";
+}
+
+group Study(source rs, target pat : Patient) {
+  rs.id as i -> pat.identifier as id, id.system = 'https://genomde.de/fhir/sid/probe-study-id', id.value = i "study-id";
+  rs.priority as p -> pat.multipleBirth = p "study-priority";
+}

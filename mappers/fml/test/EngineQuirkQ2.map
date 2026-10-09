@@ -1,0 +1,16 @@
+/// url = 'https://genomde.de/fhir/StructureMap/EngineQuirkQ2'
+/// name = 'EngineQuirkQ2'
+/// title = 'Engine probe: fml-edit-safe quirk Q2 (method call on an as-bound variable in a target expression)'
+/// status = 'draft'
+
+uses "https://genomde.de/fhir/StructureDefinition/DatenkranzOncology" alias Datenkranz as source
+uses "http://hl7.org/fhir/StructureDefinition/Patient" alias Patient as target
+
+group main(source src : Datenkranz, target pat : Patient) {
+  src.metaData as md then Md(md, pat) "md";
+}
+
+group Md(source md, target pat : Patient) {
+  md.tanC as t -> pat.identifier as id, id.system = 'urn:q2:paren', id.value = (t.substring(0, 8)) "paren";
+  md.tanC as t -> pat.identifier as id, id.system = 'urn:q2:pct', id.value = (%t.substring(0, 8).lower()) "pct";
+}

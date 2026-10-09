@@ -1,0 +1,13 @@
+/// url = 'https://genomde.de/fhir/StructureMap/EngineReplaceProbe'
+/// name = 'EngineReplaceProbe'
+/// title = 'Engine probe: replacing an already-loaded map (POST vs PUT)'
+/// status = 'draft'
+
+// The probe run rewrote the marker v1-post -> v2-post (POST) -> v3-put (PUT /StructureMap/EngineReplaceProbe) ->
+// v4-put-otherid (PUT /StructureMap/engine-replace-other): every version took effect, one map per url, id = name.
+uses "https://genomde.de/fhir/StructureDefinition/DatenkranzOncology" alias Datenkranz as source
+uses "http://hl7.org/fhir/StructureDefinition/Patient" alias Patient as target
+
+group main(source src : Datenkranz, target pat : Patient) {
+  src -> pat.identifier as id, id.system = 'urn:probe:replace', id.value = 'v1-post' "marker";
+}

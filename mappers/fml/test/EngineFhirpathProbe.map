@@ -1,0 +1,21 @@
+/// url = 'https://genomde.de/fhir/StructureMap/EngineFhirpathProbe'
+/// name = 'EngineFhirpathProbe'
+/// title = 'Engine probe: FHIRPath functions usable in target expressions'
+/// status = 'draft'
+
+uses "https://genomde.de/fhir/StructureDefinition/DatenkranzOncology" alias Datenkranz as source
+uses "http://hl7.org/fhir/StructureDefinition/Patient" alias Patient as target
+
+group main(source src : Datenkranz, target pat : Patient) {
+  src -> pat.identifier as id, id.system = 'urlbase64', id.value = ('a b|c&d%e#f/g:h'.encode('urlbase64')) "urlbase64";
+  src -> pat.identifier as id, id.system = 'base64', id.value = ('a b|c&d%e#f/g:h'.encode('base64')) "base64";
+  src -> pat.identifier as id, id.system = 'urlbase64-safe', id.value = ('>>>?'.encode('urlbase64')) "urlbase64-safe";
+  src -> pat.identifier as id, id.system = 'base64-unsafe', id.value = ('>>>?'.encode('base64')) "base64-unsafe";
+  src -> pat.identifier as id, id.system = 'hex', id.value = ('a b|c'.encode('hex')) "hex";
+  // the probe file has no metaData.localCaseId: '+' with an empty operand is empty, '&' treats it as ''
+  src -> pat.identifier as id, id.system = 'plus-empty', id.value = ('a:' + %src.metaData.localCaseId + ':b') "plus-empty";
+  src -> pat.identifier as id, id.system = 'amp-empty', id.value = ('a:' & %src.metaData.localCaseId & ':b') "amp-empty";
+  src -> pat.identifier as id, id.system = 'iif', id.value = (iif(%src.metaData.localCaseId.exists(), 'local', 'tan')) "iif";
+  src -> pat.identifier as id, id.system = 'aggregate-min', id.value = (%src.metaData.mvConsent.scope.date.aggregate(iif($total.empty() or $this < $total, $this, $total))) "min";
+  src -> pat.identifier as id, id.system = 'replace', id.value = ('a b|c&d%e#f/g:h'.replaceMatches('[^A-Za-z0-9._:-]', '_')) "replace";
+}

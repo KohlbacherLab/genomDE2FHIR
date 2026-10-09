@@ -1,0 +1,27 @@
+/// url = 'https://genomde.de/fhir/StructureMap/DatenkranzRareDiseaseProbe'
+/// name = 'DatenkranzRareDiseaseProbe'
+/// title = 'Probe map: DatenkranzRareDisease logical model as FML source'
+/// status = 'draft'
+
+// Smoke test for the generated logical model (scripts/schema_to_logical.py), not a production map.
+
+uses "https://genomde.de/fhir/StructureDefinition/DatenkranzRareDisease" alias Datenkranz as source
+uses "http://hl7.org/fhir/StructureDefinition/Patient" alias Patient as target
+
+group main(source src : Datenkranz, target pat : Patient) {
+  src.metaData as meta then Meta(meta, pat) "meta";
+  src.molecular as mol then Molecular(mol, pat) "molecular";
+}
+
+group Meta(source meta, target pat : Patient) {
+  meta.tanC as t -> pat.identifier as id, id.system = 'https://genomde.de/fhir/sid/probe-tanc', id.value = t "tanc";
+  meta.birthDate as bd -> pat.birthDate = bd "birthdate";
+}
+
+group Molecular(source mol, target pat : Patient) {
+  mol.smallVariants as sv then SmallVariant(sv, pat) "sv";
+}
+
+group SmallVariant(source sv, target pat : Patient) {
+  sv.identifier as v -> pat.identifier as id, id.system = 'https://genomde.de/fhir/sid/probe-variant', id.value = v "sv-id";
+}

@@ -1,0 +1,27 @@
+/// url = 'https://genomde.de/fhir/StructureMap/CommonKdkOncologyProbe'
+/// name = 'CommonKdkOncologyProbe'
+/// title = 'Common probe: KDK oncology metaData through the DatenkranzCommon groups'
+/// status = 'draft'
+
+// Exercises DatenkranzCommon on an oncology file: Patient, Coverage, MV consent, indication board, research consents.
+// Parity target: the same resource types of the Python bundle (genomde2fhir/tests/test_fml_common.py).
+
+uses "https://genomde.de/fhir/StructureDefinition/DatenkranzOncology" alias Datenkranz as source
+uses "http://hl7.org/fhir/StructureDefinition/Bundle" alias Bundle as target
+
+imports "https://genomde.de/fhir/StructureMap/DatenkranzCommon"
+
+group main(source src : Datenkranz, target bundle : Bundle) {
+  src -> bundle.type = 'transaction' "type";
+  src.metaData as md -> ('kdk:' & %md.submission.submitterId & ':' & iif(%md.localCaseId.exists() and %md.localCaseId != '', %md.localCaseId, %md.tanC)) as ck,
+        uuid() as pid then KdkMeta(md, ck, pid, bundle) "metaData";
+}
+
+group KdkMeta(source md, source ck, source pid, target bundle : Bundle) {
+  md then DkKdkPatient(md, ck, pid, bundle) "patient";
+  md.coverageType as ct then DkCoverage(ct, ck, pid, bundle) "coverage";
+  md.mvConsent as mvc -> ('mv-consent') as role then DkMvConsent(mvc, ck, role, pid, bundle) "mv-consent";
+  md then DkKdkIndicationBoard(md, ck, pid, bundle) "indication-board";
+  md.researchConsents as rc -> ('research-consent:' & %md.researchConsents.select(iif($this = %rc, $index, {})).first().toString()) as role
+     then DkResearchConsent(rc, ck, role, pid, bundle) "research-consent";
+}

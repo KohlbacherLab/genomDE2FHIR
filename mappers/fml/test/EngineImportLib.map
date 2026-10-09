@@ -1,0 +1,17 @@
+/// url = 'https://genomde.de/fhir/StructureMap/EngineImportLib'
+/// name = 'EngineImportLib'
+/// title = 'Engine probe: group library imported by EngineImportMain'
+/// status = 'draft'
+
+// Library side of the imports probe: no main group, typeless and typed groups only.
+
+uses "http://hl7.org/fhir/StructureDefinition/Patient" alias Patient as target
+
+group LibIdentifier(source sys, source val, target id) {
+  sys as s -> id.system = s "sys";
+  val as v -> id.value = v "val";
+}
+
+group LibPatient(source md, target pat : Patient) {
+  md.tanC as t -> pat.identifier as id, id.system = 'https://genomde.de/fhir/sid/probe-lib', id.value = t "lib";
+}

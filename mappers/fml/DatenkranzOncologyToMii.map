@@ -1,0 +1,833 @@
+/// url = 'https://genomde.de/fhir/StructureMap/DatenkranzOncologyToMii'
+/// name = 'DatenkranzOncologyToMii'
+/// title = 'genomDE oncology Datenkranz to MII KDS 2027: transaction Bundle (spine: metaData, diagnosis, prior procedures, prior diagnostics)'
+/// status = 'draft'
+
+// Oncology main map (deliverable b, docs/PLAN-2027.md section 6). Input: raw KDK oncology Datenkranz JSON
+// (logical model https://genomde.de/fhir/StructureDefinition/DatenkranzOncology); output: transaction Bundle.
+// Conventions and verified engine behaviour: mappers/fml/README.md. Reference implementation (same resources, profiles,
+// codings, links): genomde2fhir/src/genomde2fhir/builders/{patient,coverage,consent,research_consent,submission}.py and
+// builders/onco/{diagnosis,tnm,ecog,prior_procedures,prior_diagnostics}.py.
+//
+// This map emits the spine. The molecular block and the plan / follow-up are sub-maps called from OncoCase:
+//   OncoMolecular(mol, bundle, ctx)          mappers/fml/OncoMolecular.map       (mol = Datenkranz.molecular)
+//   OncoMolEpisodeLink(mol, ctx, ep)         mappers/fml/OncoMolecular.map       (investigation:NgsBericht on the episode)
+//   OncoPlanFollowUp(src, bundle, ctx)       mappers/fml/OncoPlanFollowUp.map    (src = Datenkranz root: plan, followUp)
+//   OncoPlanPatient(src, ctx, pat)           mappers/fml/OncoPlanFollowUp.map    (Patient.deceased[x] from the follow-up)
+//
+// ctx = a Parameters object built once per case by OncoCtx (never emitted). Every value is a valueString:
+//   ck           case key 'kdk:<submitterId>:<localCaseId|tanC>' (README: resource keys)
+//   patient      entry uuid of the Patient                                 -> 'urn:uuid:' + value
+//   primary      entry uuid of the primary-tumour Condition; ONLY present when the primary is emitted
+//                (case.diagnosisOd.mainDiagnosis.code non-empty). Test with %ctx.parameter.where(name = 'primary').exists()
+//   episode      entry uuid of the MTB Behandlungsepisode (always emitted)
+//   ngsReport    entry uuid reserved for the current NGS DiagnosticReport (mii-pr-mtb-ngs-bericht, OncoMolecular)
+//   submitterId  metaData.submission.submitterId;  caseId  localCaseId, else tanC (identifier values '<submitterId>|<caseId>|..')
+// Read a value with  (%ctx.parameter.where(name = 'ck').value) as ck . A computed variable that evaluates to nothing
+// cannot be passed to a group ('INPUT variable ... has no value'): guard optional entries (primary) with where (...exists()).
+//
+// Array indices: the engine has no rule index; index-based keys use the position of the first item equal to the current
+// one, %list.select(iif($this = %item, $index, {})).first(). Exact duplicate items therefore share a resource key (none in
+// the corpus); see README.
+
+uses "https://genomde.de/fhir/StructureDefinition/DatenkranzOncology" alias Datenkranz as source
+uses "http://hl7.org/fhir/StructureDefinition/Bundle" alias Bundle as target
+uses "http://hl7.org/fhir/StructureDefinition/Patient" alias Patient as target
+uses "http://hl7.org/fhir/StructureDefinition/Condition" alias Condition as target
+uses "http://hl7.org/fhir/StructureDefinition/Observation" alias Observation as target
+uses "http://hl7.org/fhir/StructureDefinition/ServiceRequest" alias ServiceRequest as target
+uses "http://hl7.org/fhir/StructureDefinition/ClinicalImpression" alias ClinicalImpression as target
+uses "http://hl7.org/fhir/StructureDefinition/Procedure" alias Procedure as target
+uses "http://hl7.org/fhir/StructureDefinition/MedicationStatement" alias MedicationStatement as target
+uses "http://hl7.org/fhir/StructureDefinition/DiagnosticReport" alias DiagnosticReport as target
+uses "http://hl7.org/fhir/StructureDefinition/Parameters" alias Parameters as target
+uses "http://hl7.org/fhir/StructureDefinition/Coding" alias Coding as target
+uses "http://hl7.org/fhir/StructureDefinition/CodeableConcept" alias CodeableConcept as target
+uses "http://hl7.org/fhir/StructureDefinition/Reference" alias Reference as target
+uses "http://hl7.org/fhir/StructureDefinition/Period" alias Period as target
+
+imports "https://genomde.de/fhir/StructureMap/DatenkranzCommon"
+imports "https://genomde.de/fhir/StructureMap/OncoMolecular"
+imports "https://genomde.de/fhir/StructureMap/OncoPlanFollowUp"
+
+group main(source src : Datenkranz, target bundle : Bundle) {
+  src -> bundle.type = 'transaction' "type";
+  src.metaData as md -> ('kdk:' & %md.submission.submitterId & ':' &
+        iif(%md.localCaseId.exists() and %md.localCaseId != '', %md.localCaseId, %md.tanC)) as ck,
+        uuid() as pid, uuid() as prim, uuid() as ep, uuid() as ngs, create('Parameters') as ctx
+     then OncoCtx(src, md, ck, pid, prim, ep, ngs, ctx), OncoCase(src, md, ck, pid, ctx, bundle) "case";
+}
+
+group OncoCtx(source src, source md, source ck, source pid, source prim, source ep, source ngs, target ctx : Parameters) {
+  src -> ctx.parameter as p, p.name = 'ck', p.value = ck "ck";
+  src -> ctx.parameter as p, p.name = 'patient', p.value = pid "patient";
+  src where (case.diagnosisOd.mainDiagnosis.code.where($this != '').exists()) -> ctx.parameter as p, p.name = 'primary', p.value = prim "primary";
+  src -> ctx.parameter as p, p.name = 'episode', p.value = ep "episode";
+  src -> ctx.parameter as p, p.name = 'ngsReport', p.value = ngs "ngsReport";
+  md.submission as sub then {
+    sub.submitterId as s -> ctx.parameter as p, p.name = 'submitterId', p.value = s "submitterId";
+  } "submission";
+  md -> ctx.parameter as p, p.name = 'caseId', p.value = (iif(%md.localCaseId.exists() and %md.localCaseId != '', %md.localCaseId, %md.tanC)) "caseId";
+}
+
+// ================================================================================================================
+// Case: metaData resources, diagnosis, Behandlungsepisode with prior procedures / prior diagnostics, sub-maps
+// ================================================================================================================
+
+group OncoCase(source src, source md, source ck, source pid, source ctx, target bundle : Bundle) {
+  // patient.py; OncoPlanPatient adds deceased[x] from the follow-up (Q4: all writes to the Patient run in this rule)
+  md -> bundle.entry as e, e.resource = create('Patient') as pat, ('patient') as role
+     then DkEntry(ck, role, pid, e, pat), DkKdkPatientBody(md, pat), OncoPlanPatient(src, ctx, pat) "patient";
+  md.coverageType as ct then DkCoverage(ct, ck, pid, bundle) "coverage";
+  md.mvConsent as mvc -> ('mv-consent') as role then DkMvConsent(mvc, ck, role, pid, bundle) "mv-consent";
+  md then DkKdkIndicationBoard(md, ck, pid, bundle) "indication-board";
+  // research_consent.py: an embedded MII Broad Consent (scope) -> mii-pr-consent-einwilligung (DkResearchConsent);
+  // entries without scope -> mvgs-research-consent-absent (value = absence reason)
+  md.researchConsents as rc -> ('research-consent:' & %md.researchConsents.select(iif($this = %rc, $index, {})).first().toString()) as role
+     then DkResearchConsent(rc, ck, role, pid, bundle) "research-consent";
+  md.researchConsents as rc where (scope.exists().not() and (noScopeJustification = 'patient unable to consent'
+        or noScopeJustification = 'patient refuses to sign consent' or noScopeJustification = 'patient did not return consent documents'
+        or noScopeJustification = 'other patient-related reason'
+        or noScopeJustification = 'consent information cannot be submitted by LE due to technical reason'
+        or noScopeJustification = 'consent is not implemented at LE due to organizational issues'))
+     -> bundle.entry as e, e.resource = create('Observation') as o, uuid() as fid,
+        ('research-consent-absent:' & %md.researchConsents.select(iif($this = %rc, $index, {})).first().toString()) as role
+     then DkEntry(ck, role, fid, e, o), OncoRcAbsentBody(rc, ctx, o) "research-consent-absent";
+  src.case as c then {
+    c.diagnosisOd as d then OncoDiagnosis(d, ck, ctx, bundle) "diagnosis";
+  } "case";
+  // prior_procedures.ensure_episode: one MTB Behandlungsepisode per case. Prior therapies and prior findings are created
+  // from this rule so that they can be listed in its supportingInfo (Q4); the molecular sub-map adds investigation.
+  src.case as c -> bundle.entry as e, e.resource = create('ClinicalImpression') as ci, ('episode') as role,
+        (%ctx.parameter.where(name = 'episode').value) as ep
+     then DkEntry(ck, role, ep, e, ci), OncoEpisodeBody(md, ctx, ci), OncoPriorProcedures(c, ck, ctx, ci, bundle),
+          OncoPriorDiagnostics(c, ck, ctx, ci, bundle), OncoEpisodeMolecular(src, ctx, ci) "episode";
+  src.molecular as mol then OncoMolecular(mol, bundle, ctx) "molecular";
+  src then OncoPlanFollowUp(src, bundle, ctx) "plan-followup";
+}
+
+group OncoEpisodeMolecular(source src, source ctx, target ci : ClinicalImpression) {
+  src.molecular as mol then OncoMolEpisodeLink(mol, ctx, ci) "molecular";
+}
+
+// References into the Bundle by the uuids in ctx
+group OncoRefPatient(source ctx, target ref : Reference) {
+  ctx -> ref.reference = ('urn:uuid:' & %ctx.parameter.where(name = 'patient').value) "patient";
+}
+
+group OncoRefPrimary(source ctx, target ref : Reference) {
+  ctx where (parameter.where(name = 'primary').exists()) -> ref.reference = ('urn:uuid:' & %ctx.parameter.where(name = 'primary').value) "primary";
+}
+
+// ================================================================================================================
+// research_consent._absent -> Observation mvgs-research-consent-absent
+// ================================================================================================================
+
+group OncoRcAbsentBody(source rc, source ctx, target o : Observation) {
+  rc -> o.meta as m, m.profile = 'https://genomde.de/fhir/StructureDefinition/mvgs-research-consent-absent' "profile";
+  rc -> o.status = 'final' "status";
+  rc -> o.code as cc, cc.coding as c, c.system = 'https://genomde.de/fhir/CodeSystem/mvgs-cs-mv-administrative',
+        c.code = 'research-consent-absent', c.display = 'Forschungseinwilligung liegt nicht vor' "code";
+  rc -> o.subject as s then OncoRefPatient(ctx, s) "subject";
+  rc.presentationDate as d where (d != '') -> o.effective = create('dateTime') as dt, dt.value = d "effective";
+  // display = the BfArM enum text (= the CodeSystem display)
+  rc.noScopeJustification as n -> o.value = create('CodeableConcept') as v, v.coding as c,
+        c.system = 'https://genomde.de/fhir/CodeSystem/mvgs-cs-research-consent-absence-reason',
+        c.code = (iif(%n = 'patient unable to consent', 'unable-to-consent',
+                  iif(%n = 'patient refuses to sign consent', 'refused',
+                  iif(%n = 'patient did not return consent documents', 'documents-not-returned',
+                  iif(%n = 'other patient-related reason', 'other-patient-reason',
+                  iif(%n = 'consent information cannot be submitted by LE due to technical reason', 'technical-reason', 'not-implemented')))))),
+        c.display = n "value";
+}
+
+// ================================================================================================================
+// case.diagnosisOd (onco/diagnosis.py, onco/tnm.py, onco/ecog.py)
+// ================================================================================================================
+
+group OncoDiagnosis(source d, source ck, source ctx, target bundle : Bundle) {
+  // primary tumour (mii-pr-mtb-diagnose-primaertumor); its uuid is ctx 'primary'
+  d.mainDiagnosis as m where (code.exists() and code != '') -> bundle.entry as e, e.resource = create('Condition') as cond,
+        ('primary') as role, (%ctx.parameter.where(name = 'primary').value) as fid
+     then DkEntry(ck, role, fid, e, cond), OncoPrimaryBody(d, m, ctx, cond) "primary";
+  d.additionalDiagnoses as a where (code.exists() and code != '') -> bundle.entry as e, e.resource = create('Condition') as cond, uuid() as fid,
+        ('additional-diagnosis:' & %d.additionalDiagnoses.select(iif($this = %a, $index, {})).first().toString()) as role
+     then DkEntry(ck, role, fid, e, cond), OncoDiagnose(a, ctx, cond) "additional-diagnosis";
+  // index over the items with a code (germline_diagnoses enumerates the filtered list)
+  d.germlineDiagnoses as g where (code.exists() and code != '') -> bundle.entry as e, e.resource = create('Condition') as cond, uuid() as fid,
+        ('germline-diagnosis:' & %d.germlineDiagnoses.where(code.exists() and code != '').select(iif($this = %g, $index, {})).first().toString()) as role
+     then DkEntry(ck, role, fid, e, cond), OncoGermline(d, g, ctx, cond) "germline-diagnosis";
+  d.grading as gr where (gr != '') -> bundle.entry as e, e.resource = create('Observation') as o, uuid() as fid, ('grading') as role
+     then DkEntry(ck, role, fid, e, o), OncoGradingBody(gr, ctx, o) "grading";
+  d.hpoTerms as h where (code.exists() and code != '') -> bundle.entry as e, e.resource = create('Observation') as o, uuid() as fid,
+        ('hpo:' & %d.hpoTerms.select(iif($this = %h, $index, {})).first().toString()) as role
+     then DkEntry(ck, role, fid, e, o), OncoHpoBody(h, ctx, o) "hpo";
+  // libraryType none / unknown -> no request (dropped)
+  d.libraryType as lt where (lt = 'panel' or lt = 'wes' or lt = 'wgs' or lt = 'wgs_lr') -> bundle.entry as e,
+        e.resource = create('ServiceRequest') as sr, uuid() as fid, ('sequencing') as role
+     then DkEntry(ck, role, fid, e, sr), OncoSequencingBody(lt, ctx, sr) "sequencing";
+  d.additionalClassification as ac where (system.exists() and system != '') -> bundle.entry as e, e.resource = create('Observation') as o, uuid() as fid,
+        ('additional-classification:' & %d.additionalClassification.select(iif($this = %ac, $index, {})).first().toString()) as role
+     then DkEntry(ck, role, fid, e, o), OncoWeitereBody(ac, ctx, o) "additional-classification";
+  d.diagnosticAssessment as a where (a = 'genetic-diagnostic-assessment' or a = 'noGeneticDiagnosis' or a = 'suspectedGeneticDiagnosis'
+        or a = 'furtherGeneticDiagnosticRecommended' or a = 'confirmedGeneticDiagnosis' or a = 'partialGeneticDiagnosis')
+     -> bundle.entry as e, e.resource = create('Observation') as o, uuid() as fid, ('genetic-diagnostic-assessment') as role
+     then DkEntry(ck, role, fid, e, o), OncoAssessmentBody(a, ctx, o) "diagnostic-assessment";
+  // TNM: classify every item once (Parameters tp), then emit categories + grouping and the unmatched items
+  d -> create('Parameters') as tp then OncoTnmClassify(d, tp), OncoTnm(d, ck, ctx, tp, bundle) "tnm";
+  // ECOG 0-4 / unknown (U); 5 and notApplicable are not representable (dropped)
+  d.ecogPerformanceStatusScore as s where (s = '0' or s = '1' or s = '2' or s = '3' or s = '4' or s = 'unknown')
+     -> bundle.entry as e, e.resource = create('Observation') as o, uuid() as fid, ('ecog:diagnosis') as role,
+        (iif(%s = 'unknown', 'U', %s)) as sc
+     then DkEntry(ck, role, fid, e, o), OncoEcogBody(sc, ctx, o) "ecog";
+}
+
+// ---- primary tumour --------------------------------------------------------------------------------------------
+group OncoPrimaryBody(source d, source m, source ctx, target cond : Condition) {
+  m -> cond.meta as mt, mt.profile = 'https://www.medizininformatik-initiative.de/fhir/ext/modul-mtb/StructureDefinition/mii-pr-mtb-diagnose-primaertumor' "profile";
+  m.date as dt where (dt != '') -> cond.extension as ex, ex.url = 'http://hl7.org/fhir/StructureDefinition/condition-assertedDate',
+        ex.value = create('dateTime') as v, v.value = dt "asserted";
+  // Feststellungsdatum 1..1: without a date -> data-absent-reason on the primitive (schema requires the date)
+  m where (date.where($this != '').exists().not()) -> cond.extension as ex, ex.url = 'http://hl7.org/fhir/StructureDefinition/condition-assertedDate',
+        ex.value = create('dateTime') as v, v.extension as dx, dx.url = 'http://hl7.org/fhir/StructureDefinition/data-absent-reason',
+        dx.value = create('code') as cv, cv.value = 'unknown' "asserted-dar";
+  m -> cond.category as cat, cat.coding as c, c.system = 'http://snomed.info/sct', c.code = '55342001', c.display = 'Neoplastic disease' "category";
+  m -> cond.code as cc, cc.coding as c then OncoDxCoding(m, c) "code";
+  m -> cond.subject as s then OncoRefPatient(ctx, s) "subject";
+  m.date as dt where (dt != '') -> cond.recordedDate = dt "recordedDate";
+  d then OncoIcdo3(d, cond) "icdo3";
+}
+
+// ICD-O-3 (diagnosis.icdo3_slots): each field is placed by the axis of its code; morphology 'M?nnnn/?n', topography
+// 'Cnn.?n?'. A code in the wrong field fills the other slot when that slot is free; codes of neither axis or a second
+// code for an occupied slot -> Condition.note; an exact duplicate of the occupied slot is dropped.
+group OncoIcdo3(source d, target cond : Condition) {
+  d.histology as h where (code.trim().matches('^M?[0-9]{4}/?[0-9]$'))
+     -> cond.extension as ex, ex.url = 'https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-ex-onko-histology-morphology-behavior-icdo3',
+        ex.value = create('CodeableConcept') as v, v.coding as c then OncoIcdo3M(h, c) "morphology";
+  d.topography as t where (code.trim().matches('^M?[0-9]{4}/?[0-9]$') and %d.histology.where(code.trim().matches('^M?[0-9]{4}/?[0-9]$')).exists().not())
+     -> cond.extension as ex, ex.url = 'https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-ex-onko-histology-morphology-behavior-icdo3',
+        ex.value = create('CodeableConcept') as v, v.coding as c then OncoIcdo3M(t, c) "morphology-from-topography";
+  d.topography as t where (code.trim().upper().matches('^C[0-9]{2}[.]?[0-9]?$'))
+     -> cond.bodySite as bs, bs.coding as c then OncoIcdo3T(t, c) "topography";
+  d.histology as h where (code.trim().upper().matches('^C[0-9]{2}[.]?[0-9]?$') and %d.topography.where(code.trim().upper().matches('^C[0-9]{2}[.]?[0-9]?$')).exists().not())
+     -> cond.bodySite as bs, bs.coding as c then OncoIcdo3T(h, c) "topography-from-histology";
+  // notes: histology that is not a morphology code and does not fill / duplicate the topography slot
+  d.histology as h where (code.exists() and code != '' and code.trim().matches('^M?[0-9]{4}/?[0-9]$').not()
+        and (code.trim().upper().matches('^C[0-9]{2}[.]?[0-9]?$').not()
+             or %d.topography.where(code.trim().upper().matches('^C[0-9]{2}[.]?[0-9]?$')
+                  and iif(code.trim().upper().matches('^C[0-9]{2}[.]?[0-9]$'), code.trim().upper().replaceMatches('^C([0-9]{2})[.]?([0-9])$', 'C$1.$2'), code.trim().upper().replaceMatches('^C([0-9]{2})[.]?$', 'C$1')) != iif(%d.histology.code.trim().upper().matches('^C[0-9]{2}[.]?[0-9]$'), %d.histology.code.trim().upper().replaceMatches('^C([0-9]{2})[.]?([0-9])$', 'C$1.$2'), %d.histology.code.trim().upper().replaceMatches('^C([0-9]{2})[.]?$', 'C$1'))).exists()))
+     -> cond.note as n, n.text = (('Histology (ICD-O-3 M, as delivered): ' & %h.code & ' ' & iif(%h.display.exists(), %h.display, '')).trim()) "histology-note";
+  d.topography as t where (code.exists() and code != '' and code.trim().upper().matches('^C[0-9]{2}[.]?[0-9]?$').not()
+        and (code.trim().matches('^M?[0-9]{4}/?[0-9]$').not()
+             or %d.histology.where(code.trim().matches('^M?[0-9]{4}/?[0-9]$')
+                  and code.trim().replaceMatches('^M?([0-9]{4})/?([0-9])$', '$1/$2') != %d.topography.code.trim().replaceMatches('^M?([0-9]{4})/?([0-9])$', '$1/$2')).exists()))
+     -> cond.note as n, n.text = (('Topography (ICD-O-3 T, as delivered): ' & %t.code & ' ' & iif(%t.display.exists(), %t.display, '')).trim()) "topography-note";
+}
+
+group OncoIcdo3M(source x, target c : Coding) {
+  x -> c.system = 'http://terminology.hl7.org/CodeSystem/icd-o-3', c.code = (%x.code.trim().replaceMatches('^M?([0-9]{4})/?([0-9])$', '$1/$2')) "code";
+  x then OncoIcdo3Common(x, c) "common";
+}
+
+group OncoIcdo3T(source x, target c : Coding) {
+  x -> c.system = 'http://terminology.hl7.org/CodeSystem/icd-o-3', c.code = (iif(%x.code.trim().upper().matches('^C[0-9]{2}[.]?[0-9]$'), %x.code.trim().upper().replaceMatches('^C([0-9]{2})[.]?([0-9])$', 'C$1.$2'), %x.code.trim().upper().replaceMatches('^C([0-9]{2})[.]?$', 'C$1'))) "code";
+  x then OncoIcdo3Common(x, c) "common";
+}
+
+// edition label -> MII VS version 2014 / 2019; anything else: no coding.version
+group OncoIcdo3Common(source x, target c : Coding) {
+  x.display as dsp where (dsp != '') -> c.display = dsp "display";
+  x.version as v where (v.trim().lower() = '2019' or v.trim().lower() = 'zweite revision' or v.trim().lower() = 'rev2'
+        or v.trim().lower() = '3.2' or v.trim().lower() = 'icd-o-3.2') -> c.version = '2019' "v2019";
+  x.version as v where (v.trim().lower() = '2014' or v.trim().lower() = 'erste revision' or v.trim().lower() = 'rev1'
+        or v.trim().lower() = '3.1' or v.trim().lower() = 'icd-o-3.1') -> c.version = '2014' "v2014";
+}
+
+// diagnosis.diagnosis_coding: system aliases normalised (dimdi -> bfarm ICD-10-GM / Alpha-ID, Orphanet homepages ->
+// http://www.orpha.net); ICD-10-GM: upper case, missing dot added, trailing multiple-coding mark -> fhir.de extension;
+// Orphanet: 'ORPHA:' prefix removed; version and display kept.
+group OncoDxCoding(source item, target c : Coding) {
+  item where (system = 'http://fhir.de/CodeSystem/dimdi/icd-10-gm' or system = 'http://fhir.de/CodeSystem/bfarm/icd-10-gm')
+     -> c.system = 'http://fhir.de/CodeSystem/bfarm/icd-10-gm', c.code = (iif(%item.code.trim().upper().replaceMatches('[†+*!]+$', '').matches('^[A-Z][0-9]{2}[0-9A-Z]{1,4}$'), %item.code.trim().upper().replaceMatches('[†+*!]+$', '').replaceMatches('^([A-Z][0-9]{2})([0-9A-Z]{1,4})$', '$1.$2'), %item.code.trim().upper().replaceMatches('[†+*!]+$', ''))) "icd";
+  item where ((system = 'http://fhir.de/CodeSystem/dimdi/icd-10-gm' or system = 'http://fhir.de/CodeSystem/bfarm/icd-10-gm')
+        and code.trim().upper().matches('^.*[†+*!]$'))
+     -> c.extension as ex, ex.url = 'http://fhir.de/StructureDefinition/icd-10-gm-mehrfachcodierungs-kennzeichen',
+        ex.value = create('Coding') as vc, vc.system = 'http://fhir.de/CodeSystem/icd-10-gm-mehrfachcodierungs-kennzeichen',
+        vc.code = (iif(%item.code.trim().endsWith('+'), '†', %item.code.trim().substring(%item.code.trim().length() - 1))) "icd-mark";
+  item where (system = 'https://www.orpha.net/consor/cgi-bin/index.php' or system = 'https://www.orpha.net' or system = 'http://www.orpha.net'
+        or system = 'http://www.orpha.net/')
+     -> c.system = 'http://www.orpha.net', c.code = (%item.code.replaceMatches('^(?i)ORPHA:?', '')) "orpha";
+  item where (system = 'https://www.alpha-id.de' or system = 'http://fhir.de/CodeSystem/dimdi/alpha-id' or system = 'http://fhir.de/CodeSystem/bfarm/alpha-id')
+     -> c.system = 'http://fhir.de/CodeSystem/bfarm/alpha-id', c.code = (%item.code) "alpha-id";
+  item where (system = 'http://snomed.info/sct') -> c.system = 'http://snomed.info/sct', c.code = (%item.code) "snomed";
+  item where (system.where($this != '').exists() and (system = 'http://fhir.de/CodeSystem/dimdi/icd-10-gm' or system = 'http://fhir.de/CodeSystem/bfarm/icd-10-gm'
+        or system = 'https://www.orpha.net/consor/cgi-bin/index.php' or system = 'https://www.orpha.net' or system = 'http://www.orpha.net'
+        or system = 'http://www.orpha.net/' or system = 'https://www.alpha-id.de' or system = 'http://fhir.de/CodeSystem/dimdi/alpha-id'
+        or system = 'http://fhir.de/CodeSystem/bfarm/alpha-id' or system = 'http://snomed.info/sct').not())
+     -> c.system = (%item.system), c.code = (%item.code) "other-system";
+  item where (system.where($this != '').exists().not()) -> c.code = (%item.code) "no-system";
+  item.version as v where (v != '') -> c.version = v "version";
+  item.display as dsp where (dsp != '') -> c.display = dsp "display";
+}
+
+// ---- additional and germline diagnoses (MII Diagnose) -----------------------------------------------------------------
+group OncoDiagnose(source a, source ctx, target cond : Condition) {
+  a -> cond.meta as m, m.profile = 'https://www.medizininformatik-initiative.de/fhir/core/modul-diagnose/StructureDefinition/Diagnose' "profile";
+  a -> cond.code as cc, cc.coding as c then OncoDxCoding(a, c) "code";
+  a -> cond.subject as s then OncoRefPatient(ctx, s) "subject";
+  a.date as dt where (dt != '') -> cond.extension as ex, ex.url = 'http://hl7.org/fhir/StructureDefinition/condition-assertedDate',
+        ex.value = create('dateTime') as v, v.value = dt, cond.recordedDate = dt "date";
+  a where (date.where($this != '').exists().not()) -> cond.recordedDate as rd, rd.extension as dx,
+        dx.url = 'http://hl7.org/fhir/StructureDefinition/data-absent-reason', dx.value = create('code') as cv, cv.value = 'unknown' "date-absent";
+}
+
+// germlineDiagnoses[] items are Codings in the schema; their date (synthetic corpus) is a logical-model extra and, as in
+// OncoDiagnose, gives Feststellungsdatum + recordedDate, else recordedDate data-absent-reason; category genetic disease;
+// verificationStatus from germlineDiagnosisConfirmed
+group OncoGermline(source d, source g, source ctx, target cond : Condition) {
+  g -> cond.meta as m, m.profile = 'https://www.medizininformatik-initiative.de/fhir/core/modul-diagnose/StructureDefinition/Diagnose' "profile";
+  g -> cond.code as cc, cc.coding as c then OncoDxCoding(g, c) "code";
+  g -> cond.subject as s then OncoRefPatient(ctx, s) "subject";
+  g.date as dt where (dt != '') -> cond.extension as ex, ex.url = 'http://hl7.org/fhir/StructureDefinition/condition-assertedDate',
+        ex.value = create('dateTime') as v, v.value = dt, cond.recordedDate = dt "date";
+  g where (date.where($this != '').exists().not()) -> cond.recordedDate as rd, rd.extension as dx,
+        dx.url = 'http://hl7.org/fhir/StructureDefinition/data-absent-reason', dx.value = create('code') as cv, cv.value = 'unknown' "date-absent";
+  g -> cond.category as cat, cat.coding as c, c.system = 'http://snomed.info/sct', c.code = '782964007', c.display = 'Genetic disease' "category";
+  d.germlineDiagnosisConfirmed as gc where (gc = true) -> cond.verificationStatus as vs, vs.coding as c,
+        c.system = 'http://terminology.hl7.org/CodeSystem/condition-ver-status', c.code = 'confirmed', c.display = 'Confirmed' "confirmed";
+  d.germlineDiagnosisConfirmed as gc where (gc = false) -> cond.verificationStatus as vs, vs.coding as c,
+        c.system = 'http://terminology.hl7.org/CodeSystem/condition-ver-status', c.code = 'unconfirmed', c.display = 'Unconfirmed' "unconfirmed";
+}
+
+// ---- grading (mii-pr-onko-grading); no grading date -> effective[x] data-absent-reason ------------------------------------
+group OncoGradingBody(source gr, source ctx, target o : Observation) {
+  gr -> o.meta as m, m.profile = 'https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-pr-onko-grading' "profile";
+  gr -> o.status = 'final' "status";
+  gr -> o.category as cat, cat.coding as c, c.system = 'http://terminology.hl7.org/CodeSystem/observation-category', c.code = 'laboratory' "category";
+  gr -> o.code as cc, cc.coding as c, c.system = 'http://loinc.org', c.code = '33732-9', c.display = 'Histology grade [Identifier] in Cancer specimen' "code";
+  gr -> o.subject as s then OncoRefPatient(ctx, s) "subject";
+  gr where (%ctx.parameter.where(name = 'primary').exists()) -> o.focus as f then OncoRefPrimary(ctx, f) "focus";
+  gr -> o.effective = create('dateTime') as ed, ed.extension as dx, dx.url = 'http://hl7.org/fhir/StructureDefinition/data-absent-reason',
+        dx.value = create('code') as cv, cv.value = 'unknown' "effective-absent";
+  gr -> o.value = create('CodeableConcept') as v, v.coding as c,
+        c.system = 'https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/CodeSystem/mii-cs-onko-grading', c.code = gr "value";
+}
+
+// ---- HPO terms (mii-pr-seltene-hpo-assessment) ------------------------------------------------------------------------
+group OncoHpoBody(source h, source ctx, target o : Observation) {
+  h -> o.meta as m, m.profile = 'https://www.medizininformatik-initiative.de/fhir/ext/modul-seltene/StructureDefinition/mii-pr-seltene-hpo-assessment' "profile";
+  h -> o.status = 'final' "status";
+  h -> o.code as cc then OncoHpoCode(h, cc) "code";
+  h -> o.subject as s then OncoRefPatient(ctx, s) "subject";
+}
+
+group OncoHpoCode(source h, target cc : CodeableConcept) {
+  h -> cc.coding as c then OncoHpoCoding(h, c) "coding";
+  h.text as t where (t != '') -> cc.text = t "text";
+}
+
+group OncoHpoCoding(source h, target c : Coding) {
+  h.code as cd -> c.system = 'http://human-phenotype-ontology.org', c.code = cd "code";
+  h.version as v where (v != '') -> c.version = v "version";
+  h.display as dsp where (dsp != '') -> c.display = dsp "display";
+}
+
+// ---- sequencing indication (MolGen anforderung-genetischer-test) ----------------------------------------------------------
+group OncoSequencingBody(source lt, source ctx, target sr : ServiceRequest) {
+  lt -> sr.meta as m, m.profile = 'https://www.medizininformatik-initiative.de/fhir/ext/modul-molgen/StructureDefinition/anforderung-genetischer-test' "profile";
+  lt -> sr.status = 'unknown', sr.intent = 'order' "status";
+  lt where (lt = 'panel') -> sr.code as cc, cc.coding as c, c.system = 'https://www.medizininformatik-initiative.de/fhir/ext/modul-mtb/CodeSystem/mii-cs-mtb-genomic-analysis-method-type',
+        c.code = 'gene-panel', c.display = 'Genpanel' "panel";
+  lt where (lt = 'wes') -> sr.code as cc, cc.coding as c, c.system = 'https://www.medizininformatik-initiative.de/fhir/ext/modul-mtb/CodeSystem/mii-cs-mtb-genomic-analysis-method-type',
+        c.code = 'whole-exom-sequencing', c.display = 'Whole Exom Sequencing (WES)' "wes";
+  lt where (lt = 'wgs') -> sr.code as cc, cc.coding as c, c.system = 'https://www.medizininformatik-initiative.de/fhir/ext/modul-mtb/CodeSystem/mii-cs-mtb-genomic-analysis-method-type',
+        c.code = 'whole-genom-sequencing', c.display = 'Whole Genom Sequencing (WGS)' "wgs";
+  lt where (lt = 'wgs_lr') -> sr.code as cc, cc.coding as c, c.system = 'https://www.medizininformatik-initiative.de/fhir/ext/modul-mtb/CodeSystem/mii-cs-mtb-genomic-analysis-method-type',
+        c.code = 'whole-genom-sequencing', c.display = 'Whole Genom Sequencing (WGS)', cc.text = 'Whole genome sequencing, long read' "wgs-lr";
+  lt -> sr.subject as s then OncoRefPatient(ctx, s) "subject";
+  lt where (%ctx.parameter.where(name = 'primary').exists()) -> sr.reasonReference as r then OncoRefPrimary(ctx, r) "reason";
+}
+
+// ---- additional classifications (mii-pr-onko-weitere-klassifikationen) ------------------------------------------------------
+group OncoWeitereBody(source ac, source ctx, target o : Observation) {
+  ac -> o.meta as m, m.profile = 'https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-pr-onko-weitere-klassifikationen' "profile";
+  ac -> o.status = 'final' "status";
+  ac.system as sy -> o.code as cc, cc.text = sy "code";
+  ac -> o.subject as s then OncoRefPatient(ctx, s) "subject";
+  ac where (%ctx.parameter.where(name = 'primary').exists()) -> o.focus as f then OncoRefPrimary(ctx, f) "focus";
+  ac.key as k where (k != '') -> o.value = create('CodeableConcept') as v then OncoWeitereValue(ac, k, v) "value";
+  ac where (key.where($this != '').exists().not()) -> o.dataAbsentReason as dar, dar.coding as c,
+        c.system = 'http://terminology.hl7.org/CodeSystem/data-absent-reason', c.code = 'unknown' "value-absent";
+}
+
+// DNPM kds-tumor-spread keys -> SNOMED (mii-vs-mtb-tumorausbreitung); text = key
+group OncoWeitereValue(source ac, source k, target v : CodeableConcept) {
+  k -> v.text = k "text";
+  ac where (system = 'dnpm-dip/mtb/diagnosis/kds-tumor-spread' and (key = 'tumor-free' or key = 'local' or key = 'metastasized' or key = 'unknown'))
+     -> v.coding as c, c.system = 'http://snomed.info/sct',
+        c.code = (iif(%k = 'tumor-free', '58899004', iif(%k = 'local', '255127006', iif(%k = 'metastasized', '128462008', '261665006')))),
+        c.display = (iif(%k = 'tumor-free', 'No evidence of tumor', iif(%k = 'local', 'Local tumor spread', iif(%k = 'metastasized', 'Metastases', 'Unknown')))) "tumor-spread";
+}
+
+// ---- genetic diagnostic assessment (local CS, no profile) --------------------------------------------------------------------
+group OncoAssessmentBody(source a, source ctx, target o : Observation) {
+  a -> o.status = 'final' "status";
+  a -> o.code as cc, cc.coding as c, c.system = 'https://genomde.de/fhir/CodeSystem/mvgs-cs-genetic-diagnostic-assessment',
+        c.code = 'genetic-diagnostic-assessment', c.display = 'Evaluation of genetic diagnostics' "code";
+  a -> o.subject as s then OncoRefPatient(ctx, s) "subject";
+  a where (%ctx.parameter.where(name = 'primary').exists()) -> o.focus as f then OncoRefPrimary(ctx, f) "focus";
+  a -> o.value = create('CodeableConcept') as v, v.coding as c, c.system = 'https://genomde.de/fhir/CodeSystem/mvgs-cs-genetic-diagnostic-assessment',
+        c.code = a, c.display = (iif(%a = 'noGeneticDiagnosis', 'No genetic diagnosis', iif(%a = 'suspectedGeneticDiagnosis', 'Suspected genetic diagnosis',
+        iif(%a = 'furtherGeneticDiagnosticRecommended', 'Further genetic diagnostics recommended', iif(%a = 'confirmedGeneticDiagnosis', 'Confirmed genetic diagnosis',
+        iif(%a = 'partialGeneticDiagnosis', 'Partial genetic diagnosis', 'Evaluation of genetic diagnostics')))))) "value";
+}
+
+// ---- ECOG (mii-pr-onko-allgemeiner-leistungszustand-ecog); sc = 0..4 or U --------------------------------------------------
+group OncoEcogBody(source sc, source ctx, target o : Observation) {
+  sc -> o.meta as m, m.profile = 'https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-pr-onko-allgemeiner-leistungszustand-ecog' "profile";
+  sc -> o.status = 'final' "status";
+  sc -> o.code as cc then OncoEcogCode(sc, cc) "code";
+  sc -> o.subject as s then OncoRefPatient(ctx, s) "subject";
+  sc where (%ctx.parameter.where(name = 'primary').exists()) -> o.focus as f then OncoRefPrimary(ctx, f) "focus";
+  sc -> o.value = create('CodeableConcept') as v then OncoEcogValue(sc, v) "value";
+}
+
+group OncoEcogCode(source sc, target cc : CodeableConcept) {
+  sc -> cc.coding as c, c.system = 'http://snomed.info/sct', c.code = '423740007', c.display = 'ECOG performance status' "snomed";
+  sc -> cc.coding as c, c.system = 'http://loinc.org', c.code = '89262-0', c.display = 'ECOG Performance Status [Interpretation]' "loinc";
+}
+
+group OncoEcogValue(source sc, target v : CodeableConcept) {
+  sc -> v.coding as c, c.system = 'https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/CodeSystem/mii-cs-onko-allgemeiner-leistungszustand-ecog', c.code = sc,
+        c.display = (iif(%sc = '0', 'Normale, uneingeschränkte Aktivität wie vor der Erkrankung (90 - 100 % nach Karnofsky)',
+                     iif(%sc = '1', 'Einschränkung bei körperlicher Anstrengung, aber gehfähig; leichte körperliche Arbeit bzw. Arbeit im Sitzen (z. B. leichte Hausarbeit oder Büroarbeit) möglich (70 - 80 % nach Karnofsky)',
+                     iif(%sc = '2', 'Gehfähig, Selbstversorgung möglich, aber nicht arbeitsfähig; kann mehr als 50 % der Wachzeit aufstehen (50 - 60 % nach Karnofsky)',
+                     iif(%sc = '3', 'Nur begrenzte Selbstversorgung möglich; ist 50 % oder mehr der Wachzeit an Bett oder Stuhl gebunden (30  40 % nach Karnofsky)',
+                     iif(%sc = '4', 'Völlig pflegebedürftig, keinerlei Selbstversorgung möglich; völlig an Bett oder Stuhl gebunden (10 - 20 % nach Karnofsky)',
+                     'Unbekannt')))))) "obds";
+  sc where (sc != 'U') -> v.coding as c, c.system = 'http://loinc.org',
+        c.code = (iif(%sc = '0', 'LA9622-7', iif(%sc = '1', 'LA9623-5', iif(%sc = '2', 'LA9624-3', iif(%sc = '3', 'LA9625-0', 'LA9626-8'))))),
+        c.display = (iif(%sc = '0', 'Fully active, able to carry on all pre-disease performance without restriction',
+                     iif(%sc = '1', 'Restricted in physically strenuous activity but ambulatory and able to carry out work of a light or sedentary nature, e.g., light house work, office work',
+                     iif(%sc = '2', 'Ambulatory and capable of all selfcare but unable to carry out any work activities. Up and about more than 50% of waking hours',
+                     iif(%sc = '3', 'Capable of only limited selfcare, confined to bed or chair more than 50% of waking hours',
+                     'Completely disabled. Cannot carry on any selfcare. Totally confined to bed or chair'))))) "loinc";
+}
+
+// ================================================================================================================
+// TNM (onco/tnm.py). Each tnmClassifications[] item is classified once into tp (Parameters, never emitted):
+//   parameter name = item index, value = 'kind|cp|uicc|yra|edition' ('-' = none)
+//   kind S: SNOMED code of ConceptMap mvgs-cm-tnm-sct-uicc group 1 (cp and UICC from the map, SNOMED wins over the text)
+//   kind U: an accepted UICC string (group 2), also in a SNOMED-labelled field (cp from the notation, edition from version)
+//   no parameter: no UICC equivalent -> mii-pr-onko-weitere-klassifikationen 'TNM'
+// notation = (text, else display).trim(); '^([yra]*)([cpu]?)([TNM].*)$' gives the y/r/a prefixes and the c/p/u prefix.
+// The SNOMED lookup table below is generated from mvgs-cm-tnm-sct-uicc group 1 ('|<sct>=<cp><UICC>|', cp = the
+// mii-ex-onko-tnm-cp-praefix product): translate() returns the target only, not the product or the source display.
+// Regenerate it when the ConceptMap changes. The UICC value coding of S items comes from translate().
+// ================================================================================================================
+
+group OncoTnmClassify(source d, target tp : Parameters) {
+  d.tnmClassifications as it where (code.exists() and code != '')
+     -> (%d.tnmClassifications.select(iif($this = %it, $index, {})).first().toString()) as i then OncoTnmClassifyItem(it, i, tp) "item";
+}
+
+group OncoTnmClassifyItem(source it, source i, target tp : Parameters) {
+  it where (system = 'http://snomed.info/sct' and '|1352975000=cTX|1352986003=cT0|1352961007=cTa|1352984000=cTis|1352964004=cTis(LAMN)|1352965003=cTis(DCIS)|1351846009=cTis(LCIS)|1352987007=cTis(Paget)|1352996007=cT1|1352979006=cT1mi|1352983006=cT1a|1352959003=cT1a1|1352988002=cT1a2|1352968001=cT1b|1352985004=cT1b1|1352992009=cT1b2|1352973007=cT1c|1352995006=cT1c1|1352977008=cT1c2|1352958006=cT1c3|1352978003=cT1d|1352993004=cT2|1352962000=cT2a|1352990001=cT2a1|1352967006=cT2a2|1352972002=cT2b|1352969009=cT2c|1352971009=cT2d|1352966002=cT3|1352989005=cT3a|1352991002=cT3b|1352976004=cT3c|1352994005=cT3d|1352974001=cT3e|1352997003=cT4|1352982001=cT4a|1352960008=cT4b|1352980009=cT4c|1352963005=cT4d|1352981008=cT4e|1353039008=cNX|1353041009=cN0|1353043007=cN1|1353046004=cN1a|1353048003=cN1b|1353044001=cN1c|1353047008=cN2|1353050006=cN2a|1353055001=cN2b|1353049006=cN2c|1353053008=cN3|1353057009=cN3a|1353054002=cN3b|1353051005=cN3c|1352512001=cM0|1352513006=cM1|1352517007=cM1a|1352514000=cM1b|1352516003=cM1c|1352510009=cM1d|1352532000=pTX|1352552004=pT0|1352539009=pTa|1352558000=pTis|1352555002=pTis(LAMN)|1352535003=pTis(DCIS)|1351847000=pTis(LCIS)|1352563001=pTis(Paget)|1352559008=pT1|1352562006=pT1mi|1352560003=pT1a|1352550007=pT1a1|1352566009=pT1a2|1352543008=pT1b|1352536002=pT1b1|1352554003=pT1b2|1352537006=pT1c|1352544002=pT1c1|1352541005=pT1c2|1352549007=pT1c3|1352568005=pT1d|1352545001=pT2|1352564007=pT2a|1352546000=pT2a1|1352567000=pT2a2|1352547009=pT2b|1352569002=pT2c|1352548004=pT2d|1352533005=pT3|1352551006=pT3a|1352534004=pT3b|1352556001=pT3c|1352531007=pT3d|1352553009=pT4|1352538001=pT4a|1352561004=pT4b|1352540006=pT4c|1352557005=pT4d|1352542003=pT4e|1352605004=pNX|1352621009=pN0|1352614009=pN1|1352620005=pN1mi|1352619004=pN1a|1352616006=pN1b|1352617002=pN1c|1352610000=pN2|1352608002=pN2a|1352612008=pN2b|1352613003=pN2c|1352622002=pN3|1352618007=pN3a|1352623007=pN3b|1352606003=pN3c|1352583000=pM1|1352573004=pM1a|1352578008=pM1b|1352574005=pM1c|1352580002=pM1d|'.contains('|' & code.trim() & '='))
+     -> tp.parameter as p, p.name = i,
+        p.value = ('S|' & '|1352975000=cTX|1352986003=cT0|1352961007=cTa|1352984000=cTis|1352964004=cTis(LAMN)|1352965003=cTis(DCIS)|1351846009=cTis(LCIS)|1352987007=cTis(Paget)|1352996007=cT1|1352979006=cT1mi|1352983006=cT1a|1352959003=cT1a1|1352988002=cT1a2|1352968001=cT1b|1352985004=cT1b1|1352992009=cT1b2|1352973007=cT1c|1352995006=cT1c1|1352977008=cT1c2|1352958006=cT1c3|1352978003=cT1d|1352993004=cT2|1352962000=cT2a|1352990001=cT2a1|1352967006=cT2a2|1352972002=cT2b|1352969009=cT2c|1352971009=cT2d|1352966002=cT3|1352989005=cT3a|1352991002=cT3b|1352976004=cT3c|1352994005=cT3d|1352974001=cT3e|1352997003=cT4|1352982001=cT4a|1352960008=cT4b|1352980009=cT4c|1352963005=cT4d|1352981008=cT4e|1353039008=cNX|1353041009=cN0|1353043007=cN1|1353046004=cN1a|1353048003=cN1b|1353044001=cN1c|1353047008=cN2|1353050006=cN2a|1353055001=cN2b|1353049006=cN2c|1353053008=cN3|1353057009=cN3a|1353054002=cN3b|1353051005=cN3c|1352512001=cM0|1352513006=cM1|1352517007=cM1a|1352514000=cM1b|1352516003=cM1c|1352510009=cM1d|1352532000=pTX|1352552004=pT0|1352539009=pTa|1352558000=pTis|1352555002=pTis(LAMN)|1352535003=pTis(DCIS)|1351847000=pTis(LCIS)|1352563001=pTis(Paget)|1352559008=pT1|1352562006=pT1mi|1352560003=pT1a|1352550007=pT1a1|1352566009=pT1a2|1352543008=pT1b|1352536002=pT1b1|1352554003=pT1b2|1352537006=pT1c|1352544002=pT1c1|1352541005=pT1c2|1352549007=pT1c3|1352568005=pT1d|1352545001=pT2|1352564007=pT2a|1352546000=pT2a1|1352567000=pT2a2|1352547009=pT2b|1352569002=pT2c|1352548004=pT2d|1352533005=pT3|1352551006=pT3a|1352534004=pT3b|1352556001=pT3c|1352531007=pT3d|1352553009=pT4|1352538001=pT4a|1352561004=pT4b|1352540006=pT4c|1352557005=pT4d|1352542003=pT4e|1352605004=pNX|1352621009=pN0|1352614009=pN1|1352620005=pN1mi|1352619004=pN1a|1352616006=pN1b|1352617002=pN1c|1352610000=pN2|1352608002=pN2a|1352612008=pN2b|1352613003=pN2c|1352622002=pN3|1352618007=pN3a|1352623007=pN3b|1352606003=pN3c|1352583000=pM1|1352573004=pM1a|1352578008=pM1b|1352574005=pM1c|1352580002=pM1d|'.replaceMatches('^.*[|]' & %it.code.trim() & '=([^|]*)[|].*$', '$1').substring(0, 1) & '|'
+                 & '|1352975000=cTX|1352986003=cT0|1352961007=cTa|1352984000=cTis|1352964004=cTis(LAMN)|1352965003=cTis(DCIS)|1351846009=cTis(LCIS)|1352987007=cTis(Paget)|1352996007=cT1|1352979006=cT1mi|1352983006=cT1a|1352959003=cT1a1|1352988002=cT1a2|1352968001=cT1b|1352985004=cT1b1|1352992009=cT1b2|1352973007=cT1c|1352995006=cT1c1|1352977008=cT1c2|1352958006=cT1c3|1352978003=cT1d|1352993004=cT2|1352962000=cT2a|1352990001=cT2a1|1352967006=cT2a2|1352972002=cT2b|1352969009=cT2c|1352971009=cT2d|1352966002=cT3|1352989005=cT3a|1352991002=cT3b|1352976004=cT3c|1352994005=cT3d|1352974001=cT3e|1352997003=cT4|1352982001=cT4a|1352960008=cT4b|1352980009=cT4c|1352963005=cT4d|1352981008=cT4e|1353039008=cNX|1353041009=cN0|1353043007=cN1|1353046004=cN1a|1353048003=cN1b|1353044001=cN1c|1353047008=cN2|1353050006=cN2a|1353055001=cN2b|1353049006=cN2c|1353053008=cN3|1353057009=cN3a|1353054002=cN3b|1353051005=cN3c|1352512001=cM0|1352513006=cM1|1352517007=cM1a|1352514000=cM1b|1352516003=cM1c|1352510009=cM1d|1352532000=pTX|1352552004=pT0|1352539009=pTa|1352558000=pTis|1352555002=pTis(LAMN)|1352535003=pTis(DCIS)|1351847000=pTis(LCIS)|1352563001=pTis(Paget)|1352559008=pT1|1352562006=pT1mi|1352560003=pT1a|1352550007=pT1a1|1352566009=pT1a2|1352543008=pT1b|1352536002=pT1b1|1352554003=pT1b2|1352537006=pT1c|1352544002=pT1c1|1352541005=pT1c2|1352549007=pT1c3|1352568005=pT1d|1352545001=pT2|1352564007=pT2a|1352546000=pT2a1|1352567000=pT2a2|1352547009=pT2b|1352569002=pT2c|1352548004=pT2d|1352533005=pT3|1352551006=pT3a|1352534004=pT3b|1352556001=pT3c|1352531007=pT3d|1352553009=pT4|1352538001=pT4a|1352561004=pT4b|1352540006=pT4c|1352557005=pT4d|1352542003=pT4e|1352605004=pNX|1352621009=pN0|1352614009=pN1|1352620005=pN1mi|1352619004=pN1a|1352616006=pN1b|1352617002=pN1c|1352610000=pN2|1352608002=pN2a|1352612008=pN2b|1352613003=pN2c|1352622002=pN3|1352618007=pN3a|1352623007=pN3b|1352606003=pN3c|1352583000=pM1|1352573004=pM1a|1352578008=pM1b|1352574005=pM1c|1352580002=pM1d|'.replaceMatches('^.*[|]' & %it.code.trim() & '=([^|]*)[|].*$', '$1').substring(1) & '|'
+                 & iif((iif(%it.text.exists() and %it.text != '', %it.text, iif(%it.display.exists(), %it.display, '')).trim()).matches('^[yra]+[cpu]?[TNM].*$'), (iif(%it.text.exists() and %it.text != '', %it.text, iif(%it.display.exists(), %it.display, '')).trim()).replaceMatches('^([yra]*)([cpu]?)([TNM].*)$', '$1'), '-') & '|-') "snomed";
+  it where (code.trim() in ('TX' | 'T0' | 'Ta' | 'Tis' | 'Tis(LAMN)' | 'Tis(DCIS)' | 'Tis(LCIS)' | 'Tis(Paget)' | 'Tis(pu)' | 'Tis(pd)' | 'T1' | 'T1mi' | 'T1a' | 'T1a1' | 'T1a2' | 'T1b' | 'T1b1' | 'T1b2' | 'T1b3' | 'T1c' | 'T1c1' | 'T1c2' | 'T1c3' | 'T1d' | 'T2' | 'T2a' | 'T2a1' | 'T2a2' | 'T2b' | 'T2c' | 'T2d' | 'T3' | 'T3a' | 'T3b' | 'T3c' | 'T3d' | 'T3e' | 'T4' | 'T4a' | 'T4b' | 'T4c' | 'T4d' | 'T4e' | 'NX' | 'N0' | 'N1' | 'N1mi' | 'N1a' | 'N1b' | 'N1c' | 'N2' | 'N2a' | 'N2b' | 'N2c' | 'N3' | 'N3a' | 'N3b' | 'N3c' | 'M0' | 'M1' | 'M1a' | 'M1b' | 'M1c' | 'M1c1' | 'M1c2' | 'M1d' | 'MX'))
+     -> tp.parameter as p, p.name = i,
+        p.value = ('U|' & iif((iif(%it.text.exists() and %it.text != '', %it.text, iif(%it.display.exists(), %it.display, '')).trim()).matches('^[yra]*[cpu][TNM].*$'), (iif(%it.text.exists() and %it.text != '', %it.text, iif(%it.display.exists(), %it.display, '')).trim()).replaceMatches('^([yra]*)([cpu]?)([TNM].*)$', '$2'), '-') & '|'
+                 & %it.code.trim() & '|'
+                 & iif((iif(%it.text.exists() and %it.text != '', %it.text, iif(%it.display.exists(), %it.display, '')).trim()).matches('^[yra]+[cpu]?[TNM].*$'), (iif(%it.text.exists() and %it.text != '', %it.text, iif(%it.display.exists(), %it.display, '')).trim()).replaceMatches('^([yra]*)([cpu]?)([TNM].*)$', '$1'), '-') & '|'
+                 & iif(%it.version.exists() and %it.version.matches('^\\s*[1-9].*$'), %it.version.trim().substring(0, 1), '-')) "uicc";
+}
+
+group OncoTnm(source d, source ck, source ctx, source tp, target bundle : Bundle) {
+  // grouping mii-pr-onko-tnm-klassifikation with hasMember -> the category Observations (created from this rule, Q4)
+  d where (%tp.parameter.exists()) -> bundle.entry as e, e.resource = create('Observation') as g, uuid() as fid, ('tnm:grouping') as role
+     then DkEntry(ck, role, fid, e, g), OncoTnmGroupBody(d, ctx, tp, g), OncoTnmCategories(d, ck, ctx, tp, g, bundle) "grouping";
+  d.tnmClassifications as it where (code.exists() and code != '' and %tp.parameter.where(name = %d.tnmClassifications.select(iif($this = %it, $index, {})).first().toString()).exists().not())
+     -> bundle.entry as e, e.resource = create('Observation') as o, uuid() as fid,
+        ('tnm:' & %d.tnmClassifications.select(iif($this = %it, $index, {})).first().toString()) as role
+     then DkEntry(ck, role, fid, e, o), OncoTnmUnmatchedBody(it, ctx, o) "unmatched";
+}
+
+// code: clinical / pathological stage grouping when all categories agree on c or p, else the generic code; method
+// (TNM edition) when exactly one edition was given on the UICC-string items; no stage value and no date in the KDK
+group OncoTnmGroupBody(source d, source ctx, source tp, target g : Observation) {
+  d -> g.meta as m, m.profile = 'https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-pr-onko-tnm-klassifikation' "profile";
+  d -> g.status = 'final' "status";
+  d -> (iif(%tp.parameter.value.select(iif($this.split('|')[1] = 'c' or $this.split('|')[1] = 'p', $this.split('|')[1], '-')).distinct().count() = 1,
+            %tp.parameter.value.select(iif($this.split('|')[1] = 'c' or $this.split('|')[1] = 'p', $this.split('|')[1], '-')).distinct().first(), '-')) as k,
+        g.code as cc, cc.coding as c, c.system = 'http://snomed.info/sct',
+        c.code = (iif(%k = 'c', '399537006', iif(%k = 'p', '399588009', '399390009'))),
+        c.display = (iif(%k = 'c', 'Clinical TNM stage grouping', iif(%k = 'p', 'Pathologic TNM stage grouping', 'TNM stage grouping'))) "code";
+  d -> g.subject as s then OncoRefPatient(ctx, s) "subject";
+  d where (%ctx.parameter.where(name = 'primary').exists()) -> g.focus as f then OncoRefPrimary(ctx, f) "focus";
+  d where (%tp.parameter.value.where($this.split('|')[0] = 'U' and $this.split('|')[4] != '-').select($this.split('|')[4]).distinct().count() = 1)
+     -> g.method as mt, mt.coding as c, c.system = 'https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/CodeSystem/mii-cs-onko-tnm-version',
+        c.code = (%tp.parameter.value.where($this.split('|')[0] = 'U' and $this.split('|')[4] != '-').select($this.split('|')[4]).first()),
+        c.display = (%tp.parameter.value.where($this.split('|')[0] = 'U' and $this.split('|')[4] != '-').select($this.split('|')[4]).first() & '. Auflage') "method";
+}
+
+group OncoTnmCategories(source d, source ck, source ctx, source tp, target g : Observation, target bundle : Bundle) {
+  d.tnmClassifications as it where (%tp.parameter.where(name = %d.tnmClassifications.select(iif($this = %it, $index, {})).first().toString()).exists())
+     -> (%tp.parameter.where(name = %d.tnmClassifications.select(iif($this = %it, $index, {})).first().toString()).value) as rec,
+        ('tnm:' & %d.tnmClassifications.select(iif($this = %it, $index, {})).first().toString()) as role,
+        uuid() as fid, bundle.entry as e, e.resource = create('Observation') as o, g.hasMember as hm
+     then DkEntry(ck, role, fid, e, o), DkReference(fid, hm), OncoTnmCategoryBody(it, rec, ctx, o) "category";
+}
+
+// category Observation mii-pr-onko-tnm-{t,n,m}-kategorie; rec = 'kind|cp|uicc|yra|edition'
+group OncoTnmCategoryBody(source it, source rec, source ctx, target o : Observation) {
+  it -> o.meta as m, m.profile = ('https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-pr-onko-tnm-'
+        & %rec.split('|')[2].substring(0, 1).lower() & '-kategorie') "profile";
+  it -> o.status = 'final' "status";
+  // observable code by axis and c/p prefix (mii-vs-onko-tnm-{t,n,m}-kategorie); a c/p/u prefix -> code.extension:cpPraefix
+  it -> o.code as cc then OncoTnmCode(it, rec, cc) "code";
+  // y/r/a prefixes -> modifierExtension (2027)
+  it where (%rec.split('|')[3].contains('y')) -> o.modifierExtension as ex, ex.url = 'https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-ex-onko-tnm-y-praefix',
+        ex.value = create('CodeableConcept') as v, v.coding as c, c.system = 'https://www.uicc.org/resources/tnm', c.code = 'y', c.display = 'y' "y";
+  it where (%rec.split('|')[3].contains('r')) -> o.modifierExtension as ex, ex.url = 'https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-ex-onko-tnm-r-praefix',
+        ex.value = create('CodeableConcept') as v, v.coding as c, c.system = 'https://www.uicc.org/resources/tnm', c.code = 'r', c.display = 'r' "r";
+  it where (%rec.split('|')[3].contains('a')) -> o.modifierExtension as ex, ex.url = 'https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-ex-onko-tnm-a-praefix',
+        ex.value = create('CodeableConcept') as v, v.coding as c, c.system = 'https://www.uicc.org/resources/tnm', c.code = 'a', c.display = 'a' "a";
+  it -> o.subject as s then OncoRefPatient(ctx, s) "subject";
+  it where (%ctx.parameter.where(name = 'primary').exists()) -> o.focus as f then OncoRefPrimary(ctx, f) "focus";
+  it -> o.value = create('CodeableConcept') as v then OncoTnmValue(it, rec, v) "value";
+  // UICC string with a TNM edition -> method mii-cs-onko-tnm-version
+  it where (%rec.split('|')[0] = 'U' and %rec.split('|')[4] != '-') -> o.method as mt, mt.coding as c,
+        c.system = 'https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/CodeSystem/mii-cs-onko-tnm-version',
+        c.code = (%rec.split('|')[4]), c.display = (%rec.split('|')[4] & '. Auflage') "method";
+}
+
+group OncoTnmCode(source it, source rec, target cc : CodeableConcept) {
+  it -> (%rec.split('|')[2].substring(0, 1) & iif(%rec.split('|')[1] = 'c' or %rec.split('|')[1] = 'p', %rec.split('|')[1], '')) as ckey,
+        ('|T=78873005:T category|Tc=399504009:cT category|Tp=384625004:pT category|N=277206009:N category|Nc=399534004:cN category|Np=371494008:pN category|M=277208005:M category|Mc=399387003:cM category|Mp=371497001:pM category|'.replaceMatches('^.*[|]' & %ckey & '=([^|]*)[|].*$', '$1')) as cat,
+        cc.coding as c, c.system = 'http://snomed.info/sct', c.code = (%cat.split(':')[0]), c.display = (%cat.split(':')[1]) "coding";
+  it where (%rec.split('|')[1] != '-') -> cc.extension as ex, ex.url = 'https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-ex-onko-tnm-cp-praefix',
+        ex.value = create('CodeableConcept') as v, v.coding as c, c.system = 'https://www.uicc.org/resources/tnm',
+        c.code = (%rec.split('|')[1]), c.display = (%rec.split('|')[1]) "cp";
+}
+
+// value: coding:uicc (+ 2027 coding:snomed-ct with the MII FSN display for SNOMED items; its version only when it is a
+// SNOMED version URI); text = the KDK notation
+group OncoTnmValue(source it, source rec, target v : CodeableConcept) {
+  it.code as cd where (%rec.split('|')[0] = 'S') -> (%cd.trim()) as sct, v.coding as c,
+        c.system = translate(sct, 'https://genomde.de/fhir/ConceptMap/mvgs-cm-tnm-sct-uicc', 'system'),
+        c.code = translate(sct, 'https://genomde.de/fhir/ConceptMap/mvgs-cm-tnm-sct-uicc', 'code'),
+        c.display = translate(sct, 'https://genomde.de/fhir/ConceptMap/mvgs-cm-tnm-sct-uicc', 'display') "uicc-from-snomed";
+  it where (%rec.split('|')[0] = 'U') -> v.coding as c, c.system = 'https://www.uicc.org/resources/tnm',
+        c.code = (%rec.split('|')[2]), c.display = (%rec.split('|')[2]) "uicc";
+  it where (%rec.split('|')[0] = 'S' and (version.exists() and version.matches('^http://snomed[.]info/sct/[0-9]+(/version/[0-9]{8})?$')).not())
+     -> v.coding as c, c.system = 'http://snomed.info/sct', c.code = (%it.code.trim()),
+        c.display = ('Union for International Cancer Control ' & %rec.split('|')[1] & %rec.split('|')[2] & ' (qualifier value)') "snomed";
+  it where (%rec.split('|')[0] = 'S' and version.exists() and version.matches('^http://snomed[.]info/sct/[0-9]+(/version/[0-9]{8})?$'))
+     -> v.coding as c, c.system = 'http://snomed.info/sct', c.code = (%it.code.trim()), c.version = (%it.version),
+        c.display = ('Union for International Cancer Control ' & %rec.split('|')[1] & %rec.split('|')[2] & ' (qualifier value)') "snomed-version";
+  it where ((iif(%it.text.exists() and %it.text != '', %it.text, iif(%it.display.exists(), %it.display, '')).trim()) != '') -> v.text = ((iif(%it.text.exists() and %it.text != '', %it.text, iif(%it.display.exists(), %it.display, '')).trim())) "text";
+}
+
+// no UICC equivalent -> weitere-klassifikationen 'TNM' (value = the SNOMED coding if SNOMED-labelled + notation)
+group OncoTnmUnmatchedBody(source it, source ctx, target o : Observation) {
+  it -> o.meta as m, m.profile = 'https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-pr-onko-weitere-klassifikationen' "profile";
+  it -> o.status = 'final' "status";
+  it -> o.code as cc, cc.text = 'TNM' "code";
+  it -> o.subject as s then OncoRefPatient(ctx, s) "subject";
+  it where (%ctx.parameter.where(name = 'primary').exists()) -> o.focus as f then OncoRefPrimary(ctx, f) "focus";
+  it -> o.value = create('CodeableConcept') as v then OncoTnmUnmatchedValue(it, v) "value";
+}
+
+group OncoTnmUnmatchedValue(source it, target v : CodeableConcept) {
+  it where (system = 'http://snomed.info/sct' and (version.exists() and version.matches('^http://snomed[.]info/sct/[0-9]+(/version/[0-9]{8})?$')).not())
+     -> v.coding as c, c.system = 'http://snomed.info/sct', c.code = (%it.code) "snomed";
+  it where (system = 'http://snomed.info/sct' and version.exists() and version.matches('^http://snomed[.]info/sct/[0-9]+(/version/[0-9]{8})?$'))
+     -> v.coding as c, c.system = 'http://snomed.info/sct', c.code = (%it.code), c.version = (%it.version) "snomed-version";
+  it -> v.text = (iif((iif(%it.text.exists() and %it.text != '', %it.text, iif(%it.display.exists(), %it.display, '')).trim()) != '', (iif(%it.text.exists() and %it.text != '', %it.text, iif(%it.display.exists(), %it.display, '')).trim()), %it.code)) "text";
+}
+
+// ================================================================================================================
+// Behandlungsepisode (prior_procedures.ensure_episode)
+// ================================================================================================================
+
+group OncoEpisodeBody(source md, source ctx, target ci : ClinicalImpression) {
+  md -> ci.meta as m, m.profile = 'https://www.medizininformatik-initiative.de/fhir/ext/modul-mtb/StructureDefinition/mii-pr-mtb-behandlungsepisode' "profile";
+  md -> ci.status = 'completed' "status";
+  md -> ci.subject as s then OncoRefPatient(ctx, s) "subject";
+  // the model-project case, opened by the case conference that included the patient; fallback submission date
+  md -> ci.effective = create('Period') as p, p.start = (iif(%md.molecularBoardDecisionDate.exists() and %md.molecularBoardDecisionDate != '',
+        %md.molecularBoardDecisionDate, %md.submission.date)) "effective";
+  md -> ci.description = 'MV-GenomSeq Behandlungsepisode' "description";
+  md where (%ctx.parameter.where(name = 'primary').exists()) -> ci.problem as pr then OncoRefPrimary(ctx, pr) "problem";
+}
+
+// ================================================================================================================
+// case.priorProcedures[] (onco/prior_procedures.py): Procedure mii-pr-mtb-systemische-vortherapie, one
+// MedicationStatement per coded substance, therapy response -> mvgs-therapy-response; each Procedure -> episode
+// supportingInfo
+// ================================================================================================================
+
+group OncoPriorProcedures(source c, source ck, source ctx, target ep : ClinicalImpression, target bundle : Bundle) {
+  c.priorProcedures as pp -> bundle.entry as e, e.resource = create('Procedure') as proc, uuid() as fid,
+        ('prior_procedure:' & %c.priorProcedures.select(iif($this = %pp, $index, {})).first().toString()) as role,
+        ep.supportingInfo as si
+     then DkEntry(ck, role, fid, e, proc), DkReference(fid, si), OncoPriorProcBody(pp, ctx, proc),
+          OncoPriorProcMeds(pp, ck, role, fid, ctx, bundle), OncoPriorProcResponse(pp, ck, role, fid, ctx, bundle) "procedure";
+}
+
+group OncoPriorProcBody(source pp, source ctx, target proc : Procedure) {
+  pp -> proc.meta as m, m.profile = 'https://www.medizininformatik-initiative.de/fhir/ext/modul-mtb/StructureDefinition/mii-pr-mtb-systemische-vortherapie' "profile";
+  // Intention 1..1: K/P/S/X, anything else (or none) -> X 'fehlende Angabe'
+  pp.intention as i where (i = 'K' or i = 'P' or i = 'S' or i = 'X') -> proc.extension as ex,
+        ex.url = 'https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-ex-onko-systemische-therapie-intention',
+        ex.value = create('CodeableConcept') as v, v.coding as cd, cd.system = 'https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/CodeSystem/mii-cs-onko-intention',
+        cd.code = i, cd.display = (iif(%i = 'K', 'kurativ', iif(%i = 'P', 'palliativ', iif(%i = 'S', 'Sonstiges', 'fehlende Angabe')))) "intention";
+  pp where (intention.where($this = 'K' or $this = 'P' or $this = 'S' or $this = 'X').exists().not()) -> proc.extension as ex,
+        ex.url = 'https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-ex-onko-systemische-therapie-intention',
+        ex.value = create('CodeableConcept') as v, v.coding as cd, cd.system = 'https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/CodeSystem/mii-cs-onko-intention',
+        cd.code = 'X', cd.display = 'fehlende Angabe' "intention-missing";
+  pp.treatmentType as tt where (tt = 'O' or tt = 'A' or tt = 'N' or tt = 'I' or tt = 'S') -> proc.extension as ex,
+        ex.url = 'https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-ex-onko-systemische-therapie-stellungzurop',
+        ex.value = create('CodeableConcept') as v, v.coding as cd, cd.system = 'https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/CodeSystem/mii-cs-onko-therapie-stellungzurop',
+        cd.code = tt, cd.display = (iif(%tt = 'O', 'ohne Bezug zur operativen Therapie', iif(%tt = 'A', 'adjuvant', iif(%tt = 'N', 'neoadjuvant',
+        iif(%tt = 'I', 'intraoperativ', 'Sonstiges'))))) "stellung-zur-op";
+  pp -> proc.status = (iif(%pp.terminationReasonOBDS.where($this = 'A' or $this = 'P' or $this = 'S' or $this = 'V' or $this = 'T').exists(), 'stopped', iif(%pp.terminationReasonOBDS.where($this != '').exists() or %pp.therapyEndDate.where($this != '').exists(), 'completed', 'unknown'))) "status";
+  // oBDS Ende-Grund -> outcome (1:1) and statusReason:Therapiestatusgrund (inverse of mii-cm-mtb-therapiestatusgrund-obds)
+  pp.terminationReasonOBDS as r where (r = 'E' or r = 'R' or r = 'W' or r = 'A' or r = 'P' or r = 'S' or r = 'V' or r = 'T' or r = 'U')
+     -> proc.statusReason as sr, sr.coding as cd, cd.system = 'https://www.medizininformatik-initiative.de/fhir/ext/modul-mtb/CodeSystem/mii-cs-mtb-therapiestatusgrund',
+        cd.code = (iif(%r = 'E', 'regular-completion', iif(%r = 'R', 'regular-completion-with-dosage-reduction', iif(%r = 'W', 'regular-completion-with-substance-change',
+                   iif(%r = 'A', 'toxicity', iif(%r = 'P', 'progression', iif(%r = 'S', 'other', iif(%r = 'V', 'patient-refusal', iif(%r = 'T', 'patient-death', 'unknown'))))))))),
+        cd.display = (iif(%r = 'E', 'Reguläres Ende', iif(%r = 'R', 'Reguläres Ende mit Dosisreduktion', iif(%r = 'W', 'Reguläres Ende mit Substanzwechsel',
+                   iif(%r = 'A', 'Toxizität', iif(%r = 'P', 'Progression', iif(%r = 'S', 'Weitere Gründe', iif(%r = 'V', 'Therapie durch Patient abgelehnt', iif(%r = 'T', 'Tod', 'Unbekannt'))))))))),
+        sr.text = (iif(%r = 'E', 'reguläres Ende', iif(%r = 'R', 'reguläres Ende mit Dosisreduktion', iif(%r = 'W', 'reguläres Ende mit Substanzwechsel', iif(%r = 'A', 'Abbruch wegen Nebenwirkungen', iif(%r = 'P', 'Abbruch wegen Progress', iif(%r = 'S', 'Abbruch aus sonstigen Gründen', iif(%r = 'V', 'Patient verweigert weitere Therapie', iif(%r = 'T', 'Patient verstorben', 'unbekannt'))))))))),
+        proc.outcome as oc, oc.coding as oe, oe.system = 'https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/CodeSystem/mii-cs-onko-therapie-ende-grund',
+        oe.code = r, oe.display = (iif(%r = 'E', 'reguläres Ende', iif(%r = 'R', 'reguläres Ende mit Dosisreduktion', iif(%r = 'W', 'reguläres Ende mit Substanzwechsel', iif(%r = 'A', 'Abbruch wegen Nebenwirkungen', iif(%r = 'P', 'Abbruch wegen Progress', iif(%r = 'S', 'Abbruch aus sonstigen Gründen', iif(%r = 'V', 'Patient verweigert weitere Therapie', iif(%r = 'T', 'Patient verstorben', 'unbekannt'))))))))) "termination-reason";
+  pp -> proc.category as cat, cat.coding as cd, cd.system = 'http://snomed.info/sct', cd.code = '277132007', cd.display = 'Therapeutic procedure' "category";
+  pp -> proc.code as cc, cc.coding as cd, cd.system = 'http://snomed.info/sct', cd.code = '18629005', cd.display = 'Administration of drug or medicament',
+        cc.text = 'Systemische Vortherapie' "code";
+  pp -> proc.subject as s then OncoRefPatient(ctx, s) "subject";
+  pp -> proc.performed = create('Period') as per then OncoPriorPeriod(pp, per) "performed";
+  pp where (%ctx.parameter.where(name = 'primary').exists()) -> proc.reasonReference as r then OncoRefPrimary(ctx, r) "reason";
+  // substances with a name but no code cannot fill medication.coding 1..* -> note
+  pp.substances as sub where (code.code.where($this != '').exists().not() and name.where($this != '').exists())
+     -> proc.note as n, n.text = ('Substanz (ohne Code): ' & %sub.name) "substance-note";
+}
+
+group OncoPriorPeriod(source pp, target per : Period) {
+  pp.therapyStartDate as sd where (sd != '') -> per.start = sd "start";
+  pp.therapyEndDate as ed where (ed != '') -> per.end = ed "end";
+}
+
+group OncoPriorProcMeds(source pp, source ck, source prole, source pfid, source ctx, target bundle : Bundle) {
+  pp.substances as sub where (code.code.where($this != '').exists())
+     -> bundle.entry as e, e.resource = create('MedicationStatement') as ms, uuid() as fid,
+        (%prole & ':substance:' & %pp.substances.select(iif($this = %sub, $index, {})).first().toString()) as role
+     then DkEntry(ck, role, fid, e, ms), OncoPriorMedBody(pp, sub, pfid, ctx, ms) "substance";
+}
+
+group OncoPriorMedBody(source pp, source sub, source pfid, source ctx, target ms : MedicationStatement) {
+  sub -> ms.meta as m, m.profile = 'https://www.medizininformatik-initiative.de/fhir/ext/modul-mtb/StructureDefinition/mii-pr-mtb-systemtherapie-medication-statement' "profile";
+  sub -> ms.partOf as po then DkReference(pfid, po) "partOf";
+  sub -> ms.status = (iif(%pp.terminationReasonOBDS.where($this = 'A' or $this = 'P' or $this = 'S' or $this = 'V' or $this = 'T').exists(), 'stopped', iif(%pp.terminationReasonOBDS.where($this != '').exists() or %pp.therapyEndDate.where($this != '').exists(), 'completed', 'unknown'))) "status";
+  sub -> ms.medication = create('CodeableConcept') as mc then OncoPriorMedCode(sub, mc) "medication";
+  sub -> ms.subject as s then OncoRefPatient(ctx, s) "subject";
+  sub -> ms.effective = create('Period') as per then OncoPriorPeriod(pp, per) "effective";
+  sub where (%ctx.parameter.where(name = 'primary').exists()) -> ms.reasonReference as r then OncoRefPrimary(ctx, r) "reason";
+}
+
+group OncoPriorMedCode(source sub, target mc : CodeableConcept) {
+  sub.code as sc -> mc.coding as c then OncoPriorMedCoding(sc, c) "coding";
+  sub.name as n where (n != '') -> mc.text = n "text";
+}
+
+// ATC: German edition (BfArM; the WIdO URL is normalised) -> http://fhir.de/CodeSystem/bfarm/atc, WHO -> http://www.whocc.no/atc
+group OncoPriorMedCoding(source sc, target c : Coding) {
+  sc -> c.system = (iif(%sc.system.where($this != '').exists().not() or %sc.system = 'http://fhir.de/CodeSystem/bfarm/atc'
+          or %sc.system = 'https://www.wido.de/publikationen-produkte/analytik/arzneimittel-klassifikation/'
+          or %sc.system = 'https://www.wido.de/publikationen-produkte/analytik/arzneimittel-klassifikation',
+          'http://fhir.de/CodeSystem/bfarm/atc',
+          iif(%sc.system.replaceMatches('/+$', '') = 'http://www.whocc.no/atc', 'http://www.whocc.no/atc', %sc.system))) "system";
+  sc.code as cd -> c.code = cd "code";
+  sc.version as v where (v != '') -> c.version = v "version";
+  sc.display as dsp where (dsp != '') -> c.display = dsp "display";
+}
+
+group OncoPriorProcResponse(source pp, source ck, source prole, source pfid, source ctx, target bundle : Bundle) {
+  pp.therapyResponse as r where (r = 'CR' or r = 'PR' or r = 'SD' or r = 'PD')
+     -> bundle.entry as e, e.resource = create('Observation') as o, uuid() as fid, (%prole & ':response') as role
+     then DkEntry(ck, role, fid, e, o), OncoPriorRespBody(pp, r, pfid, ctx, o) "response";
+}
+
+// REPRESENTATIONS #14: local mvgs-therapy-response (mii-pr-mtb-response-befund needs method RECIST/RANO)
+group OncoPriorRespBody(source pp, source r, source pfid, source ctx, target o : Observation) {
+  r -> o.meta as m, m.profile = 'https://genomde.de/fhir/StructureDefinition/mvgs-therapy-response' "profile";
+  r -> o.status = 'final' "status";
+  r -> o.code as cc, cc.coding as c, c.system = 'http://snomed.info/sct', c.code = '396432002', c.display = 'Status of regression of tumor' "code";
+  r -> o.subject as s then OncoRefPatient(ctx, s) "subject";
+  r where (%ctx.parameter.where(name = 'primary').exists()) -> o.focus as f then OncoRefPrimary(ctx, f) "focus";
+  r -> o.partOf as po then DkReference(pfid, po) "partOf";
+  pp.therapyResponseDate as d where (d != '') -> o.effective = create('dateTime') as dt, dt.value = d "effective";
+  r -> o.value = create('CodeableConcept') as v, v.coding as c,
+        c.system = 'https://www.medizininformatik-initiative.de/fhir/ext/modul-mtb/CodeSystem/mii-cs-mtb-response-befund-beurteilung', c.code = r,
+        c.display = (iif(%r = 'CR', 'Complete Response', iif(%r = 'PR', 'Partial Response', iif(%r = 'SD', 'Stable Disease', 'Progressive Disease')))) "value";
+}
+
+// ================================================================================================================
+// case.priorDiagnostics[] (onco/prior_diagnostics.py): DiagnosticReport mii-pr-mtb-ngs-bericht per prior test,
+// genomic study + analysis (method-type via mvgs-cm-genomic-test-type-method-type), simple variants
+// mii-pr-mtb-einfache-variante; each report -> episode supportingInfo:Vorbefund.
+// type 'none' without findings -> nothing. The legacy single-object key case.priorDiagnostic (pre-KDK 1.6.5, a
+// logical-model extra) is one more entry with the key 'prior_diagnostic:legacy' (Python: only a non-empty object).
+// ================================================================================================================
+
+group OncoPriorDiagnostics(source c, source ck, source ctx, target ep : ClinicalImpression, target bundle : Bundle) {
+  c.priorDiagnostics as pd where (type.exists().not() or type != 'none' or simpleVariants.exists() or complexVariants.where($this != '').exists())
+     -> bundle.entry as e, e.resource = create('DiagnosticReport') as rep, uuid() as fid,
+        ('prior_diagnostic:' & %c.priorDiagnostics.select(iif($this = %pd, $index, {})).first().toString()) as role,
+        ep.supportingInfo as si
+     then DkEntry(ck, role, fid, e, rep), DkReference(fid, si), OncoPriorReportBody(pd, ctx, rep),
+          OncoPriorStudy(pd, ck, role, ctx, rep, bundle), OncoPriorVariants(pd, ck, role, ctx, rep, bundle) "report";
+  c.priorDiagnostic as pd where (children().exists() and (type.exists().not() or type != 'none' or simpleVariants.exists()
+        or complexVariants.where($this != '').exists()))
+     -> bundle.entry as e, e.resource = create('DiagnosticReport') as rep, uuid() as fid, ('prior_diagnostic:legacy') as role,
+        ep.supportingInfo as si
+     then DkEntry(ck, role, fid, e, rep), DkReference(fid, si), OncoPriorReportBody(pd, ctx, rep),
+          OncoPriorStudy(pd, ck, role, ctx, rep, bundle), OncoPriorVariants(pd, ck, role, ctx, rep, bundle) "report-legacy";
+}
+
+group OncoPriorReportBody(source pd, source ctx, target rep : DiagnosticReport) {
+  pd -> rep.meta as m, m.profile = 'https://www.medizininformatik-initiative.de/fhir/ext/modul-mtb/StructureDefinition/mii-pr-mtb-ngs-bericht' "profile";
+  pd -> rep.status = 'final' "status";
+  pd -> rep.category as cat, cat.coding as c, c.system = 'http://terminology.hl7.org/CodeSystem/v2-0074', c.code = 'GE', c.display = 'Genetics' "category";
+  pd -> rep.code as cc, cc.coding as c, c.system = 'http://loinc.org', c.code = '51969-4', c.display = 'Genetic analysis report' "code";
+  pd -> rep.subject as s then OncoRefPatient(ctx, s) "subject";
+  pd.date as d where (d != '') -> rep.effective = create('dateTime') as dt, dt.value = d "effective";
+  pd where (complexVariants.where($this != '').exists()) -> rep.conclusion = (%pd.complexVariants.where($this != '').join('\n')) "conclusion";
+}
+
+// genomic study (+ analysis) for a Datenkranz test type other than 'none'; the report links it (mii-ex-mtb-ngs-bericht-genomic-study)
+group OncoPriorStudy(source pd, source ck, source rrole, source ctx, target rep : DiagnosticReport, target bundle : Bundle) {
+  pd.type as t where (t = 'exome' or t = 'genomeShortRead' or t = 'genomeLongRead' or t = 'panel' or t = 'single' or t = 'array'
+        or t = 'karyotyping' or t = 'other')
+     -> bundle.entry as e, e.resource = create('Procedure') as st, uuid() as sfid, (%rrole & ':study') as role,
+        rep.extension as ex, ex.url = 'https://www.medizininformatik-initiative.de/fhir/ext/modul-mtb/StructureDefinition/mii-ex-mtb-ngs-bericht-genomic-study',
+        ex.value = create('Reference') as r, r.reference = ('urn:uuid:' & %sfid)
+     then DkEntry(ck, role, sfid, e, st), OncoPriorStudyBody(pd, t, ctx, st), OncoPriorAnalysis(pd, t, ck, rrole, ctx, st, bundle) "study";
+}
+
+group OncoPriorStudyBody(source pd, source t, source ctx, target st : Procedure) {
+  t -> st.meta as m, m.profile = 'https://www.medizininformatik-initiative.de/fhir/ext/modul-mtb/StructureDefinition/mii-pr-mtb-genomic-study' "profile";
+  t -> st.status = 'completed' "status";
+  t -> st.category as cat, cat.coding as c, c.system = 'http://terminology.hl7.org/CodeSystem/observation-category', c.code = 'laboratory' "category";
+  t -> st.code as cc, cc.coding as c, c.system = 'https://genomde.de/fhir/CodeSystem/mvgs-cs-genomic-test-type', c.code = t,
+        c.display = (iif(%t = 'exome', 'Exome sequencing', iif(%t = 'genomeShortRead', 'Genome sequencing, short read',
+                     iif(%t = 'genomeLongRead', 'Genome sequencing, long read', iif(%t = 'panel', 'Gene panel', iif(%t = 'single', 'Single-gene test',
+                     iif(%t = 'array', 'Array', iif(%t = 'karyotyping', 'Karyotyping', 'Other')))))))),
+        cc.text = 'Vorbefund: genetische Untersuchung' "code";
+  t -> st.subject as s then OncoRefPatient(ctx, s) "subject";
+  pd.date as d where (d != '') -> st.performed = create('dateTime') as dt, dt.value = d "performed";
+  t where (%ctx.parameter.where(name = 'primary').exists()) -> st.reasonReference as r then OncoRefPrimary(ctx, r) "reason";
+}
+
+group OncoPriorAnalysis(source pd, source t, source ck, source rrole, source ctx, target st : Procedure, target bundle : Bundle) {
+  t -> bundle.entry as e, e.resource = create('Procedure') as an, uuid() as afid, (%rrole & ':analysis') as role,
+        st.extension as ex, ex.url = 'http://hl7.org/fhir/uv/genomics-reporting/StructureDefinition/genomic-study-analysis-ext',
+        ex.value = create('Reference') as r, r.reference = ('urn:uuid:' & %afid)
+     then DkEntry(ck, role, afid, e, an), OncoPriorAnalysisBody(pd, t, ctx, an) "analysis";
+}
+
+// method-type from mvgs-cm-genomic-test-type-method-type ('single' has no method concept: no extension)
+group OncoPriorAnalysisBody(source pd, source t, source ctx, target an : Procedure) {
+  t -> an.meta as m, m.profile = 'https://www.medizininformatik-initiative.de/fhir/ext/modul-mtb/StructureDefinition/mii-pr-mtb-genomic-study-analysis' "profile";
+  t where (t != 'single') -> an.extension as ex, ex.url = 'http://hl7.org/fhir/uv/genomics-reporting/StructureDefinition/genomic-study-analysis-method-type',
+        ex.value = create('CodeableConcept') as v, v.coding as c,
+        c.system = translate(t, 'https://genomde.de/fhir/ConceptMap/mvgs-cm-genomic-test-type-method-type', 'system'),
+        c.code = translate(t, 'https://genomde.de/fhir/ConceptMap/mvgs-cm-genomic-test-type-method-type', 'code'),
+        c.display = translate(t, 'https://genomde.de/fhir/ConceptMap/mvgs-cm-genomic-test-type-method-type', 'display') "method-type";
+  t -> an.status = 'completed' "status";
+  t -> an.category as cat, cat.coding as c, c.system = 'http://terminology.hl7.org/CodeSystem/observation-category', c.code = 'laboratory' "category";
+  t -> an.subject as s then OncoRefPatient(ctx, s) "subject";
+  pd.date as d where (d != '') -> an.performed = create('dateTime') as dt, dt.value = d "performed";
+}
+
+group OncoPriorVariants(source pd, source ck, source rrole, source ctx, target rep : DiagnosticReport, target bundle : Bundle) {
+  pd.simpleVariants as sv -> bundle.entry as e, e.resource = create('Observation') as o, uuid() as vfid,
+        (%rrole & ':variant:' & %pd.simpleVariants.select(iif($this = %sv, $index, {})).first().toString()) as role,
+        (iif(%sv.transcript.code.matches('^((N[MR]_|X[MR]_)[0-9]+([.][0-9]+)?|ENST[0-9]+([.][0-9]+)?)$'), iif(%sv.transcript.code.contains('.').not() and %sv.transcript.version.matches('^[0-9]+$') and %sv.transcript.code.matches('^[NX].*$'), %sv.transcript.code & '.' & %sv.transcript.version, %sv.transcript.code), '-')) as acc, rep.result as rr
+     then DkEntry(ck, role, vfid, e, o), DkReference(vfid, rr), OncoPriorVariantBody(pd, sv, acc, ctx, o) "variant";
+}
+
+// Same representation as the current findings (molecular_variants helpers); acc = versioned transcript accession or '-'
+group OncoPriorVariantBody(source pd, source sv, source acc, source ctx, target o : Observation) {
+  sv -> o.meta as m, m.profile = 'https://www.medizininformatik-initiative.de/fhir/ext/modul-mtb/StructureDefinition/mii-pr-mtb-einfache-variante' "profile";
+  sv -> o.status = 'final' "status";
+  sv -> o.category as cat, cat.coding as c, c.system = 'http://terminology.hl7.org/CodeSystem/observation-category', c.code = 'laboratory' "category-lab";
+  sv -> o.category as cat, cat.coding as c, c.system = 'http://terminology.hl7.org/CodeSystem/v2-0074', c.code = 'GE', c.display = 'Genetics' "category-ge";
+  sv -> o.code as cc, cc.coding as c, c.system = 'http://loinc.org', c.code = '69548-6', c.display = 'Genetic variant assessment' "code";
+  sv -> o.subject as s then OncoRefPatient(ctx, s) "subject";
+  sv where (%ctx.parameter.where(name = 'primary').exists()) -> o.focus as f then OncoRefPrimary(ctx, f) "focus";
+  pd.date as d where (d != '') -> o.effective = create('dateTime') as dt, dt.value = d "effective";
+  sv -> o.value = create('CodeableConcept') as v, v.coding as c, c.system = 'http://loinc.org', c.code = 'LA9633-4', c.display = 'Present' "value";
+  // gene-studied: HGNC (terminology lock http://www.genenames.org); a gene with only a display -> text
+  sv.gene as g where (code.exists() and code != '') -> o.component as comp, comp.code as cc, cc.coding as c, c.system = 'http://loinc.org',
+        c.code = '48018-6', c.display = 'Gene studied [ID]', comp.value = create('CodeableConcept') as v, v.coding as gc then OncoHgncCoding(g, gc) "gene";
+  sv.gene as g where (code.where($this != '').exists().not() and display.where($this != '').exists()) -> o.component as comp, comp.code as cc,
+        cc.coding as c, c.system = 'http://loinc.org', c.code = '48018-6', c.display = 'Gene studied [ID]',
+        comp.value = create('CodeableConcept') as v, v.text = (%g.display) "gene-text";
+  // HGVS qualified with the versioned transcript accession (c./n.: 'acc:raw', p.: 'acc(GENE):raw'), KDK string as text
+  sv.dnaChange as dc where (dc.trim() != '') -> (%dc.trim()) as raw, (iif(%raw.contains(':') or %acc = '-' or %raw.matches('^[cnp][.].*$').not(), %raw, iif(%raw.startsWith('c.') and %acc.matches('^(NM_|XM_|ENST).*$'), %acc & ':' & %raw, iif(%raw.startsWith('n.') and %acc.matches('^(NR_|XR_|ENST).*$'), %acc & ':' & %raw, iif(%raw.startsWith('p.') and %acc.matches('^(NM_|XM_).*$') and '' != '', %acc & '(' & '' & '):' & %raw, %raw))))) as hx,
+        o.component as comp, comp.code as cc, cc.coding as c, c.system = 'http://loinc.org', c.code = '48004-6', c.display = 'DNA change (c.HGVS)',
+        comp.value = create('CodeableConcept') as v, v.coding as hc, hc.system = 'http://varnomen.hgvs.org', hc.code = hx
+     then OncoHgvsText(raw, hx, v) "dna-change";
+  sv.proteinChange as pc where (pc.trim() != '') -> (%pc.trim()) as raw,
+        (iif(%raw.contains(':') or %acc = '-' or %raw.matches('^[cnp][.].*$').not(), %raw, iif(%raw.startsWith('c.') and %acc.matches('^(NM_|XM_|ENST).*$'), %acc & ':' & %raw, iif(%raw.startsWith('n.') and %acc.matches('^(NR_|XR_|ENST).*$'), %acc & ':' & %raw, iif(%raw.startsWith('p.') and %acc.matches('^(NM_|XM_).*$') and iif(%sv.gene.display.exists(), %sv.gene.display, '') != '', %acc & '(' & iif(%sv.gene.display.exists(), %sv.gene.display, '') & '):' & %raw, %raw))))) as hx,
+        o.component as comp, comp.code as cc, cc.coding as c, c.system = 'http://loinc.org', c.code = '48005-3', c.display = 'Amino acid change (pHGVS)',
+        comp.value = create('CodeableConcept') as v, v.coding as hc, hc.system = 'http://varnomen.hgvs.org', hc.code = hx
+     then OncoHgvsText(raw, hx, v) "protein-change";
+  sv.transcript as t where (code.exists() and code != '') -> o.component as comp, comp.code as cc, cc.coding as c, c.system = 'http://loinc.org',
+        c.code = '51958-7', c.display = 'Transcript reference sequence [ID]', comp.value = create('CodeableConcept') as v, v.coding as tc
+     then OncoTranscriptCoding(t, tc) "transcript";
+  sv where (variantTypes.where(code.exists() and code != '').exists()) -> o.component as comp, comp.code as cc, cc.coding as c,
+        c.system = 'http://loinc.org', c.code = '48019-4', c.display = 'DNA change type', comp.value = create('CodeableConcept') as v
+     then OncoVariantTypes(sv, v) "variant-types";
+}
+
+group OncoHgvsText(source raw, source hx, target v : CodeableConcept) {
+  raw where (%raw != %hx) -> v.text = raw "text";
+}
+
+group OncoHgncCoding(source g, target c : Coding) {
+  g -> c.system = (iif(%g.system.where($this != '').exists().not() or %g.system.contains('genenames') or %g.code.upper().startsWith('HGNC:'),
+        'http://www.genenames.org', %g.system)) "system";
+  g.code as cd -> c.code = cd "code";
+  g.display as dsp where (dsp != '') -> c.display = dsp "display";
+  g.version as v where (v != '') -> c.version = v "version";
+}
+
+// Ensembl / RefSeq system by accession prefix, else by the source system label
+group OncoTranscriptCoding(source t, target c : Coding) {
+  t where (code.upper().matches('^(ENST|ENSG|ENSP|NM_|NR_|XM_|XR_|NG_|NC_|NT_|NW_|NP_|XP_).*$') or system.exists())
+     -> c.system = (iif(%t.code.upper().matches('^(ENST|ENSG|ENSP).*$'), 'http://www.ensembl.org',
+                    iif(%t.code.upper().matches('^(NM_|NR_|XM_|XR_|NG_|NC_|NT_|NW_|NP_|XP_).*$'), 'http://www.ncbi.nlm.nih.gov/refseq',
+                    iif(%t.system.lower().contains('ensembl'), 'http://www.ensembl.org',
+                    iif(%t.system.lower().contains('ncbi') or %t.system.lower().contains('refseq'), 'http://www.ncbi.nlm.nih.gov/refseq', %t.system))))) "system";
+  t.code as cd -> c.code = cd "code";
+  t.display as dsp where (dsp != '') -> c.display = dsp "display";
+  t.version as v where (v != '') -> c.version = v "version";
+}
+
+group OncoVariantTypes(source sv, target v : CodeableConcept) {
+  sv.variantTypes as vt where (code.exists() and code != '') -> v.coding as c then OncoSoCoding(vt, c) "coding";
+}
+
+group OncoSoCoding(source vt, target c : Coding) {
+  vt -> c.system = (iif(%vt.system.where($this != '').exists().not() or %vt.system.contains('sequenceontology') or %vt.code.upper().startsWith('SO:'),
+        'http://www.sequenceontology.org', %vt.system)) "system";
+  vt.code as cd -> c.code = cd "code";
+  vt.display as dsp where (dsp != '') -> c.display = dsp "display";
+  vt.version as v where (v != '') -> c.version = v "version";
+}

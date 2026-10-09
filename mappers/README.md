@@ -1,72 +1,93 @@
 # genomDE Datenkranz → MII KDS FHIR — mappers
 
-Two implementations of the FHIR mapping table (`mapping/mapping_kdk_oncology.csv`),
-both covering the **high-confidence MAPPED oncology spine** first and structured to
-extend group-by-group. The mapping table is authoritative; both mappers implement it.
+Two implementations turn a genomDE / MV-GenomSeq Datenkranz JSON file (BfArM KDK oncology, KDK rare disease, GRZ)
+into a FHIR R4 **transaction Bundle** for the **MII KDS 2027.0.0 ballot** profiles. The mapping table
+(`mapping/*.csv`) is authoritative, and both implementations follow it. Plan: `docs/PLAN-2027.md`.
 
-## (a) Python — `python/genomde_to_fhir.py`
-Emits a FHIR R4 **transaction Bundle** from a Datenkranz oncology JSON, using the
-`fhir.resources` library (R4B models = R4; construction is validated).
+| | Implementation | Where | Status |
+|:--|:--|:--|:--|
+| (a) | Python package `genomde2fhir`, the **reference implementation** | `genomde2fhir/` (`builders/**`, `docs/REPRESENTATIONS.md`, `docs/IDENTITY.md`) | all three branches |
+| (b) | FML StructureMaps that matchbox runs with `$transform` | `mappers/fml/` (details: [`fml/README.md`](fml/README.md)) | all three branches, parity with (a) |
+| | superseded 2026 prototypes | `python/genomde_to_fhir.py` (oncology spine), `fml/legacy/` | kept for reference only |
+
+## (a) Python: `genomde2fhir`
 
 ```bash
-pip install -r python/requirements.txt
-python3 python/genomde_to_fhir.py example-data/oncology/<file>.json -o bundle.json
-python3 python/genomde_to_fhir.py --demo            # runs on the first example file
+. genomde2fhir/.venv/bin/activate
+genomde2fhir convert submission.json -o out/ [--validate <matchbox> --ingest <hapi>]
 ```
 
-Covers: Patient (PatientPseudonymisiert), Coverage, Consent (mvConsent → provisions),
-primary Condition (mii-pr-mtb-diagnose-primaertumor: ICD-10-GM + ICD-O-3 morphology
-extension + topography bodySite), additional Conditions, ECOG Observation, prior
-systemic therapy (Procedure + MedicationStatement), follow-up ECOG + vital status.
-Cross-resource refs use `urn:uuid:` (deterministic uuid5). `meta.profile` set per row.
+See `genomde2fhir/README.md`.
 
-Extend: add a builder per resource group; the `cc()` helper turns a source coding
-`{code,system,version,display}` into a CodeableConcept. TODO hooks marked inline for
-TNM, grading, MTB molecular variants, biomarkers, care-plan recommendations (these are
-the table's DRAFT/open-issue rows).
+## (b) FML: `mappers/fml/`
 
-Validate the output against the MII profiles (needs the packages loaded):
+| Map (`https://genomde.de/fhir/StructureMap/…`) | Role |
+|:--|:--|
+| `DatenkranzCommon` | shared `Dk*` groups: entry envelope and resource key, datatypes, KDK Patient, Coverage, MV consent, migration of the embedded MII Broad Consent, indication board |
+| `DatenkranzOncologyToMii` | oncology main map (imports Common, `OncoMolecular`, `OncoPlanFollowUp`) |
+| `OncoMolecular` | oncology molecular block: NGS report, variants, CNV, fusions, biomarkers, expression, signatures |
+| `OncoPlanFollowUp` | oncology therapy plan, recommendations, studies, follow-up, `Patient.deceased[x]` |
+| `DatenkranzRareDiseaseToMii` | rare-disease main map (imports Common) |
+| `DatenkranzGrzToMii` | GRZ main map (imports Common): donors, family history, organisations, lab data, devices, study |
+
+Sources are the logical models `https://genomde.de/fhir/StructureDefinition/Datenkranz{Oncology,RareDisease,Grz}`,
+generated from the BfArM schemas by `scripts/schema_to_logical.py`. matchbox drops every input property a model does
+not declare, so the models also declare, as marked extras, the non-schema properties the Python converter reads: the
+embedded MII Broad Consent under `researchConsents[].scope`, the pre-1.6.5 keys `case.priorDiagnostic`,
+`case.priorRd` and `plan.*.variantReferences`, `germlineDiagnoses[].date` and the RD `genes[].display`. They ship in the local package `de.genomde.mvgs`
+(`mvgs-ig/`) together with the profiles, CodeSystems and ConceptMaps that the maps use.
+
+Every resource is one entry with a `urn:uuid` fullUrl and a conditional `PUT <Type>?identifier=https://genomde.de/fhir/sid/resource-key|<key>`.
+The key is the base64url form of `<stream>:<submitterId>:<caseKey>:<role>`. Loading the same case again therefore
+updates the existing resources and creates no new ones. Unlike the Python path, the FML maps emit no Provenance and set
+no resource ids. A Python ingest and an FML ingest of the same case into one server give two separate sets of
+resources.
+
+### Loading recipe
+
+On the first start of a matchbox, and after every map or package change, load the package resources and the maps.
+Imported maps go first, and every map is pushed each time:
+
 ```bash
-# HL7 validator
-java -jar validator_cli.jar bundle.json -version 4.0 \
-  -ig de.medizininformatikinitiative.kerndatensatz.mtb#2026.0.0 \
-  -ig de.medizininformatikinitiative.kerndatensatz.person -tx https://tx.fhir.org/r4
-# or matchbox $validate (see fhir-validate skill)
+. genomde2fhir/.venv/bin/activate
+python scripts/build_mvgs.py --install http://localhost:8091/matchboxv3/fhir --maps
 ```
 
-## (b) FML / StructureMap — `fml/` (for HAPI / Matchbox `$transform`)
-Server-side structural mapping: a source **LogicalModel** + a **StructureMap** that a
-HAPI/Matchbox server runs to turn Datenkranz JSON into a Bundle.
+Then load one Datenkranz file into HAPI with one command:
 
-- `fml/DatenkranzOncology.logical.json` — logical model declaring the source paths
-  (required so the engine resolves them — fml-edit-safe **Q6**). Extend `element[]` as
-  you extend the map.
-- `fml/genomde-oncology-to-mii.map` — the StructureMap (FML). Covers Patient + primary
-  Condition as the runnable, **matchbox-trap-safe** pattern (single-step sources via
-  sub-groups, no `where !=`, bind-once, no literal-string sources).
-
-Pre-flight + load + transform (Matchbox):
 ```bash
-# 1. trap check (no Java needed)
-bash ~/.claude/skills/fml-edit-safe/scripts/check-fml.sh fml/genomde-oncology-to-mii.map
-# 2. load the logical model + the map
-curl -sS -X POST -H "Content-Type: application/fhir+json" \
-  --data-binary @fml/DatenkranzOncology.logical.json  $MATCHBOX/StructureDefinition
-curl -sS -X POST -H "Content-Type: text/fhir-mapping" \
-  --data-binary @fml/genomde-oncology-to-mii.map       $MATCHBOX/StructureMap
-# 3. transform a Datenkranz file (must be tagged with the logical-model profile, or
-#    posted as the logical resource) — see Matchbox docs / fhir-validate skill
-curl -sS -X POST -H "Content-Type: application/fhir+json" --data-binary @datenkranz.json \
-  "$MATCHBOX/StructureMap/\$transform?source=https://www.medizininformatik-initiative.de/fhir/StructureMap/GenomDeOncologyToMii"
+scripts/load_datenkranz.sh <datenkranz.json> [matchbox-base] [hapi-base]
+# defaults: http://localhost:8091/matchboxv3/fhir  http://localhost:8092/fhir
+# OUT=bundle.json keeps the Bundle; DRY_RUN=1 transforms only and prints the Bundle
 ```
 
-> Status: the FML passes the fml-edit-safe static checker (PUSH-SAFE) but has **not** been
-> round-tripped on a live Matchbox here. Before relying on it, push to Matchbox and confirm
-> it returns a `Bundle` (not an `OperationOutcome`), and extend the logical model for any
-> new source path (Q6). The prior pipeline's `maps/` (knowledge/genomde-mapping) is a
-> reference for the full-coverage FML.
+The script does three things:
 
-## Scope note
-Both mappers do **oncology** first (richest, most MAPPED branch). Rare-disease and GRZ are
-added the same way (new entry point / new groups + logical model), and molecular/recommendation
-coverage tracks the open issues in `docs/OPEN-ISSUES.md`.
+1. It picks the main map from the file's branch, using the same rules as `genomde2fhir.io.classify`.
+2. It POSTs the raw file to `{matchbox}/StructureMap/$transform?source=<map url>` with `Content-Type: application/fhir+json`.
+3. It POSTs the returned transaction Bundle to HAPI and prints the counts of the response statuses, for example
+   `48x 201` on the first load and `48x 200` on a repeated load.
+
+It exits 1 if the transform or the transaction fails, and 2 for an input that is not a Datenkranz file. It needs
+`curl` and `jq`. Unlike `genomde2fhir convert`, the script does not schema-validate its input. Check files with
+`genomde-dk-validator` (or `genomde2fhir convert`) first.
+
+### Tests
+
+These tests are skipped unless `MB2027` is set to the matchbox-2027 base URL. `HAPI2027` defaults to
+`http://localhost:8092/fhir`.
+
+- `genomde2fhir/tests/test_fml_integration.py` pushes all production maps. It runs one file per branch and checks:
+  - a Bundle comes back;
+  - there is no content error that the Python output of the same file does not have;
+  - graph-aware parity with the Python converter is exact on the *declared shape* of the file, which is the input
+    restricted to what the logical model declares (see `fml/README.md`, "Parity with the Python converter");
+  - parity is exact on the raw file;
+  - a double ingest into HAPI succeeds, and the second ingest gives only 200 and no new resources.
+
+  Wide run: `MB2027=… python genomde2fhir/tests/test_fml_integration.py --n 20 --ingest 5`, where `--n -1` means the
+  whole corpus and `--no-validate` gives a fast run of transform, parity and ingest only.
+- Per-stage tests cover more edge cases: `test_fml_common.py`, `test_fml_onco_spine.py`,
+  `test_fml_onco_molecular.py`, `test_fml_onco_plan_followup.py`, `test_fml_rd.py` and `test_fml_grz.py`.
+- Corpus report: `python scripts/run_corpus.py --sample 20 --fml` writes `docs/E2E-REPORT-2027.md`. Its "FML parity"
+  row compares the raw files with its own canonical form (see `fml/README.md`, "Parity with the Python converter").

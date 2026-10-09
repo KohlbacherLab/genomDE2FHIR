@@ -1,0 +1,17 @@
+/// url = 'https://genomde.de/fhir/StructureMap/EngineImportCollision'
+/// name = 'EngineImportCollision'
+/// title = 'Engine probe: local group with the same name as a group of an imported map'
+/// status = 'draft'
+
+uses "https://genomde.de/fhir/StructureDefinition/DatenkranzOncology" alias Datenkranz as source
+uses "http://hl7.org/fhir/StructureDefinition/Patient" alias Patient as target
+
+imports "https://genomde.de/fhir/StructureMap/EngineImportLib"
+
+group main(source src : Datenkranz, target pat : Patient) {
+  src.metaData as md then LibPatient(md, pat) "same-name";
+}
+
+group LibPatient(source md, target pat : Patient) {
+  md.tanC as t -> pat.identifier as id, id.system = 'urn:probe:local-wins', id.value = t "local";
+}

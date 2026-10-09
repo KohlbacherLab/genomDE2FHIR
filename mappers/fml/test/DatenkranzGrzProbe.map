@@ -1,0 +1,22 @@
+/// url = 'https://genomde.de/fhir/StructureMap/DatenkranzGrzProbe'
+/// name = 'DatenkranzGrzProbe'
+/// title = 'Probe map: DatenkranzGrz logical model as FML source'
+/// status = 'draft'
+
+// Smoke test for the generated logical model (scripts/schema_to_logical.py), not a production map.
+
+uses "https://genomde.de/fhir/StructureDefinition/DatenkranzGrz" alias Datenkranz as source
+uses "http://hl7.org/fhir/StructureDefinition/Patient" alias Patient as target
+
+group main(source src : Datenkranz, target pat : Patient) {
+  src.submission as sub then Submission(sub, pat) "submission";
+  src.donors as d then Donor(d, pat) "donors";
+}
+
+group Submission(source sub, target pat : Patient) {
+  sub.tanG as t -> pat.identifier as id, id.system = 'https://genomde.de/fhir/sid/probe-tang', id.value = t "tang";
+}
+
+group Donor(source d, target pat : Patient) {
+  d.donorPseudonym as p -> pat.identifier as id, id.system = 'https://genomde.de/fhir/sid/probe-donor', id.value = p "donor";
+}

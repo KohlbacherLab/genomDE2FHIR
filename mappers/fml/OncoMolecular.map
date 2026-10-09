@@ -1,0 +1,584 @@
+/// url = 'https://genomde.de/fhir/StructureMap/OncoMolecular'
+/// name = 'OncoMolecular'
+/// title = 'genomDE oncology Datenkranz to MII KDS 2027: molecular block (sub-map of DatenkranzOncologyToMii)'
+/// status = 'draft'
+
+// Molecular block of the oncology map (deliverable b, docs/PLAN-2027.md section 6). Reference implementation (same
+// resources, profiles, codings, links): genomde2fhir/src/genomde2fhir/builders/onco/molecular_{variants,cnv,fusions,
+// biomarkers,expression,signatures,report}.py. Conventions and engine behaviour: mappers/fml/README.md.
+//
+// Entry groups (signatures fixed, called by DatenkranzOncologyToMii):
+//   OncoMolecular(source mol, target bundle : Bundle, source ctx)       mol = Datenkranz.molecular
+//   OncoMolEpisodeLink(source mol, source ctx, target ep : ClinicalImpression)
+// Exported for the plan map (OncoPlanFollowUp imports this map):
+//   OncoMolFindingRef(source vid, source ctx, target bundle : Bundle, target ref : Reference)
+//
+// Output (Python builder):
+//   DiagnosticReport mii-pr-mtb-ngs-bericht 'ngs-report' (molecular_report) with entry uuid ctx 'ngsReport'; it exists
+//   exactly when the block yields at least one finding (OncoMolHasResults predicate below). Every finding is created
+//   from the report rule, so that it can be listed in rep.result (Q4); order = Python pipeline order.
+//   smallVariants[]       -> mii-pr-mtb-einfache-variante 'small-variant:<k>' (+ molekulare-konsequenz '<role>:consequence')
+//   copyNumberVariants[]  -> mii-pr-mtb-copy-number-variant 'cnv:<k>' (+ consequence)
+//   structuralVariants[]  -> mii-pr-mtb-dna-fusion / mii-pr-mtb-rna-fusion 'sv:<k>' (+ consequence)
+//   complexBiomarkers[]   -> mii-pr-mtb-mutationslast / -hrd-score / -ploidie 'complex-biomarker:<k>:tmb|hrd|ploidy'
+//   expressionVariants[]  -> mii-pr-mtb-rna-seq 'expression:<k>'
+//   sbsSignatures[]       -> mii-pr-mtb-molekularer-biomarker 'sbs:<k>:<SBSn | #j>' (one per name)
+//   <k> = the KDK identifier, or '<identifier>#<index>' when it is missing or repeated in the array (Python unique_key).
+//
+// Variant references for the plan map (Python ctx.ids[('variant', <KDK id>)]): FML has no shared registry, but the
+// target Bundle is readable from FHIRPath in any group that has it as a target (%bundle sees every entry created so far).
+// Each finding carries identifier molecular-finding-id '<submitterId>|<caseId>|<KDK id>' (consequences carry none), and
+// the entries are created in Python order, so the FIRST entry with that identifier is the resource Python registers.
+// OncoMolFindingRef resolves it to the entry's fullUrl ('urn:uuid:..'); callers guard with OncoMolFindingRef's predicate:
+//   rec.variants as vid where (%bundle.entry.where(resource.identifier.where(system = 'https://genomde.de/fhir/sid/molecular-finding-id'
+//         and value = (%ctx.parameter.where(name = 'submitterId').value & '|' & %ctx.parameter.where(name = 'caseId').value & '|' & %vid)).exists()).exists())
+//      -> sr.reasonReference as r then OncoMolFindingRef(vid, ctx, bundle, r) "variant";
+// This requires OncoMolecular to run before the plan map (OncoCase calls it first).
+//
+// Engine notes (matchbox 4.1.21, checked for this map): translate() of a code whose ConceptMap element has only an
+// 'unmatched' target throws 'found no translation' (cnv-type-dnpm 'gain' is guarded); toInteger().toString() keeps
+// leading zeros (SBS normalisation strips them by regex); integer / decimal / boolean / string sources assign directly to
+// Quantity.value, Range.low.value, component.value[x] (valueBoolean / valueString).
+
+uses "http://hl7.org/fhir/StructureDefinition/Bundle" alias Bundle as target
+uses "http://hl7.org/fhir/StructureDefinition/Observation" alias Observation as target
+uses "http://hl7.org/fhir/StructureDefinition/DiagnosticReport" alias DiagnosticReport as target
+uses "http://hl7.org/fhir/StructureDefinition/ClinicalImpression" alias ClinicalImpression as target
+uses "http://hl7.org/fhir/StructureDefinition/Coding" alias Coding as target
+uses "http://hl7.org/fhir/StructureDefinition/CodeableConcept" alias CodeableConcept as target
+uses "http://hl7.org/fhir/StructureDefinition/Reference" alias Reference as target
+uses "http://hl7.org/fhir/StructureDefinition/Range" alias Range as target
+
+imports "https://genomde.de/fhir/StructureMap/DatenkranzCommon"
+
+// ================================================================================================================
+// Entry groups
+// ================================================================================================================
+
+// The predicate 'the block yields at least one finding' appears twice (report and episode link) and must stay identical:
+//   smallVariants / copyNumberVariants / structuralVariants / expressionVariants: every item yields a resource;
+//   complexBiomarkers: an item with tmb, ploidy, hrdHigh, lstHigh or taiHigh; sbsSignatures: an item with a non-blank name.
+group OncoMolecular(source mol, target bundle : Bundle, source ctx) {
+  mol where (smallVariants.exists() or copyNumberVariants.exists() or structuralVariants.exists() or expressionVariants.exists()
+        or complexBiomarkers.where(tmb.exists() or ploidy.exists() or hrdHigh.exists() or lstHigh.exists() or taiHigh.exists()).exists()
+        or sbsSignatures.where(name.where($this.trim() != '').exists()).exists())
+     -> bundle.entry as e, e.resource = create('DiagnosticReport') as rep, ('ngs-report') as role,
+        (%ctx.parameter.where(name = 'ngsReport').value) as fid, (%ctx.parameter.where(name = 'ck').value) as ck
+     then DkEntry(ck, role, fid, e, rep), OncoMolReportBody(mol, ctx, rep),
+          OncoMolSmallVariants(mol, ck, ctx, rep, bundle), OncoMolCnvs(mol, ck, ctx, rep, bundle),
+          OncoMolFusions(mol, ck, ctx, rep, bundle), OncoMolBiomarkers(mol, ck, ctx, rep, bundle),
+          OncoMolExpression(mol, ck, ctx, rep, bundle), OncoMolSignatures(mol, ck, ctx, rep, bundle) "ngs-report";
+}
+
+// molecular_report.link_episode: investigation:NgsBericht -> the current NGS report
+group OncoMolEpisodeLink(source mol, source ctx, target ep : ClinicalImpression) {
+  mol where (smallVariants.exists() or copyNumberVariants.exists() or structuralVariants.exists() or expressionVariants.exists()
+        or complexBiomarkers.where(tmb.exists() or ploidy.exists() or hrdHigh.exists() or lstHigh.exists() or taiHigh.exists()).exists()
+        or sbsSignatures.where(name.where($this.trim() != '').exists()).exists())
+     -> ep.investigation as inv, inv.code as cc, cc.coding as c, c.system = 'http://snomed.info/sct', c.code = '106221001',
+        c.display = 'Genetic finding', inv.item as it, it.reference = ('urn:uuid:' & %ctx.parameter.where(name = 'ngsReport').value) "investigation";
+}
+
+// Reference to the molecular finding a KDK identifier names (Python ctx.ids[('variant', id)]; first one wins). The caller
+// guards with the same lookup (see the header); without a match no rule fires and the reference stays empty (dropped).
+group OncoMolFindingRef(source vid, source ctx, target bundle : Bundle, target ref : Reference) {
+  vid where (%bundle.entry.where(resource.identifier.where(system = 'https://genomde.de/fhir/sid/molecular-finding-id'
+        and value = (%ctx.parameter.where(name = 'submitterId').value & '|' & %ctx.parameter.where(name = 'caseId').value & '|' & %vid)).exists()).exists())
+     -> ref.reference = (%bundle.entry.where(resource.identifier.where(system = 'https://genomde.de/fhir/sid/molecular-finding-id'
+        and value = (%ctx.parameter.where(name = 'submitterId').value & '|' & %ctx.parameter.where(name = 'caseId').value & '|' & %vid)).exists()).first().fullUrl) "finding";
+}
+
+// ================================================================================================================
+// Shared pieces
+// ================================================================================================================
+
+group OncoMolRefPatient(source ctx, target ref : Reference) {
+  ctx -> ref.reference = ('urn:uuid:' & %ctx.parameter.where(name = 'patient').value) "patient";
+}
+
+group OncoMolRefPrimary(source ctx, target ref : Reference) {
+  ctx where (parameter.where(name = 'primary').exists()) -> ref.reference = ('urn:uuid:' & %ctx.parameter.where(name = 'primary').value) "primary";
+}
+
+// molecular-finding-id '<submitterId>|<caseId>|<KDK identifier>' (common.scoped_id; none without an identifier)
+group OncoMolFindingId(source item, source ctx, target o : Observation) {
+  item.identifier as i where (i != '') -> o.identifier as id, id.system = 'https://genomde.de/fhir/sid/molecular-finding-id',
+        id.value = (%ctx.parameter.where(name = 'submitterId').value & '|' & %ctx.parameter.where(name = 'caseId').value & '|' & %i) "identifier";
+}
+
+// subject -> Patient, focus -> primary tumour (when emitted)
+group OncoMolSubjectFocus(source item, source ctx, target o : Observation) {
+  item -> o.subject as s then OncoMolRefPatient(ctx, s) "subject";
+  item where (%ctx.parameter.where(name = 'primary').exists()) -> o.focus as f then OncoMolRefPrimary(ctx, f) "focus";
+}
+
+// molecular_cnv.variant_skeleton (also small variants): identifier, final, laboratory + GE, 69548-6, subject, focus, Present
+group OncoMolVariantHeader(source item, source ctx, target o : Observation) {
+  item then OncoMolFindingId(item, ctx, o) "identifier";
+  item -> o.status = 'final' "status";
+  item -> o.category as cat, cat.coding as c, c.system = 'http://terminology.hl7.org/CodeSystem/observation-category', c.code = 'laboratory' "category-lab";
+  item -> o.category as cat, cat.coding as c, c.system = 'http://terminology.hl7.org/CodeSystem/v2-0074', c.code = 'GE' "category-ge";
+  item -> o.code as cc, cc.coding as c, c.system = 'http://loinc.org', c.code = '69548-6', c.display = 'Genetic variant assessment' "code";
+  item then OncoMolSubjectFocus(item, ctx, o) "subject-focus";
+  item -> o.value = create('CodeableConcept') as v, v.coding as c, c.system = 'http://loinc.org', c.code = 'LA9633-4', c.display = 'Present' "value";
+}
+
+// molecular_biomarkers.observation: identifier, final, laboratory + biomarker-category + GE, subject, focus
+group OncoMolBiomarkerHeader(source item, source ctx, target o : Observation) {
+  item then OncoMolFindingId(item, ctx, o) "identifier";
+  item -> o.status = 'final' "status";
+  item -> o.category as cat, cat.coding as c, c.system = 'http://terminology.hl7.org/CodeSystem/observation-category', c.code = 'laboratory' "category-lab";
+  item -> o.category as cat, cat.coding as c, c.system = 'http://hl7.org/fhir/uv/genomics-reporting/CodeSystem/tbd-codes-cs',
+        c.code = 'biomarker-category' "category-biomarker";
+  item -> o.category as cat, cat.coding as c, c.system = 'http://terminology.hl7.org/CodeSystem/v2-0074', c.code = 'GE' "category-ge";
+  item then OncoMolSubjectFocus(item, ctx, o) "subject-focus";
+}
+
+// chromosome-identifier (48000-4): LOINC LL2938-0 answers for 1..22, X, Y; anything else (MT, '01') -> dropped
+group OncoMolChromosome(source item, target o : Observation) {
+  item.chromosome as ch where (ch.matches('^([1-9]|1[0-9]|2[0-2]|X|Y)$')) -> o.component as comp, comp.code as cc, cc.coding as c,
+        c.system = 'http://loinc.org', c.code = '48000-4', comp.value = create('CodeableConcept') as v, v.coding as vc,
+        vc.system = 'http://loinc.org',
+        vc.code = ('|1=LA21254-0|2=LA21255-7|3=LA21256-5|4=LA21257-3|5=LA21258-1|6=LA21259-9|7=LA21260-7|8=LA21261-5|9=LA21262-3|10=LA21263-1|11=LA21264-9|12=LA21265-6|13=LA21266-4|14=LA21267-2|15=LA21268-0|16=LA21269-8|17=LA21270-6|18=LA21271-4|19=LA21272-2|20=LA21273-0|21=LA21274-8|22=LA21275-5|X=LA21276-3|Y=LA21277-1|'.replaceMatches('^.*[|]' & %ch & '=([^|]+)[|].*$', '$1')),
+        vc.display = ('Chromosome ' & %ch) "chromosome";
+}
+
+// genomic-source-class (48002-0, LL378-1)
+group OncoMolGenomicSource(source item, target o : Observation) {
+  item.genomicSource as gs where (gs = 'somatic' or gs = 'germline') -> o.component as comp, comp.code as cc, cc.coding as c,
+        c.system = 'http://loinc.org', c.code = '48002-0', comp.value = create('CodeableConcept') as v, v.coding as vc,
+        vc.system = 'http://loinc.org', vc.code = (iif(%gs = 'somatic', 'LA6684-0', 'LA6683-2')),
+        vc.display = (iif(%gs = 'somatic', 'Somatic', 'Germline')) "genomic-source";
+}
+
+// gene coding of CNVs / fusions (molecular_cnv.gene_coding): HGNC unless the source system is set and not genenames.org
+group OncoMolGeneCnv(source g, target c : Coding) {
+  g -> c.system = (iif(%g.system.where($this != '').exists() and %g.system.contains('genenames.org').not(), %g.system, 'http://www.genenames.org')) "system";
+  g.code as cd -> c.code = cd "code";
+  g.version as v where (v != '') -> c.version = v "version";
+  g.display as d where (d != '') -> c.display = d "display";
+}
+
+// molecular-consequence (molecular_cnv.add_consequence / molecular_variants.build_consequence): localization -> SO via
+// mvgs-cm-onco-localization-so (guard = the ConceptMap's source codes); derivedFrom -> the variant
+group OncoMolConsequence(source item, source ck, source vrole, source vfid, source ctx, target rep : DiagnosticReport, target bundle : Bundle) {
+  item.localization as loc where (loc = 'coding' or loc = 'inRegulatoryElements' or loc = 'notInCodingAndNotInRegulatoryElements')
+     -> bundle.entry as e, e.resource = create('Observation') as o, uuid() as cfid, (%vrole & ':consequence') as role, rep.result as rr
+     then DkEntry(ck, role, cfid, e, o), DkReference(cfid, rr), OncoMolConsequenceBody(loc, vfid, ctx, o) "consequence";
+}
+
+group OncoMolConsequenceBody(source loc, source vfid, source ctx, target o : Observation) {
+  loc -> o.meta as m, m.profile = 'https://www.medizininformatik-initiative.de/fhir/ext/modul-molgen/StructureDefinition/mii-pr-molgen-molekulare-konsequenz' "profile";
+  loc -> o.status = 'final' "status";
+  loc -> o.category as cat, cat.coding as c, c.system = 'http://terminology.hl7.org/CodeSystem/observation-category', c.code = 'laboratory' "category-lab";
+  loc -> o.category as cat, cat.coding as c, c.system = 'http://terminology.hl7.org/CodeSystem/v2-0074', c.code = 'GE' "category-ge";
+  loc -> o.code as cc, cc.coding as c, c.system = 'http://hl7.org/fhir/uv/genomics-reporting/CodeSystem/tbd-codes-cs',
+        c.code = 'molecular-consequence', c.display = 'Molecular Consequence' "code";
+  loc -> o.subject as s then OncoMolRefPatient(ctx, s) "subject";
+  loc -> o.derivedFrom as d then DkReference(vfid, d) "derivedFrom";
+  loc -> o.component as comp, comp.code as cc, cc.coding as c, c.system = 'http://hl7.org/fhir/uv/genomics-reporting/CodeSystem/tbd-codes-cs',
+        c.code = 'feature-consequence', comp.value = create('CodeableConcept') as v, v.coding as vc,
+        vc.system = translate(loc, 'https://genomde.de/fhir/ConceptMap/mvgs-cm-onco-localization-so', 'system'),
+        vc.code = translate(loc, 'https://genomde.de/fhir/ConceptMap/mvgs-cm-onco-localization-so', 'code'),
+        vc.display = translate(loc, 'https://genomde.de/fhir/ConceptMap/mvgs-cm-onco-localization-so', 'display'), v.text = loc "feature-consequence";
+}
+
+// ================================================================================================================
+// NGS report (molecular_report.py): no date in the KDK block -> no effective / issued
+// ================================================================================================================
+
+group OncoMolReportBody(source mol, source ctx, target rep : DiagnosticReport) {
+  mol -> rep.meta as m, m.profile = 'https://www.medizininformatik-initiative.de/fhir/ext/modul-mtb/StructureDefinition/mii-pr-mtb-ngs-bericht' "profile";
+  mol -> rep.status = 'final' "status";
+  mol -> rep.category as cat, cat.coding as c, c.system = 'http://terminology.hl7.org/CodeSystem/v2-0074', c.code = 'GE', c.display = 'Genetics' "category";
+  mol -> rep.code as cc, cc.coding as c, c.system = 'http://loinc.org', c.code = '51969-4', c.display = 'Genetic analysis report' "code";
+  mol -> rep.subject as s then OncoMolRefPatient(ctx, s) "subject";
+}
+
+// ================================================================================================================
+// smallVariants[] (molecular_variants.py)
+// key: identifier, or identifier#index when it is missing or not the first item with that identifier
+// acc: versioned RefSeq (NM_/NR_/XM_/XR_) or Ensembl (ENST) transcript accession usable as HGVS reference, else '-'
+// ================================================================================================================
+
+group OncoMolSmallVariants(source mol, source ck, source ctx, target rep : DiagnosticReport, target bundle : Bundle) {
+  mol.smallVariants as sv -> bundle.entry as e, e.resource = create('Observation') as o, uuid() as vfid,
+        (iif(%sv.identifier.where($this != '').exists() and %mol.smallVariants.where(identifier = %sv.identifier).count() = 1, %sv.identifier,
+         iif(%sv.identifier.where($this != '').exists() and %mol.smallVariants.select(iif($this = %sv, $index, {})).first() = %mol.smallVariants.select(iif($this.identifier = %sv.identifier, $index, {})).first(),
+             %sv.identifier, iif(%sv.identifier.exists(), %sv.identifier, '') & '#' & %mol.smallVariants.select(iif($this = %sv, $index, {})).first().toString()))) as key,
+        ('small-variant:' & %key) as role,
+        (iif(%sv.transcriptId.code.matches('^((N[MR]_|X[MR]_)[0-9]+([.][0-9]+)?|ENST[0-9]+([.][0-9]+)?)$'),
+             iif(%sv.transcriptId.code.contains('.').not() and %sv.transcriptId.version.matches('^[0-9]+$') and %sv.transcriptId.code.matches('^[NX].*$'),
+                 %sv.transcriptId.code & '.' & %sv.transcriptId.version, %sv.transcriptId.code), '-')) as acc,
+        rep.result as rr
+     then DkEntry(ck, role, vfid, e, o), DkReference(vfid, rr), OncoMolSmallVariantBody(sv, acc, ctx, o),
+          OncoMolConsequence(sv, ck, role, vfid, ctx, rep, bundle) "small-variant";
+}
+
+group OncoMolSmallVariantBody(source sv, source acc, source ctx, target o : Observation) {
+  sv -> o.meta as m, m.profile = 'https://www.medizininformatik-initiative.de/fhir/ext/modul-mtb/StructureDefinition/mii-pr-mtb-einfache-variante' "profile";
+  sv then OncoMolVariantHeader(sv, ctx, o) "header";
+  // gene-studied: HGNC (terminology lock) unless a non-HGNC system is delivered for a non-HGNC code
+  sv.gene as g where (code.exists() and code != '') -> o.component as comp, comp.code as cc, cc.coding as c, c.system = 'http://loinc.org',
+        c.code = '48018-6', c.display = 'Gene studied [ID]', comp.value = create('CodeableConcept') as v, v.coding as gc
+     then OncoMolGeneVariant(g, gc) "gene";
+  sv then OncoMolChromosome(sv, o) "chromosome";
+  // exact-start-end + GRCh38 + 1-based (KDK positions are GRCh38 VCF-style); end < start -> no Range.high
+  sv where (startPosition.exists() or endPosition.exists()) -> o.component as comp, comp.code as cc, cc.coding as c,
+        c.system = 'http://loinc.org', c.code = '81254-5', comp.value = create('Range') as r then OncoMolSvRange(sv, r) "position";
+  sv where (startPosition.exists() or endPosition.exists()) -> o.component as comp, comp.code as cc, cc.coding as c,
+        c.system = 'http://loinc.org', c.code = '62374-4', comp.value = create('CodeableConcept') as v, v.coding as vc,
+        vc.system = 'http://loinc.org', vc.code = 'LA26806-2', vc.display = 'GRCh38' "assembly";
+  sv where (startPosition.exists() or endPosition.exists()) -> o.component as comp, comp.code as cc, cc.coding as c,
+        c.system = 'http://loinc.org', c.code = '92822-6', comp.value = create('CodeableConcept') as v, v.coding as vc,
+        vc.system = 'http://loinc.org', vc.code = 'LA30102-0', vc.display = '1-based character counting' "coordinate-system";
+  sv.ref as rf where (rf != '') -> o.component as comp, comp.code as cc, cc.coding as c, c.system = 'http://loinc.org', c.code = '69547-8',
+        comp.value = rf "ref-allele";
+  sv.alt as al where (al != '') -> o.component as comp, comp.code as cc, cc.coding as c, c.system = 'http://loinc.org', c.code = '69551-0',
+        comp.value = al "alt-allele";
+  // HGVS qualified with the accession (c./n.: 'acc:raw', p.: 'acc(GENE):raw'), the KDK string as text when it differs
+  sv.dnaChange as dc where (dc.trim() != '') -> (%dc.trim()) as raw,
+        (iif(%raw.contains(':') or %acc = '-' or %raw.matches('^[cnp][.].*$').not(), %raw,
+         iif(%raw.startsWith('c.') and %acc.matches('^(NM_|XM_|ENST).*$'), %acc & ':' & %raw,
+         iif(%raw.startsWith('n.') and %acc.matches('^(NR_|XR_|ENST).*$'), %acc & ':' & %raw, %raw)))) as hx,
+        o.component as comp, comp.code as cc, cc.coding as c, c.system = 'http://loinc.org', c.code = '48004-6',
+        comp.value = create('CodeableConcept') as v, v.coding as hc, hc.system = 'http://varnomen.hgvs.org', hc.code = hx
+     then OncoMolHgvsText(dc, hx, v) "dna-change";
+  sv.proteinChange as pc where (pc.trim() != '') -> (%pc.trim()) as raw,
+        (iif(%sv.gene.display.where($this != '').exists(), %sv.gene.display, '')) as sym,
+        (iif(%raw.contains(':') or %acc = '-' or %raw.matches('^[cnp][.].*$').not(), %raw,
+         iif(%raw.startsWith('c.') and %acc.matches('^(NM_|XM_|ENST).*$'), %acc & ':' & %raw,
+         iif(%raw.startsWith('n.') and %acc.matches('^(NR_|XR_|ENST).*$'), %acc & ':' & %raw,
+         iif(%raw.startsWith('p.') and %acc.matches('^(NM_|XM_).*$') and %sym != '', %acc & '(' & %sym & '):' & %raw, %raw))))) as hx,
+        o.component as comp, comp.code as cc, cc.coding as c, c.system = 'http://loinc.org', c.code = '48005-3',
+        comp.value = create('CodeableConcept') as v, v.coding as hc, hc.system = 'http://varnomen.hgvs.org', hc.code = hx
+     then OncoMolHgvsText(pc, hx, v) "protein-change";
+  // representative transcript: Ensembl / RefSeq by accession prefix, else by the source system label
+  sv.transcriptId as t where (code.exists() and code != '') -> o.component as comp, comp.code as cc, cc.coding as c,
+        c.system = 'http://loinc.org', c.code = '51958-7', comp.value = create('CodeableConcept') as v, v.coding as tc
+     then OncoMolTranscriptCoding(t, tc) "transcript";
+  // coding-change-type: every variant type with a code as one SO coding of one CodeableConcept
+  sv where (variantTypes.where(code.exists() and code != '').exists()) -> o.component as comp, comp.code as cc, cc.coding as c,
+        c.system = 'http://loinc.org', c.code = '48019-4', comp.value = create('CodeableConcept') as v
+     then OncoMolVariantTypes(sv, v) "variant-types";
+  sv then OncoMolGenomicSource(sv, o) "genomic-source";
+  // LOH: unsliced component mvgs-cs-molecular-feature#loh, valueBoolean
+  sv.loh as l -> o.component as comp, comp.code as cc, cc.coding as c, c.system = 'https://genomde.de/fhir/CodeSystem/mvgs-cs-molecular-feature',
+        c.code = 'loh', c.display = 'Loss of heterozygosity at the variant locus', comp.value = l "loh";
+}
+
+group OncoMolSvRange(source sv, target r : Range) {
+  sv.startPosition as s -> r.low as l, l.value = s "low";
+  sv.endPosition as en where (%sv.startPosition.exists().not() or %en >= %sv.startPosition) -> r.high as h, h.value = en "high";
+}
+
+group OncoMolHgvsText(source raw, source hx, target v : CodeableConcept) {
+  raw where (%raw != %hx) -> v.text = raw "text";
+}
+
+// molecular_variants.hgnc_coding: HGNC when the system is empty, contains 'genenames' or the code is an HGNC ID
+group OncoMolGeneVariant(source g, target c : Coding) {
+  g -> c.system = (iif(%g.system.where($this != '').exists().not() or %g.system.contains('genenames') or %g.code.upper().startsWith('HGNC:'),
+        'http://www.genenames.org', %g.system)) "system";
+  g.code as cd -> c.code = cd "code";
+  g.version as v where (v != '') -> c.version = v "version";
+  g.display as d where (d != '') -> c.display = d "display";
+}
+
+// molecular_variants.transcript_system
+group OncoMolTranscriptCoding(source t, target c : Coding) {
+  t where (code.upper().matches('^(ENST|ENSG|ENSP|NM_|NR_|XM_|XR_|NG_|NC_|NT_|NW_|NP_|XP_).*$') or system.where($this != '').exists())
+     -> c.system = (iif(%t.code.upper().matches('^(ENST|ENSG|ENSP).*$'), 'http://www.ensembl.org',
+                    iif(%t.code.upper().matches('^(NM_|NR_|XM_|XR_|NG_|NC_|NT_|NW_|NP_|XP_).*$'), 'http://www.ncbi.nlm.nih.gov/refseq',
+                    iif(%t.system.lower().contains('ensembl'), 'http://www.ensembl.org',
+                    iif(%t.system.lower().contains('ncbi') or %t.system.lower().contains('refseq'), 'http://www.ncbi.nlm.nih.gov/refseq', %t.system))))) "system";
+  t.code as cd -> c.code = cd "code";
+  t.version as v where (v != '') -> c.version = v "version";
+  t.display as d where (d != '') -> c.display = d "display";
+}
+
+group OncoMolVariantTypes(source sv, target v : CodeableConcept) {
+  sv.variantTypes as vt where (code.exists() and code != '') -> v.coding as c then OncoMolSoCoding(vt, c) "coding";
+}
+
+// molecular_variants.so_system: SO when the system names sequenceontology or the code is 'SO:..', else the source system
+group OncoMolSoCoding(source vt, target c : Coding) {
+  vt where (system.contains('sequenceontology') or code.upper().startsWith('SO:') or system.where($this != '').exists())
+     -> c.system = (iif(%vt.system.contains('sequenceontology') or %vt.code.upper().startsWith('SO:'), 'http://www.sequenceontology.org', %vt.system)) "system";
+  vt.code as cd -> c.code = cd "code";
+  vt.version as v where (v != '') -> c.version = v "version";
+  vt.display as d where (d != '') -> c.display = d "display";
+}
+
+// ================================================================================================================
+// copyNumberVariants[] (molecular_cnv.py): cnv-type (DNPM code where one exists + mvgs-cs-cnv-type), SO change type
+// ================================================================================================================
+
+group OncoMolCnvs(source mol, source ck, source ctx, target rep : DiagnosticReport, target bundle : Bundle) {
+  mol.copyNumberVariants as v -> bundle.entry as e, e.resource = create('Observation') as o, uuid() as vfid,
+        (iif(%v.identifier.where($this != '').exists() and %mol.copyNumberVariants.where(identifier = %v.identifier).count() = 1, %v.identifier,
+         iif(%v.identifier.where($this != '').exists() and %mol.copyNumberVariants.select(iif($this = %v, $index, {})).first() = %mol.copyNumberVariants.select(iif($this.identifier = %v.identifier, $index, {})).first(),
+             %v.identifier, iif(%v.identifier.exists(), %v.identifier, '') & '#' & %mol.copyNumberVariants.select(iif($this = %v, $index, {})).first().toString()))) as key,
+        ('cnv:' & %key) as role, rep.result as rr
+     then DkEntry(ck, role, vfid, e, o), DkReference(vfid, rr), OncoMolCnvBody(v, ctx, o),
+          OncoMolConsequence(v, ck, role, vfid, ctx, rep, bundle) "cnv";
+}
+
+group OncoMolCnvBody(source v, source ctx, target o : Observation) {
+  v -> o.meta as m, m.profile = 'https://www.medizininformatik-initiative.de/fhir/ext/modul-mtb/StructureDefinition/mii-pr-mtb-copy-number-variant' "profile";
+  v then OncoMolVariantHeader(v, ctx, o) "header";
+  v.gene as g where (code.exists() and code != '') -> o.component as comp, comp.code as cc, cc.coding as c, c.system = 'http://loinc.org',
+        c.code = '48018-6', comp.value = create('CodeableConcept') as gv, gv.coding as gc then OncoMolGeneCnv(g, gc) "gene";
+  v then OncoMolChromosome(v, o) "chromosome";
+  // position_range: start > end -> no coordinates at all (rng-2); + GRCh38
+  v where ((startPosition.exists() or endPosition.exists()) and (startPosition.exists() and endPosition.exists() and startPosition > endPosition).not())
+     -> o.component as comp, comp.code as cc, cc.coding as c, c.system = 'http://loinc.org', c.code = '81254-5',
+        comp.value = create('Range') as r then OncoMolCnvRange(v, r) "position";
+  v where ((startPosition.exists() or endPosition.exists()) and (startPosition.exists() and endPosition.exists() and startPosition > endPosition).not())
+     -> o.component as comp, comp.code as cc, cc.coding as c, c.system = 'http://loinc.org', c.code = '62374-4',
+        comp.value = create('CodeableConcept') as av, av.coding as vc, vc.system = 'http://loinc.org', vc.code = 'LA26806-2', vc.display = 'GRCh38' "assembly";
+  v then OncoMolGenomicSource(v, o) "genomic-source";
+  v.cnvType as t where (t = 'completeLoss' or t = 'heterozygousLoss' or t = 'loss' or t = 'gain' or t = 'lowLevelGain' or t = 'highLevelGain')
+     -> o.component as comp, comp.code as cc, cc.coding as c, c.system = 'http://bwhc.de/mtb/genetics-copy-number-variant', c.code = 'type',
+        comp.value = create('CodeableConcept') as tv then OncoMolCnvType(t, tv) "cnv-type";
+  v.cnvType as t where (t = 'completeLoss' or t = 'heterozygousLoss' or t = 'loss' or t = 'gain' or t = 'lowLevelGain' or t = 'highLevelGain')
+     -> o.component as comp, comp.code as cc, cc.coding as c, c.system = 'http://loinc.org', c.code = '48019-4',
+        comp.value = create('CodeableConcept') as sv, sv.coding as sc,
+        sc.system = translate(t, 'https://genomde.de/fhir/ConceptMap/mvgs-cm-cnv-type-so', 'system'),
+        sc.code = translate(t, 'https://genomde.de/fhir/ConceptMap/mvgs-cm-cnv-type-so', 'code'),
+        sc.display = translate(t, 'https://genomde.de/fhir/ConceptMap/mvgs-cm-cnv-type-so', 'display') "change-type";
+}
+
+group OncoMolCnvRange(source v, target r : Range) {
+  v.startPosition as s -> r.low as l, l.value = s "low";
+  v.endPosition as en -> r.high as h, h.value = en "high";
+}
+
+// DNPM/bwHC code via mvgs-cm-cnv-type-dnpm ('gain' is 'unmatched' there: translate() would throw) + the local coding
+group OncoMolCnvType(source t, target tv : CodeableConcept) {
+  t where (t != 'gain') -> tv.coding as d, d.system = translate(t, 'https://genomde.de/fhir/ConceptMap/mvgs-cm-cnv-type-dnpm', 'system'),
+        d.code = translate(t, 'https://genomde.de/fhir/ConceptMap/mvgs-cm-cnv-type-dnpm', 'code'),
+        d.display = translate(t, 'https://genomde.de/fhir/ConceptMap/mvgs-cm-cnv-type-dnpm', 'display') "dnpm";
+  t -> tv.coding as c, c.system = 'https://genomde.de/fhir/CodeSystem/mvgs-cs-cnv-type', c.code = t,
+        c.display = (iif(%t = 'completeLoss', 'Complete loss', iif(%t = 'heterozygousLoss', 'Heterozygous loss', iif(%t = 'loss', 'Loss',
+                     iif(%t = 'gain', 'Gain', iif(%t = 'lowLevelGain', 'Low-level gain', 'High-level gain')))))) "local";
+}
+
+// ================================================================================================================
+// structuralVariants[] (molecular_fusions.py): RNA -> rna-fusion, anything else -> dna-fusion; breakpoint slices without
+// a KDK source as data-absent-reason 'unknown'
+// ================================================================================================================
+
+group OncoMolFusions(source mol, source ck, source ctx, target rep : DiagnosticReport, target bundle : Bundle) {
+  mol.structuralVariants as v -> bundle.entry as e, e.resource = create('Observation') as o, uuid() as vfid,
+        (iif(%v.identifier.where($this != '').exists() and %mol.structuralVariants.where(identifier = %v.identifier).count() = 1, %v.identifier,
+         iif(%v.identifier.where($this != '').exists() and %mol.structuralVariants.select(iif($this = %v, $index, {})).first() = %mol.structuralVariants.select(iif($this.identifier = %v.identifier, $index, {})).first(),
+             %v.identifier, iif(%v.identifier.exists(), %v.identifier, '') & '#' & %mol.structuralVariants.select(iif($this = %v, $index, {})).first().toString()))) as key,
+        ('sv:' & %key) as role, rep.result as rr
+     then DkEntry(ck, role, vfid, e, o), DkReference(vfid, rr), OncoMolFusionBody(v, ctx, o),
+          OncoMolConsequence(v, ck, role, vfid, ctx, rep, bundle) "fusion";
+}
+
+group OncoMolFusionBody(source v, source ctx, target o : Observation) {
+  v where (sequenceType = 'RNA') -> o.meta as m, m.profile = 'https://www.medizininformatik-initiative.de/fhir/ext/modul-mtb/StructureDefinition/mii-pr-mtb-rna-fusion' "profile-rna";
+  v where ((sequenceType = 'RNA').not() or sequenceType.exists().not()) -> o.meta as m,
+        m.profile = 'https://www.medizininformatik-initiative.de/fhir/ext/modul-mtb/StructureDefinition/mii-pr-mtb-dna-fusion' "profile-dna";
+  v then OncoMolVariantHeader(v, ctx, o) "header";
+  v -> ('five-prime-gene') as slice then OncoMolPartnerGene(v, slice, o) "five-prime";
+  v -> ('three-prime-gene') as slice then OncoMolPartnerGene(v, slice, o) "three-prime";
+  v where ((sequenceType = 'RNA').not() or sequenceType.exists().not()) then OncoMolBreakpointsDna(v, o) "breakpoints-dna";
+  v where (sequenceType = 'RNA') then OncoMolBreakpointsRna(v, o) "breakpoints-rna";
+  v then OncoMolGenomicSource(v, o) "genomic-source";
+  // coding-change-type: SO (mvgs-cm-structure-type-so) + the KDK enum (mvgs-cs-structure-type)
+  v.structureType as st where (st = 'translocation' or st = 'translocationWithCodingRegion' or st = 'translocationWithNonCodingRegion'
+        or st = 'inversion' or st = 'deletionOfGeneSegments' or st = 'duplicationOfGeneSegments')
+     -> o.component as comp, comp.code as cc, cc.coding as c, c.system = 'http://loinc.org', c.code = '48019-4',
+        comp.value = create('CodeableConcept') as sv, sv.coding as sc,
+        sc.system = translate(st, 'https://genomde.de/fhir/ConceptMap/mvgs-cm-structure-type-so', 'system'),
+        sc.code = translate(st, 'https://genomde.de/fhir/ConceptMap/mvgs-cm-structure-type-so', 'code'),
+        sc.display = translate(st, 'https://genomde.de/fhir/ConceptMap/mvgs-cm-structure-type-so', 'display'),
+        sv.coding as lc, lc.system = 'https://genomde.de/fhir/CodeSystem/mvgs-cs-structure-type', lc.code = st,
+        lc.display = (iif(%st = 'translocation', 'Translocation', iif(%st = 'translocationWithCodingRegion', 'Translocation with coding region',
+                      iif(%st = 'translocationWithNonCodingRegion', 'Translocation with non-coding region', iif(%st = 'inversion', 'Inversion',
+                      iif(%st = 'deletionOfGeneSegments', 'Deletion of gene segments', 'Duplication of gene segments')))))) "structure-type";
+  // cytogenomic-nomenclature: description as text
+  v.description as d where (d != '') -> o.component as comp, comp.code as cc, cc.coding as c, c.system = 'http://loinc.org', c.code = '81291-7',
+        comp.value = create('CodeableConcept') as dv, dv.text = d "description";
+}
+
+// five-prime-gene (geneA) / three-prime-gene (geneB): HGNC coding, else data-absent-reason unknown
+group OncoMolPartnerGene(source v, source slice, target o : Observation) {
+  v where (iif(%slice = 'five-prime-gene', geneA, geneB).where(code.exists() and code != '').exists())
+     -> o.component as comp, comp.code as cc, cc.coding as c,
+        c.system = 'https://www.medizininformatik-initiative.de/fhir/ext/modul-mtb/CodeSystem/mii-cs-mtb-molekulare-biomarker', c.code = slice,
+        comp.value = create('CodeableConcept') as gv, gv.coding as gc then OncoMolPartnerGeneCoding(v, slice, gc) "gene";
+  v where (iif(%slice = 'five-prime-gene', geneA, geneB).where(code.exists() and code != '').exists().not())
+     -> o.component as comp, comp.code as cc, cc.coding as c,
+        c.system = 'https://www.medizininformatik-initiative.de/fhir/ext/modul-mtb/CodeSystem/mii-cs-mtb-molekulare-biomarker', c.code = slice,
+        comp.dataAbsentReason as dar, dar.coding as dc, dc.system = 'http://terminology.hl7.org/CodeSystem/data-absent-reason', dc.code = 'unknown' "absent";
+}
+
+group OncoMolPartnerGeneCoding(source v, source slice, target gc : Coding) {
+  v.geneA as g where (%slice = 'five-prime-gene') then OncoMolGeneCnv(g, gc) "geneA";
+  v.geneB as g where (%slice = 'three-prime-gene') then OncoMolGeneCnv(g, gc) "geneB";
+}
+
+group OncoMolBreakpointsDna(source v, target o : Observation) {
+  v -> ('five-prime-chromosome') as s then OncoMolAbsentSlice(v, s, o) "five-prime-chromosome";
+  v -> ('three-prime-chromosome') as s then OncoMolAbsentSlice(v, s, o) "three-prime-chromosome";
+  v -> ('five-prime-position') as s then OncoMolAbsentSlice(v, s, o) "five-prime-position";
+  v -> ('three-prime-position') as s then OncoMolAbsentSlice(v, s, o) "three-prime-position";
+}
+
+group OncoMolBreakpointsRna(source v, target o : Observation) {
+  v -> ('five-prime-transcript-id') as s then OncoMolAbsentSlice(v, s, o) "five-prime-transcript-id";
+  v -> ('five-prime-exon-id') as s then OncoMolAbsentSlice(v, s, o) "five-prime-exon-id";
+  v -> ('five-prime-position') as s then OncoMolAbsentSlice(v, s, o) "five-prime-position";
+  v -> ('five-prime-strand') as s then OncoMolAbsentSlice(v, s, o) "five-prime-strand";
+  v -> ('three-prime-transcript-id') as s then OncoMolAbsentSlice(v, s, o) "three-prime-transcript-id";
+  v -> ('three-prime-exon-id') as s then OncoMolAbsentSlice(v, s, o) "three-prime-exon-id";
+  v -> ('three-prime-position') as s then OncoMolAbsentSlice(v, s, o) "three-prime-position";
+  v -> ('three-prime-strand') as s then OncoMolAbsentSlice(v, s, o) "three-prime-strand";
+}
+
+group OncoMolAbsentSlice(source v, source s, target o : Observation) {
+  v -> o.component as comp, comp.code as cc, cc.coding as c,
+        c.system = 'https://www.medizininformatik-initiative.de/fhir/ext/modul-mtb/CodeSystem/mii-cs-mtb-molekulare-biomarker', c.code = s,
+        comp.dataAbsentReason as dar, dar.coding as dc, dc.system = 'http://terminology.hl7.org/CodeSystem/data-absent-reason', dc.code = 'unknown' "slice";
+}
+
+// ================================================================================================================
+// complexBiomarkers[] (molecular_biomarkers.py): tmb -> mutationslast, hrdHigh/lstHigh/taiHigh -> hrd-score (2027:
+// interpretation H/L; LST / TAI as sub-score components), ploidy -> ploidie
+// ================================================================================================================
+
+group OncoMolBiomarkers(source mol, source ck, source ctx, target rep : DiagnosticReport, target bundle : Bundle) {
+  mol.complexBiomarkers as cb -> (iif(%cb.identifier.where($this != '').exists() and %mol.complexBiomarkers.where(identifier = %cb.identifier).count() = 1, %cb.identifier,
+         iif(%cb.identifier.where($this != '').exists() and %mol.complexBiomarkers.select(iif($this = %cb, $index, {})).first() = %mol.complexBiomarkers.select(iif($this.identifier = %cb.identifier, $index, {})).first(),
+             %cb.identifier, iif(%cb.identifier.exists(), %cb.identifier, '') & '#' & %mol.complexBiomarkers.select(iif($this = %cb, $index, {})).first().toString()))) as key
+     then OncoMolBiomarker(cb, key, ck, ctx, rep, bundle) "biomarker";
+}
+
+group OncoMolBiomarker(source cb, source key, source ck, source ctx, target rep : DiagnosticReport, target bundle : Bundle) {
+  cb.tmb as t -> bundle.entry as e, e.resource = create('Observation') as o, uuid() as fid, ('complex-biomarker:' & %key & ':tmb') as role, rep.result as rr
+     then DkEntry(ck, role, fid, e, o), DkReference(fid, rr), OncoMolTmbBody(cb, t, ctx, o) "tmb";
+  cb where (hrdHigh.exists() or lstHigh.exists() or taiHigh.exists())
+     -> bundle.entry as e, e.resource = create('Observation') as o, uuid() as fid, ('complex-biomarker:' & %key & ':hrd') as role, rep.result as rr
+     then DkEntry(ck, role, fid, e, o), DkReference(fid, rr), OncoMolHrdBody(cb, ctx, o) "hrd";
+  cb.ploidy as p -> bundle.entry as e, e.resource = create('Observation') as o, uuid() as fid, ('complex-biomarker:' & %key & ':ploidy') as role, rep.result as rr
+     then DkEntry(ck, role, fid, e, o), DkReference(fid, rr), OncoMolPloidyBody(cb, p, ctx, o) "ploidy";
+}
+
+group OncoMolTmbBody(source cb, source t, source ctx, target o : Observation) {
+  cb -> o.meta as m, m.profile = 'https://www.medizininformatik-initiative.de/fhir/ext/modul-mtb/StructureDefinition/mii-pr-mtb-mutationslast' "profile";
+  cb then OncoMolBiomarkerHeader(cb, ctx, o) "header";
+  cb -> o.code as cc, cc.coding as c, c.system = 'http://loinc.org', c.code = '94076-7', c.display = 'Mutations/Megabase [# Ratio] in Tumor' "code";
+  cb -> o.value = create('Quantity') as q, q.value = t, q.unit = 'Mutations/Megabase', q.system = 'http://unitsofmeasure.org',
+        q.code = '1/1000000{Base}' "value";
+}
+
+group OncoMolHrdBody(source cb, source ctx, target o : Observation) {
+  cb -> o.meta as m, m.profile = 'https://www.medizininformatik-initiative.de/fhir/ext/modul-mtb/StructureDefinition/mii-pr-mtb-hrd-score' "profile";
+  cb then OncoMolBiomarkerHeader(cb, ctx, o) "header";
+  cb -> o.code as cc, cc.coding as c, c.system = 'http://loinc.org', c.code = '107286-7',
+        c.display = 'Homologous recombination deficiency status analysis [Presence] in Tissue by Molecular genetics method' "code";
+  cb.hrdHigh as h -> o.interpretation as i, i.coding as c, c.system = 'http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation',
+        c.code = (iif(%h, 'H', 'L')), c.display = (iif(%h, 'High', 'Low')) "interpretation";
+  cb.lstHigh as l -> o.component as comp, comp.code as cc, cc.coding as c, c.system = 'https://nih-ncpi.github.io/ncpi-fhir-ig/CodeSystem-ncit.html',
+        c.code = 'C120466', c.display = 'Large-Scale State Transition', comp.interpretation as i, i.coding as ic,
+        ic.system = 'http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation', ic.code = (iif(%l, 'H', 'L')), ic.display = (iif(%l, 'High', 'Low')) "lst";
+  cb.taiHigh as ta -> o.component as comp, comp.code as cc, cc.coding as c, c.system = 'https://nih-ncpi.github.io/ncpi-fhir-ig/CodeSystem-ncit.html',
+        c.code = 'C129774', c.display = 'Telomeric Allelic Imbalance Region', comp.interpretation as i, i.coding as ic,
+        ic.system = 'http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation', ic.code = (iif(%ta, 'H', 'L')), ic.display = (iif(%ta, 'High', 'Low')) "tai";
+}
+
+group OncoMolPloidyBody(source cb, source p, source ctx, target o : Observation) {
+  cb -> o.meta as m, m.profile = 'https://www.medizininformatik-initiative.de/fhir/ext/modul-mtb/StructureDefinition/mii-pr-mtb-ploidie' "profile";
+  cb then OncoMolBiomarkerHeader(cb, ctx, o) "header";
+  cb -> o.code as cc, cc.coding as c, c.system = 'https://nih-ncpi.github.io/ncpi-fhir-ig/CodeSystem-ncit.html', c.code = 'C18303',
+        c.display = 'DNA Ploidy Analysis' "code";
+  cb -> o.value = create('Quantity') as q, q.value = p "value";
+}
+
+// ================================================================================================================
+// expressionVariants[] (molecular_expression.py) -> mii-pr-mtb-rna-seq: LL1971-2 Present/Absent + interpretation H/L/N
+// ================================================================================================================
+
+group OncoMolExpression(source mol, source ck, source ctx, target rep : DiagnosticReport, target bundle : Bundle) {
+  mol.expressionVariants as ev -> bundle.entry as e, e.resource = create('Observation') as o, uuid() as fid,
+        (iif(%ev.identifier.where($this != '').exists() and %mol.expressionVariants.where(identifier = %ev.identifier).count() = 1, %ev.identifier,
+         iif(%ev.identifier.where($this != '').exists() and %mol.expressionVariants.select(iif($this = %ev, $index, {})).first() = %mol.expressionVariants.select(iif($this.identifier = %ev.identifier, $index, {})).first(),
+             %ev.identifier, iif(%ev.identifier.exists(), %ev.identifier, '') & '#' & %mol.expressionVariants.select(iif($this = %ev, $index, {})).first().toString()))) as key,
+        ('expression:' & %key) as role, rep.result as rr
+     then DkEntry(ck, role, fid, e, o), DkReference(fid, rr), OncoMolExpressionBody(ev, ctx, o) "expression";
+}
+
+group OncoMolExpressionBody(source ev, source ctx, target o : Observation) {
+  ev -> o.meta as m, m.profile = 'https://www.medizininformatik-initiative.de/fhir/ext/modul-mtb/StructureDefinition/mii-pr-mtb-rna-seq' "profile";
+  ev then OncoMolFindingId(ev, ctx, o) "identifier";
+  ev -> o.status = 'final' "status";
+  ev -> o.category as cat, cat.coding as c, c.system = 'http://terminology.hl7.org/CodeSystem/observation-category', c.code = 'laboratory' "category-lab";
+  ev -> o.category as cat, cat.coding as c, c.system = 'http://terminology.hl7.org/CodeSystem/v2-0074', c.code = 'GE' "category-ge";
+  ev -> o.code as cc, cc.coding as c, c.system = 'http://loinc.org', c.code = '69548-6', c.display = 'Genetic variant assessment' "code";
+  ev then OncoMolSubjectFocus(ev, ctx, o) "subject-focus";
+  ev.expressionType as et where (et = 'noExpression') -> o.value = create('CodeableConcept') as v, v.coding as c, c.system = 'http://loinc.org',
+        c.code = 'LA9634-2', c.display = 'Absent' "absent";
+  ev.expressionType as et where (et = 'normalExpression' or et = 'highExpression' or et = 'lowExpression')
+     -> o.value = create('CodeableConcept') as v, v.coding as c, c.system = 'http://loinc.org', c.code = 'LA9633-4', c.display = 'Present',
+        o.interpretation as i, i.coding as ic, ic.system = 'http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation',
+        ic.code = (iif(%et = 'normalExpression', 'N', iif(%et = 'highExpression', 'H', 'L'))),
+        ic.display = (iif(%et = 'normalExpression', 'Normal', iif(%et = 'highExpression', 'High', 'Low'))) "present";
+  ev.gene as g where (code.exists() and code != '') -> o.component as comp, comp.code as cc, cc.coding as c, c.system = 'http://loinc.org',
+        c.code = '48018-6', c.display = 'Gene studied [ID]', comp.value = create('CodeableConcept') as gv, gv.coding as gc
+     then OncoMolGeneCnv(g, gc) "gene";
+  ev.reference as r where (r != '') -> o.note as n, n.text = ('Bewertungsgrundlage: ' & %r) "reference";
+}
+
+// ================================================================================================================
+// sbsSignatures[] (molecular_signatures.py) -> mii-pr-mtb-molekularer-biomarker, one per non-blank name:
+// code mvgs-cs-molecular-feature#sbs-signature, value COSMIC 'SBS<n><letter>' (catalogue version in coding.version; the
+// name as text when it differs), a name that is no SBS id -> text '<name> (<version>)'; a repeated SBS id is emitted once
+// ================================================================================================================
+
+group OncoMolSignatures(source mol, source ck, source ctx, target rep : DiagnosticReport, target bundle : Bundle) {
+  mol.sbsSignatures as sig where (name.where($this.trim() != '').exists())
+     -> (iif(%sig.identifier.where($this != '').exists() and %mol.sbsSignatures.where(identifier = %sig.identifier).count() = 1, %sig.identifier,
+         iif(%sig.identifier.where($this != '').exists() and %mol.sbsSignatures.select(iif($this = %sig, $index, {})).first() = %mol.sbsSignatures.select(iif($this.identifier = %sig.identifier, $index, {})).first(),
+             %sig.identifier, iif(%sig.identifier.exists(), %sig.identifier, '') & '#' & %mol.sbsSignatures.select(iif($this = %sig, $index, {})).first().toString()))) as key
+     then OncoMolSignature(sig, key, ck, ctx, rep, bundle) "signature";
+}
+
+// norm = normalised SBS id or '' ; j = position among the non-blank names
+group OncoMolSignature(source sig, source key, source ck, source ctx, target rep : DiagnosticReport, target bundle : Bundle) {
+  sig.name as n where (n.trim() != '')
+     -> (iif(%n.trim().matches('(?i)^SBS\\s*[-_]?\\s*[0-9]+\\s*[a-z]?$'),
+             'SBS' & %n.trim().replaceMatches('(?i)^SBS\\s*[-_]?\\s*0*([0-9]+)\\s*([a-z]?)$', '$1')
+                   & %n.trim().replaceMatches('(?i)^SBS\\s*[-_]?\\s*0*([0-9]+)\\s*([a-z]?)$', '$2').lower(), '')) as norm,
+        (%sig.name.where($this.trim() != '').select(iif($this = %n, $index, {})).first()) as j
+     then OncoMolSignatureItem(sig, n, norm, j, key, ck, ctx, rep, bundle) "name";
+}
+
+group OncoMolSignatureItem(source sig, source n, source norm, source j, source key, source ck, source ctx, target rep : DiagnosticReport, target bundle : Bundle) {
+  n where (%norm = '' or %sig.name.where($this.trim() != '').take(%j).where(iif($this.trim().matches('(?i)^SBS\\s*[-_]?\\s*[0-9]+\\s*[a-z]?$'),
+             'SBS' & $this.trim().replaceMatches('(?i)^SBS\\s*[-_]?\\s*0*([0-9]+)\\s*([a-z]?)$', '$1')
+                   & $this.trim().replaceMatches('(?i)^SBS\\s*[-_]?\\s*0*([0-9]+)\\s*([a-z]?)$', '$2').lower(), '') = %norm).exists().not())
+     -> bundle.entry as e, e.resource = create('Observation') as o, uuid() as fid,
+        ('sbs:' & %key & ':' & iif(%norm != '', %norm, '#' & %j.toString())) as role, rep.result as rr
+     then DkEntry(ck, role, fid, e, o), DkReference(fid, rr), OncoMolSignatureBody(sig, n, norm, ctx, o) "signature";
+}
+
+group OncoMolSignatureBody(source sig, source n, source norm, source ctx, target o : Observation) {
+  sig -> o.meta as m, m.profile = 'https://www.medizininformatik-initiative.de/fhir/ext/modul-mtb/StructureDefinition/mii-pr-mtb-molekularer-biomarker' "profile";
+  sig then OncoMolBiomarkerHeader(sig, ctx, o) "header";
+  sig -> o.code as cc, cc.coding as c, c.system = 'https://genomde.de/fhir/CodeSystem/mvgs-cs-molecular-feature', c.code = 'sbs-signature',
+        c.display = 'COSMIC single base substitution signature' "code";
+  n where (%norm != '') -> o.value = create('CodeableConcept') as v, v.coding as c, c.system = 'https://cancer.sanger.ac.uk/cosmic', c.code = norm
+     then OncoMolSignatureValue(sig, n, norm, v, c) "cosmic";
+  n where (%norm = '') -> o.value = create('CodeableConcept') as v,
+        v.text = (%n & iif(%sig.version.where($this != '').exists(), ' (' & %sig.version & ')', '')) "text";
+}
+
+group OncoMolSignatureValue(source sig, source n, source norm, target v : CodeableConcept, target c : Coding) {
+  sig.version as ver where (ver != '') -> c.version = ver "version";
+  n where (%n != %norm) -> v.text = n "text";
+}

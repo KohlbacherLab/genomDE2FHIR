@@ -1,0 +1,38 @@
+/// url = 'https://genomde.de/fhir/StructureMap/CommonGrzProbe'
+/// name = 'CommonGrzProbe'
+/// title = 'Common probe: GRZ Coverage and per-donor MV consent through the DatenkranzCommon groups'
+/// status = 'draft'
+
+// Exercises DkCoverage, DkMvConsent and DkResearchConsent on a GRZ file. The donor Patients here are placeholders (profile only) so the
+// references resolve; the real GRZ Patient is built by DatenkranzGrzToMii. Parity target: Coverage + mvgs-consent.
+
+uses "https://genomde.de/fhir/StructureDefinition/DatenkranzGrz" alias Datenkranz as source
+uses "http://hl7.org/fhir/StructureDefinition/Bundle" alias Bundle as target
+uses "http://hl7.org/fhir/StructureDefinition/Patient" alias Patient as target
+
+imports "https://genomde.de/fhir/StructureMap/DatenkranzCommon"
+
+group main(source src : Datenkranz, target bundle : Bundle) {
+  src -> bundle.type = 'transaction' "type";
+  src.submission as sub -> ('grz:' & %sub.submitterId & ':' & iif(%sub.localCaseId.exists() and %sub.localCaseId != '', %sub.localCaseId, %sub.tanG)) as ck
+     then GrzDonors(src, sub, ck, bundle) "submission";
+}
+
+// index donor = first donor with relation 'index', else the first donor (grz/donors.py)
+group GrzDonors(source src, source sub, source ck, target bundle : Bundle) {
+  src.donors as d where (donorPseudonym.exists())
+     -> bundle.entry as e, e.resource = create('Patient') as pat, uuid() as did, ('donor:' & %d.donorPseudonym) as role
+     then DkEntry(ck, role, did, e, pat), GrzDonor(src, sub, d, ck, did, pat, bundle) "donor";
+}
+
+group GrzDonor(source src, source sub, source d, source ck, source did, target pat : Patient, target bundle : Bundle) {
+  d -> pat.meta as m, m.profile = 'https://www.medizininformatik-initiative.de/fhir/core/modul-person/StructureDefinition/PatientPseudonymisiert' "profile";
+  d.mvConsent as mvc -> ('mv-consent:' & %d.donorPseudonym) as role then DkMvConsent(mvc, ck, role, did, bundle) "mv-consent";
+  d.researchConsents as rc -> ('research-consent:' & %d.donorPseudonym & ':' & %d.researchConsents.select(iif($this = %rc, $index, {})).first().toString()) as role
+     then DkResearchConsent(rc, ck, role, did, bundle) "research-consent";
+  d where (iif(%src.donors.where(relation = 'index' and donorPseudonym.exists()).exists(),
+               %src.donors.where(relation = 'index' and donorPseudonym.exists()).first().donorPseudonym,
+               %src.donors.where(donorPseudonym.exists()).first().donorPseudonym) = donorPseudonym) then {
+    sub.coverageType as ct then DkCoverage(ct, ck, did, bundle) "coverage";
+  } "index";
+}

@@ -1,0 +1,647 @@
+/// url = 'https://genomde.de/fhir/StructureMap/DatenkranzGrzToMii'
+/// name = 'DatenkranzGrzToMii'
+/// title = 'genomDE GRZ Datenkranz to MII KDS 2027'
+/// status = 'draft'
+
+// GRZ branch: submission + donors[] (+ labData[]) of a genomDE / MV-GenomSeq GRZ submission -> transaction Bundle.
+// Reference implementation: genomde2fhir/src/genomde2fhir/builders/grz/{donors,labdata}.py (+ consent.py,
+// research_consent.py); conventions and verified engine behaviour: mappers/fml/README.md.
+//
+// Resource keys (README): ck = 'grz:<submitterId>:<localCaseId|tanG>' and the roles
+//   donor:<pseudo> (Patient), family-history:<pseudo>, mv-consent:<pseudo>, research-consent:<pseudo>:<i>,
+//   research-consent-absent:<pseudo>:<i>,
+//   coverage, genomic-study, org:submitter | org:lab | org:genomic-data-center | org:clinical-data-node,
+//   specimen:<lk>, tumor-cell-count:<lk>:<j>, genomic-study-analysis:<lk>,
+//   device:<lk>:<sequencer|sequencing-kit|library-prep-kit|enrichment-kit|pipeline|caller-<i>>
+//   with lk = <pseudo>:<labDataName> ('#<i>' appended for a repeated name, as labdata.py does). Array positions
+//   (<i>, <j>) are found by value equality ($index), so two identical array elements share one key.
+//
+// Entry uuids that other resources reference are created once in main (index Patient pid, Organizations, study) or
+// in the rule that creates the resource, and handed down as source parameters. Everything that writes into one
+// resource runs in the rule that created it or in groups called from that rule (quirk Q4): the genomic study is
+// therefore created before the donor loop and passed down as a target, so that each labData[] adds its
+// genomic-study-analysis-ext to it (labdata.py _link_to_study).
+//
+// Not emitted (by convention): Provenance. The embedded MII Broad Consent of donors[].researchConsents[].scope is
+// migrated by DkResearchConsent (Common); its elements are declared as extras of the logical model.
+
+uses "https://genomde.de/fhir/StructureDefinition/DatenkranzGrz" alias Datenkranz as source
+uses "http://hl7.org/fhir/StructureDefinition/Bundle" alias Bundle as target
+uses "http://hl7.org/fhir/StructureDefinition/Patient" alias Patient as target
+uses "http://hl7.org/fhir/StructureDefinition/FamilyMemberHistory" alias FamilyMemberHistory as target
+uses "http://hl7.org/fhir/StructureDefinition/Observation" alias Observation as target
+uses "http://hl7.org/fhir/StructureDefinition/Organization" alias Organization as target
+uses "http://hl7.org/fhir/StructureDefinition/Procedure" alias Procedure as target
+uses "http://hl7.org/fhir/StructureDefinition/Specimen" alias Specimen as target
+uses "http://hl7.org/fhir/StructureDefinition/Device" alias Device as target
+
+imports "https://genomde.de/fhir/StructureMap/DatenkranzCommon"
+
+// ================================================================================================================
+// main: no donor with a donorPseudonym -> no resource at all (donors.py build() returns early, labdata finds no
+// Patient). ip = pseudonym of the index donor: the first donor with relation 'index', else the first donor.
+// ================================================================================================================
+
+group main(source src : Datenkranz, target bundle : Bundle) {
+  src -> bundle.type = 'transaction' "type";
+  src.submission as sub where (%src.donors.where(donorPseudonym != '').exists())
+     -> ('grz:' & %sub.submitterId & ':' & iif(%sub.localCaseId.exists() and %sub.localCaseId != '', %sub.localCaseId, %sub.tanG)) as ck,
+        (iif(%src.donors.where(relation = 'index' and donorPseudonym != '').exists(),
+             %src.donors.where(relation = 'index' and donorPseudonym != '').first().donorPseudonym,
+             %src.donors.where(donorPseudonym != '').first().donorPseudonym)) as ip,
+        (iif(%sub.diseaseType = 'oncological', 'mtb', 'molgen')) as fam,
+        uuid() as pid, uuid() as subid, uuid() as labid
+     then GrzSubmission(src, sub, ck, ip, fam, pid, subid, labid, bundle) "submission";
+}
+
+group GrzSubmission(source src, source sub, source ck, source ip, source fam, source pid, source subid, source labid,
+                    target bundle : Bundle) {
+  // Organizations (donors.py _organization / _lab); the lab and submitter uuids are referenced below
+  sub.submitterId as v where (v != '') -> bundle.entry as e, e.resource = create('Organization') as org, ('org:submitter') as role
+     then DkEntry(ck, role, subid, e, org), GrzOrgSubmitter(sub, org) "org-submitter";
+  sub.labName as v where (v != '') -> bundle.entry as e, e.resource = create('Organization') as org, ('org:lab') as role
+     then DkEntry(ck, role, labid, e, org), GrzOrgLab(sub, org) "org-lab";
+  sub.genomicDataCenterId as v where (v != '') -> bundle.entry as e, e.resource = create('Organization') as org, uuid() as fid,
+        ('org:genomic-data-center') as role
+     then DkEntry(ck, role, fid, e, org), GrzOrgGdc(sub, org) "org-gdc";
+  sub.clinicalDataNodeId as v where (v != '') -> bundle.entry as e, e.resource = create('Organization') as org, uuid() as fid,
+        ('org:clinical-data-node') as role
+     then DkEntry(ck, role, fid, e, org), GrzOrgKdk(sub, org) "org-kdk";
+  // Coverage of the index donor (DkCoverage: SKT -> KBV payor type, UNK -> v3-NullFlavor)
+  sub.coverageType as ct then DkCoverage(ct, ck, pid, bundle) "coverage";
+  // genomic study (submission level); the donor loop runs inside this rule so that every analysis links to it
+  sub -> bundle.entry as e, e.resource = create('Procedure') as st, uuid() as stid, ('genomic-study') as role
+     then DkEntry(ck, role, stid, e, st), GrzStudyBody(sub, pid, labid, st), GrzDonors(src, sub, ck, ip, fam, pid, subid, labid, st, bundle) "study";
+}
+
+group GrzOrgSubmitter(source sub, target org : Organization) {
+  sub.submitterId as v -> org.identifier as id, id.system = 'https://genomde.de/fhir/sid/le-id', id.value = v,
+        org.active = true, org.name = ('Leistungserbringer (submitter) ' & %v) "org";
+}
+
+group GrzOrgLab(source sub, target org : Organization) {
+  sub.labName as v -> org.active = true, org.name = v "org";
+}
+
+group GrzOrgGdc(source sub, target org : Organization) {
+  sub.genomicDataCenterId as v -> org.identifier as id, id.system = 'https://genomde.de/fhir/sid/genomic-data-center', id.value = v,
+        org.active = true, org.name = ('Genomrechenzentrum ' & %v) "org";
+}
+
+group GrzOrgKdk(source sub, target org : Organization) {
+  sub.clinicalDataNodeId as v -> org.identifier as id, id.system = 'https://genomde.de/fhir/sid/clinical-data-node', id.value = v,
+        org.active = true, org.name = ('Klinischer Datenknoten ' & %v) "org";
+}
+
+// ================================================================================================================
+// genomic study (donors.py _genomic_study): MTB profile for diseaseType 'oncological', MolGen otherwise
+// ================================================================================================================
+
+group GrzStudyBody(source sub, source pid, source labid, target st : Procedure) {
+  sub where (diseaseType = 'oncological') -> st.meta as m,
+        m.profile = 'https://www.medizininformatik-initiative.de/fhir/ext/modul-mtb/StructureDefinition/mii-pr-mtb-genomic-study' "profile-mtb";
+  sub where (diseaseType.exists().not() or diseaseType != 'oncological') -> st.meta as m,
+        m.profile = 'https://www.medizininformatik-initiative.de/fhir/ext/modul-molgen/StructureDefinition/mii-pr-molgen-genomic-study' "profile-molgen";
+  sub.genomicStudyType as v where (v = 'single' or v = 'duo' or v = 'trio') -> st.extension as x,
+        x.url = 'https://genomde.de/fhir/StructureDefinition/mvgs-ex-genomic-study-design',
+        x.value = create('Coding') as c, c.system = 'https://genomde.de/fhir/CodeSystem/mvgs-cs-genomic-study-design', c.code = v,
+        c.display = (iif(%v = 'single', 'Single (index only)', iif(%v = 'duo', 'Duo', 'Trio'))) "design";
+  sub -> st.status = 'completed' "status";
+  sub -> st.category as cc, cc.coding as c, c.system = 'http://terminology.hl7.org/CodeSystem/observation-category', c.code = 'laboratory' "category";
+  sub.genomicStudySubtype as v where (v = 'tumor-only' or v = 'tumor+germline' or v = 'germline-only') -> st.code as cc, cc.coding as c,
+        c.system = 'https://genomde.de/fhir/CodeSystem/mvgs-cs-grz-study-subtype', c.code = v,
+        c.display = (iif(%v = 'tumor-only', 'Tumor only', iif(%v = 'tumor+germline', 'Tumor and germline', 'Germline only'))) "subtype";
+  sub -> st.subject as s then DkReference(pid, s) "subject";
+  sub.labName as v where (v != '') -> st.performer as p, p.actor as a then DkReference(labid, a) "performer";
+  sub.diseaseType as v where (v = 'oncological' or v = 'rare' or v = 'hereditary') -> st.reasonCode as cc, cc.coding as c,
+        c.system = 'https://genomde.de/fhir/CodeSystem/mvgs-cs-grz-disease-type', c.code = v,
+        c.display = (iif(%v = 'oncological', 'Oncological disease', iif(%v = 'rare', 'Rare disease', 'Hereditary disease'))) "reason";
+}
+
+// ================================================================================================================
+// donors (donors.py): one Patient per donor; the index donor's Patient uses pid, the others a fresh uuid
+// ================================================================================================================
+
+group GrzDonors(source src, source sub, source ck, source ip, source fam, source pid, source subid, source labid,
+                target st : Procedure, target bundle : Bundle) {
+  src.donors as d where (donorPseudonym != '' and donorPseudonym = %ip)
+     -> bundle.entry as e, e.resource = create('Patient') as pat, ('donor:' & %d.donorPseudonym) as role
+     then DkEntry(ck, role, pid, e, pat), GrzPatientBody(sub, d, subid, pat), GrzIndexIdentifiers(sub, pat),
+          GrzDonor(src, sub, d, ck, ip, fam, pid, pid, labid, st, bundle) "index";
+  src.donors as d where (donorPseudonym != '' and donorPseudonym != %ip)
+     -> bundle.entry as e, e.resource = create('Patient') as pat, uuid() as did, ('donor:' & %d.donorPseudonym) as role
+     then DkEntry(ck, role, did, e, pat), GrzPatientBody(sub, d, subid, pat),
+          GrzDonor(src, sub, d, ck, ip, fam, pid, did, labid, st, bundle) "relative";
+}
+
+group GrzPatientBody(source sub, source d, source subid, target pat : Patient) {
+  d -> pat.meta as m, m.profile = 'https://www.medizininformatik-initiative.de/fhir/core/modul-person/StructureDefinition/PatientPseudonymisiert' "profile";
+  d.donorPseudonym as p -> pat.identifier as id, id.system = 'https://genomde.de/fhir/sid/donor-pseudonym',
+        id.value = (%sub.submitterId & '|' & %p),
+        id.type as ty, ty.coding as c, c.system = 'http://terminology.hl7.org/CodeSystem/v3-ObservationValue', c.code = 'PSEUDED' "donor-pseudonym";
+  // gender: FHIR codes pass, anything else -> unknown; other needs gender-amtlich-de D (mii-pat-1)
+  d.gender as g where (g = 'male' or g = 'female' or g = 'unknown') -> pat.gender = g "gender";
+  d.gender as g where (g = 'other') -> pat.gender = g as pg, pg.extension as ex,
+        ex.url = 'http://fhir.de/StructureDefinition/gender-amtlich-de',
+        ex.value = create('Coding') as vc, vc.system = 'http://fhir.de/CodeSystem/gender-amtlich-de', vc.code = 'D',
+        vc.display = 'divers' "gender-other";
+  d.gender as g where ((g = 'male' or g = 'female' or g = 'other' or g = 'unknown' or g = '').not()) -> pat.gender = 'unknown' "gender-unknown";
+  sub.submitterId as v where (v != '') -> pat.managingOrganization as r then DkReference(subid, r) "managingOrganization";
+}
+
+// tan-g and the sender-scoped local-case-id are carried by the index donor only
+group GrzIndexIdentifiers(source sub, target pat : Patient) {
+  sub.tanG as t where (t != '') -> pat.identifier as id, id.system = 'https://genomde.de/fhir/sid/tan-g', id.value = t,
+        id.type as ty, ty.coding as c, c.system = 'http://terminology.hl7.org/CodeSystem/v3-ObservationValue', c.code = 'PSEUDED' "tanG";
+  sub.localCaseId as l where (l != '') -> pat.identifier as id, id.system = 'https://genomde.de/fhir/sid/local-case-id',
+        id.value = (%sub.submitterId & '|' & %l),
+        id.type as ty, ty.coding as c, c.system = 'http://terminology.hl7.org/CodeSystem/v2-0203', c.code = 'MR',
+        id.assigner as asg, asg.identifier as aid, aid.system = 'https://genomde.de/fhir/sid/le-id', aid.value = (%sub.submitterId) "localCaseId";
+}
+
+// per donor: family history (relatives of an index donor), MV consent, research-consent absence, lab data
+group GrzDonor(source src, source sub, source d, source ck, source ip, source fam, source pid, source did, source labid,
+               target st : Procedure, target bundle : Bundle) {
+  d where ((relation = 'mother' or relation = 'father' or relation = 'brother' or relation = 'sister' or relation = 'child')
+        and %src.donors.where(relation = 'index' and donorPseudonym != '').exists() and donorPseudonym != %ip)
+     -> bundle.entry as e, e.resource = create('FamilyMemberHistory') as fmh, uuid() as fid, ('family-history:' & %d.donorPseudonym) as role
+     then DkEntry(ck, role, fid, e, fmh), GrzFamilyHistoryBody(d, pid, did, fmh) "family-history";
+  d.mvConsent as mvc -> ('mv-consent:' & %d.donorPseudonym) as role then DkMvConsent(mvc, ck, role, did, bundle) "mv-consent";
+  // researchConsents[]: an embedded MII Broad Consent (scope) -> mii-pr-consent-einwilligung (research_consent.py _migrate);
+  // an entry without scope but with a known noScopeJustification -> mvgs-research-consent-absent (_absent)
+  d.researchConsents as rc -> ('research-consent:' & %d.donorPseudonym & ':' & %d.researchConsents.select(iif($this = %rc, $index.toString(), {})).first()) as role
+     then DkResearchConsent(rc, ck, role, did, bundle) "research-consent";
+  d.researchConsents as rc where (scope.exists().not() and (noScopeJustification = 'patient unable to consent'
+        or noScopeJustification = 'patient refuses to sign consent' or noScopeJustification = 'patient did not return consent documents'
+        or noScopeJustification = 'other patient-related reason'
+        or noScopeJustification = 'consent information cannot be submitted by LE due to technical reason'
+        or noScopeJustification = 'consent is not implemented at LE due to organizational issues'))
+     -> bundle.entry as e, e.resource = create('Observation') as obs, uuid() as fid,
+        ('research-consent-absent:' & %d.donorPseudonym & ':' & %d.researchConsents.select(iif($this = %rc, $index.toString(), {})).first()) as role
+     then DkEntry(ck, role, fid, e, obs), GrzResearchConsentAbsentBody(rc, did, obs) "research-consent-absent";
+  d.labData as ld then GrzLabData(sub, d, ld, ck, fam, did, labid, st, bundle) "labData";
+}
+
+group GrzFamilyHistoryBody(source d, source pid, source did, target fmh : FamilyMemberHistory) {
+  d -> fmh.meta as m, m.profile = 'https://www.medizininformatik-initiative.de/fhir/ext/modul-molgen/StructureDefinition/familienanamnese' "profile";
+  d -> fmh.extension as x, x.url = 'http://hl7.org/fhir/StructureDefinition/familymemberhistory-patient-record',
+        x.value = create('Reference') as r then DkReference(did, r) "patient-record";
+  d -> fmh.status = 'partial' "status";
+  d -> fmh.patient as p then DkReference(pid, p) "patient";
+  d.relation as r -> fmh.relationship as cc, cc.coding as s, s.system = 'http://snomed.info/sct',
+        s.code = (iif(%r = 'mother', '72705000', iif(%r = 'father', '66839005', iif(%r = 'brother', '70924004', iif(%r = 'sister', '27733009', '67822003'))))),
+        s.display = (iif(%r = 'mother', 'Mother (person)', iif(%r = 'father', 'Father (person)', iif(%r = 'brother', 'Brother (person)', iif(%r = 'sister', 'Sister (person)', 'Child (person)'))))),
+        cc.coding as rc, rc.system = 'http://terminology.hl7.org/CodeSystem/v3-RoleCode',
+        rc.code = (iif(%r = 'mother', 'MTH', iif(%r = 'father', 'FTH', iif(%r = 'brother', 'BRO', iif(%r = 'sister', 'SIS', 'CHILD'))))),
+        rc.display = (iif(%r = 'mother', 'mother', iif(%r = 'father', 'father', iif(%r = 'brother', 'brother', iif(%r = 'sister', 'sister', 'child'))))) "relationship";
+  d.gender as g where (g = 'male' or g = 'female' or g = 'other' or g = 'unknown') -> fmh.sex as cc, cc.coding as c,
+        c.system = 'http://hl7.org/fhir/administrative-gender', c.code = g "sex";
+}
+
+group GrzResearchConsentAbsentBody(source rc, source did, target obs : Observation) {
+  rc -> obs.meta as m, m.profile = 'https://genomde.de/fhir/StructureDefinition/mvgs-research-consent-absent' "profile";
+  rc -> obs.status = 'final' "status";
+  rc -> obs.code as cc, cc.coding as c, c.system = 'https://genomde.de/fhir/CodeSystem/mvgs-cs-mv-administrative',
+        c.code = 'research-consent-absent', c.display = 'Forschungseinwilligung liegt nicht vor' "code";
+  rc -> obs.subject as s then DkReference(did, s) "subject";
+  rc.presentationDate as pd -> obs.effective = create('dateTime') as dt, dt.value = pd "effective";
+  // the CodeSystem displays are the BfArM enum texts
+  rc.noScopeJustification as n -> obs.value = create('CodeableConcept') as cc, cc.coding as c,
+        c.system = 'https://genomde.de/fhir/CodeSystem/mvgs-cs-research-consent-absence-reason',
+        c.code = (iif(%n = 'patient unable to consent', 'unable-to-consent', iif(%n = 'patient refuses to sign consent', 'refused',
+                  iif(%n = 'patient did not return consent documents', 'documents-not-returned',
+                  iif(%n = 'other patient-related reason', 'other-patient-reason',
+                  iif(%n = 'consent information cannot be submitted by LE due to technical reason', 'technical-reason', 'not-implemented')))))),
+        c.display = n "value";
+}
+
+// ================================================================================================================
+// labData[] (labdata.py): Specimen, Tumorzellgehalt, genomic-study-analysis (+ Devices, QC), link to the study
+// ================================================================================================================
+
+group GrzLabData(source sub, source d, source ld, source ck, source fam, source did, source labid, target st : Procedure,
+                 target bundle : Bundle) {
+  // lk = '<donorPseudonym>:<labDataName>' (labdata.py build(): a missing name is '#<i>', a repeated name of the same
+  // donor gets '#<i>' appended; i = position in labData[], found by value equality)
+  ld -> (%d.labData.select(iif($this = %ld, $index, {})).first()) as i
+     then {
+    ld -> (%d.donorPseudonym & ':' & iif(%ld.labDataName.exists() and %ld.labDataName != '',
+             %ld.labDataName & iif(%d.labData.select(iif(labDataName = %ld.labDataName, $index, {})).first() < %i, '#' & %i.toString(), ''),
+             '#' & %i.toString())) as lk
+       then GrzLabDataKeyed(sub, d, ld, lk, ck, fam, did, labid, st, bundle) "key";
+  } "index";
+}
+
+group GrzLabDataKeyed(source sub, source d, source ld, source lk, source ck, source fam, source did, source labid,
+                      target st : Procedure, target bundle : Bundle) {
+  ld -> bundle.entry as e, e.resource = create('Specimen') as spec, uuid() as spid, ('specimen:' & %lk) as role
+     then DkEntry(ck, role, spid, e, spec), GrzSpecimenBody(sub, d, ld, did, spec),
+          GrzLabDataResults(sub, d, ld, lk, ck, fam, did, spid, labid, st, bundle) "specimen";
+}
+
+group GrzLabDataResults(source sub, source d, source ld, source lk, source ck, source fam, source did, source spid, source labid,
+                        target st : Procedure, target bundle : Bundle) {
+  ld.tumorCellCount as t where (count.exists())
+     -> bundle.entry as e, e.resource = create('Observation') as obs, uuid() as fid,
+        ('tumor-cell-count:' & %lk & ':' & %ld.tumorCellCount.select(iif($this = %t, $index.toString(), {})).first()) as role
+     then DkEntry(ck, role, fid, e, obs), GrzTumorCellCountBody(t, did, spid, obs) "tumor-cell-count";
+  // the analysis and its link from the genomic study (genomic-study-analysis-ext) are written in one rule
+  ld -> bundle.entry as e, e.resource = create('Procedure') as an, uuid() as aid,
+        ('genomic-study-analysis:' & %lk) as role, ('device:' & %lk & ':') as dk,
+        st.extension as x, x.url = 'http://hl7.org/fhir/uv/genomics-reporting/StructureDefinition/genomic-study-analysis-ext',
+        x.value = create('Reference') as r
+     then DkEntry(ck, role, aid, e, an), DkReference(aid, r), GrzAnalysisBody(sub, ld, fam, did, spid, labid, an),
+          GrzDevices(ld, ck, dk, an, bundle), GrzQc(ld, fam, an) "analysis";
+}
+
+// ---- Specimen (SpecimenCore) -----------------------------------------------------------------------------------
+
+group GrzSpecimenBody(source sub, source d, source ld, source did, target spec : Specimen) {
+  ld -> spec.meta as m, m.profile = 'https://www.medizininformatik-initiative.de/fhir/ext/modul-biobank/StructureDefinition/SpecimenCore' "profile";
+  ld.labDataName as n -> spec.identifier as id, id.system = 'https://genomde.de/fhir/sid/grz-lab-data-name',
+        id.value = (%sub.submitterId & '|' & %d.donorPseudonym & '|' & %n) "identifier";
+  ld.barcode as bc where (bc.trim() != '' and (bc.trim().lower() = 'na' or bc.trim().lower() = 'n/a' or bc.trim().lower() = 'none'
+        or bc.trim().lower() = 'unknown').not()) -> spec.accessionIdentifier as id,
+        id.system = 'https://genomde.de/fhir/sid/grz-sample-barcode', id.value = (%sub.submitterId & '|' & %bc) "barcode";
+  ld -> spec.status = 'available' "status";
+  ld -> spec.subject as s then DkReference(did, s) "subject";
+  ld.sampleDate as sd -> spec.collection as col, col.collected = create('dateTime') as dt, dt.value = sd "collected";
+  ld where (sampleDate.exists().not()) -> spec.collection as col, col.collected = create('dateTime') as dt, dt.extension as x,
+        x.url = 'http://hl7.org/fhir/StructureDefinition/data-absent-reason', x.value = create('code') as vc, vc.value = 'unknown' "collected-absent";
+  // type (and the ICD-O-3 body site) from tissueTypeId / tissueOntology / tissueTypeName
+  // computed variables passed to groups must not be empty ('INPUT variable ... has no value'): '-' = none
+  ld -> (iif(%ld.tissueTypeId.trim().length() > 0, %ld.tissueTypeId.trim(), '-')) as tid,
+        (iif(%ld.tissueOntology.name.exists(), %ld.tissueOntology.name.lower().replaceMatches('[^a-z0-9]', ''), '-')) as onn
+     then {
+    ld -> (iif(%onn = 'uberon', 'http://purl.obolibrary.org/obo/uberon.owl',
+           iif(%onn = 'bto' or %onn = 'brenda' or %onn = 'brendatissueontology', 'http://purl.obolibrary.org/obo/bto.owl',
+           iif(%onn = 'snomedct' or %onn = 'snomed' or %onn = 'sct', 'http://snomed.info/sct',
+           iif(%onn = 'icdo3' or %onn = 'icdo', 'http://terminology.hl7.org/CodeSystem/icd-o-3', '-'))))) as claimed,
+          (iif(%tid.contains(':'), iif(%tid.substring(0, %tid.indexOf(':')).upper() = 'UBERON', 'http://purl.obolibrary.org/obo/uberon.owl',
+           iif(%tid.substring(0, %tid.indexOf(':')).upper() = 'BTO', 'http://purl.obolibrary.org/obo/bto.owl', '-')), '-')) as pfx
+       then {
+      ld -> (iif(%pfx != '-', %pfx,
+             iif(%claimed = 'http://snomed.info/sct' and %tid.matches('^[0-9]+$'), %claimed,
+             iif(%claimed = 'http://terminology.hl7.org/CodeSystem/icd-o-3' and %tid.matches('^C[0-9]{2}([.][0-9])?$'), %claimed,
+             iif(%claimed = 'http://purl.obolibrary.org/obo/uberon.owl' or %claimed = 'http://purl.obolibrary.org/obo/bto.owl', %claimed, '-'))))) as sys
+         then {
+        // version of the claimed ontology only when the code is from it; SNOMED CT only with an edition/version URI
+        ld -> (iif(%claimed = %sys and %ld.tissueOntology.version.exists() and %ld.tissueOntology.version != ''
+                   and (%sys != 'http://snomed.info/sct' or %ld.tissueOntology.version.startsWith('http://snomed.info/sct/')),
+                   %ld.tissueOntology.version, '-')) as ver,
+              (iif(%sys = 'http://purl.obolibrary.org/obo/uberon.owl',
+                 iif(%tid = 'UBERON:0000178', 'blood', iif(%tid = 'UBERON:0001836', 'saliva', iif(%tid = 'UBERON:0000479', 'tissue',
+                 iif(%tid = 'UBERON:0002048', 'lung', iif(%tid = 'UBERON:0000310', 'breast', iif(%tid = 'UBERON:0002106', 'spleen',
+                 iif(%tid = 'UBERON:0002107', 'liver', iif(%tid = 'UBERON:0001264', 'pancreas', iif(%tid = 'UBERON:0001150', 'body of pancreas',
+                 iif(%tid = 'UBERON:0000955', 'brain', iif(%tid = 'UBERON:0002367', 'prostate gland', iif(%tid = 'UBERON:0001155', 'colon',
+                 iif(%tid = 'UBERON:0002113', 'kidney', iif(%tid = 'UBERON:0002046', 'thyroid gland',
+                 iif(%tid = 'UBERON:0002112', 'smooth muscle of esophagus', '-'))))))))))))))),
+               iif(%sys = 'http://purl.obolibrary.org/obo/bto.owl', iif(%tid = 'BTO:0000089', 'blood', '-'), '-'))) as label
+           then GrzSpecimenType(ld, tid, sys, ver, label, spec) "type";
+      } "sys";
+    } "claimed";
+  } "tissue";
+  // sampleConservation: ffpe / cryo-frozen -> processing.procedure (SNOMED via ConceptMap + local coding);
+  // fresh-tissue -> note; other / unknown -> dropped
+  ld.sampleConservation as sc where (sc = 'ffpe' or sc = 'cryo-frozen') -> spec.processing as pr, pr.procedure as cc,
+        cc.coding as c1, c1.system = 'http://snomed.info/sct',
+        c1.code = translate(sc, 'https://genomde.de/fhir/ConceptMap/mvgs-cm-grz-sample-conservation-sct', 'code'),
+        c1.display = (iif(%sc = 'ffpe', 'Preparation of formalin fixed paraffin embedded tissue specimen', 'Specimen freezing')),
+        cc.coding as c2, c2.system = 'https://genomde.de/fhir/CodeSystem/mvgs-cs-grz-sample-conservation', c2.code = sc,
+        c2.display = (iif(%sc = 'ffpe', 'FFPE', 'Cryo-frozen')) "conservation";
+  ld.sampleConservation as sc where (sc = 'fresh-tissue') -> spec.note as n,
+        n.text = 'Sample conservation: fresh tissue (not fixed, not frozen)' "fresh-tissue";
+}
+
+// tid = tissueTypeId (trimmed), sys = code system ('-' unknown), ver = ontology version ('-' none),
+// label = ontology label of the code in mvgs-cm-tissue-sct ('-' not in the map). FHIRPath cannot read the source
+// labels of a ConceptMap, so they are listed above (ConceptMap-mvgs-cm-tissue-sct.json, element.display).
+group GrzSpecimenType(source ld, source tid, source sys, source ver, source label, target spec : Specimen) {
+  // no tissueTypeId -> root concept 123038009 'Specimen'
+  ld where (%tid = '-') -> spec.type as cc, cc.coding as c, c.system = 'http://snomed.info/sct',
+        c.code = '123038009', c.display = 'Specimen' then GrzTypeText(ld, cc) "no-id";
+  // unknown ontology -> root concept, code kept as text
+  ld where (%tid != '-' and %sys = '-') -> spec.type as cc, cc.coding as c, c.system = 'http://snomed.info/sct',
+        c.code = '123038009', c.display = 'Specimen',
+        cc.text = ((iif(%ld.tissueTypeName.exists(), %ld.tissueTypeName, '') & ' (' & iif(%ld.tissueOntology.name.exists(), %ld.tissueOntology.name, 'None')
+                   & ' ' & %tid & ')').trim()) "unknown-ontology";
+  // SNOMED CT code
+  ld where (%tid != '-' and %sys = 'http://snomed.info/sct') -> spec.type as cc, cc.coding as c, c.system = (%sys), c.code = (%tid)
+     then GrzVersionDisplay(ld, ver, c), GrzTypeText(ld, cc) "snomed";
+  // ICD-O-3 topography = site: collection.bodySite; type stays the root concept
+  ld where (%tid != '-' and %sys = 'http://terminology.hl7.org/CodeSystem/icd-o-3') -> spec.type as cc, cc.coding as c,
+        c.system = 'http://snomed.info/sct', c.code = '123038009', c.display = 'Specimen',
+        spec.collection as col, col.bodySite as bs, bs.coding as bc, bc.system = (%sys), bc.code = (%tid)
+     then GrzVersionDisplay(ld, ver, bc), GrzTypeText(ld, cc) "icdo3";
+  // UBERON / BTO: SNOMED specimen type via mvgs-cm-tissue-sct when the code is mapped and tissueTypeName agrees with
+  // its ontology label (token subset either way, stopwords of/the/and), else the root concept; original coding kept
+  ld where (%tid != '-' and (%sys = 'http://purl.obolibrary.org/obo/uberon.owl' or %sys = 'http://purl.obolibrary.org/obo/bto.owl')) then {
+    ld where (%label != '-' and (%ld.tissueTypeName.exists().not() or %ld.tissueTypeName = '' or
+          (%ld.tissueTypeName.lower().replaceMatches('[^a-z0-9]+', ' ').trim().split(' ').where($this != '' and $this != 'of' and $this != 'the' and $this != 'and').exists()
+           and %label.lower().replaceMatches('[^a-z0-9]+', ' ').trim().split(' ').where($this != '' and $this != 'of' and $this != 'the' and $this != 'and').exists()
+           and (%ld.tissueTypeName.lower().replaceMatches('[^a-z0-9]+', ' ').trim().split(' ').where($this != '' and $this != 'of' and $this != 'the' and $this != 'and')
+                  .subsetOf(%label.lower().replaceMatches('[^a-z0-9]+', ' ').trim().split(' ').where($this != '' and $this != 'of' and $this != 'the' and $this != 'and'))
+                or %label.lower().replaceMatches('[^a-z0-9]+', ' ').trim().split(' ').where($this != '' and $this != 'of' and $this != 'the' and $this != 'and')
+                  .subsetOf(%ld.tissueTypeName.lower().replaceMatches('[^a-z0-9]+', ' ').trim().split(' ').where($this != '' and $this != 'of' and $this != 'the' and $this != 'and'))))))
+       -> spec.type as cc, cc.coding = translate(tid, 'https://genomde.de/fhir/ConceptMap/mvgs-cm-tissue-sct', 'coding'),
+          cc.coding as c, c.system = (%sys), c.code = (%tid)
+       then GrzVersionDisplay(ld, ver, c), GrzTypeText(ld, cc) "mapped";
+    // not in the map -> root concept, original coding with tissueTypeName as display
+    ld where (%label = '-') -> spec.type as cc, cc.coding as r, r.system = 'http://snomed.info/sct', r.code = '123038009', r.display = 'Specimen',
+          cc.coding as c, c.system = (%sys), c.code = (%tid)
+       then GrzVersionDisplay(ld, ver, c), GrzTypeText(ld, cc) "unmapped";
+    // tissueTypeName contradicts the label -> root concept, original coding with the ontology label as display
+    ld where (%label != '-' and %ld.tissueTypeName.exists() and %ld.tissueTypeName != '' and
+          (%ld.tissueTypeName.lower().replaceMatches('[^a-z0-9]+', ' ').trim().split(' ').where($this != '' and $this != 'of' and $this != 'the' and $this != 'and').exists()
+           and %label.lower().replaceMatches('[^a-z0-9]+', ' ').trim().split(' ').where($this != '' and $this != 'of' and $this != 'the' and $this != 'and').exists()
+           and (%ld.tissueTypeName.lower().replaceMatches('[^a-z0-9]+', ' ').trim().split(' ').where($this != '' and $this != 'of' and $this != 'the' and $this != 'and')
+                  .subsetOf(%label.lower().replaceMatches('[^a-z0-9]+', ' ').trim().split(' ').where($this != '' and $this != 'of' and $this != 'the' and $this != 'and'))
+                or %label.lower().replaceMatches('[^a-z0-9]+', ' ').trim().split(' ').where($this != '' and $this != 'of' and $this != 'the' and $this != 'and')
+                  .subsetOf(%ld.tissueTypeName.lower().replaceMatches('[^a-z0-9]+', ' ').trim().split(' ').where($this != '' and $this != 'of' and $this != 'the' and $this != 'and')))).not())
+       -> spec.type as cc, cc.coding as r, r.system = 'http://snomed.info/sct', r.code = '123038009', r.display = 'Specimen',
+          cc.coding as c, c.system = (%sys), c.code = (%tid), c.display = (%label)
+       then GrzVersion(ld, ver, c), GrzTypeText(ld, cc) "contradicting";
+  } "ontology";
+}
+
+// Coding.version (unless '-') and Coding.display = tissueTypeName
+group GrzVersionDisplay(source ld, source ver, target c : Coding) {
+  ld where (%ver != '-') -> c.version = (%ver) "version";
+  ld.tissueTypeName as n where (n != '') -> c.display = n "display";
+}
+
+group GrzVersion(source ld, source ver, target c : Coding) {
+  ld where (%ver != '-') -> c.version = (%ver) "version";
+}
+
+group GrzTypeText(source ld, target cc : CodeableConcept) {
+  ld.tissueTypeName as n where (n != '') -> cc.text = n "text";
+}
+
+// ---- Tumorzellgehalt -------------------------------------------------------------------------------------------
+
+group GrzTumorCellCountBody(source t, source did, source spid, target obs : Observation) {
+  t -> obs.meta as m, m.profile = 'https://www.medizininformatik-initiative.de/fhir/ext/modul-mtb/StructureDefinition/mii-pr-mtb-tumorzellgehalt' "profile";
+  t -> obs.status = 'final' "status";
+  t -> obs.category as cc, cc.coding as c, c.system = 'http://terminology.hl7.org/CodeSystem/observation-category',
+        c.code = 'laboratory', c.display = 'Laboratory' "category";
+  t -> obs.code as cc, cc.coding as c, c.system = 'http://loinc.org', c.code = '93356-4',
+        c.display = 'Cells with cytogenetic abnormality [#] in Blood or Tissue by Molecular genetics method' "code";
+  t -> obs.subject as s then DkReference(did, s) "subject";
+  t -> obs.specimen as s then DkReference(spid, s) "specimen";
+  t.count as n -> obs.value = create('Quantity') as q, q.value = n, q.unit = 'percent', q.system = 'http://unitsofmeasure.org', q.code = '%' "value";
+  t.method as m where (m = 'pathology' or m = 'bioinformatics') -> obs.method as cc, cc.coding as c,
+        c.system = 'https://www.medizininformatik-initiative.de/fhir/ext/modul-mtb/CodeSystem/mii-cs-mtb-bestimmungsmethode-tumorzellgehalt',
+        c.code = (iif(%m = 'pathology', 'histologic', 'bioinformatic')), c.display = (iif(%m = 'pathology', 'Histologisch', 'Bioinformatisch')) "method";
+  t.method as m where (m = 'other') -> obs.method as cc, cc.text = 'other method (genomDE tumorCellCount.method \'other\')' "method-other";
+  // 'unknown' or missing: Observation.method is 1..1 -> data-absent-reason
+  t where (method.exists().not() or (method = 'pathology' or method = 'bioinformatics' or method = 'other').not()) -> obs.method as cc,
+        cc.extension as x, x.url = 'http://hl7.org/fhir/StructureDefinition/data-absent-reason', x.value = create('code') as vc,
+        vc.value = 'unknown' "method-absent";
+}
+
+// ---- genomic-study-analysis ------------------------------------------------------------------------------------
+
+group GrzAnalysisBody(source sub, source ld, source fam, source did, source spid, source labid, target an : Procedure) {
+  ld where (%fam = 'mtb') -> an.meta as m,
+        m.profile = 'https://www.medizininformatik-initiative.de/fhir/ext/modul-mtb/StructureDefinition/mii-pr-mtb-genomic-study-analysis' "profile-mtb";
+  ld where (%fam = 'molgen') -> an.meta as m,
+        m.profile = 'https://www.medizininformatik-initiative.de/fhir/ext/modul-molgen/StructureDefinition/mii-pr-molgen-genomic-study-analysis' "profile-molgen";
+  // method type from libraryType (ConceptMap; other / unknown are unmatched there). translate(..., 'coding') cannot
+  // fill a CodeableConcept created under Extension.value[x] ('Unable to find type ... Extension.value[x]'), so the
+  // code is translated and system / display (the ConceptMap target displays) are written here
+  ld.libraryType as lt where ((lt = 'other' or lt = 'unknown' or lt = 'none' or lt = 'notApplicable').not())
+     -> an.extension as x, x.url = 'http://hl7.org/fhir/uv/genomics-reporting/StructureDefinition/genomic-study-analysis-method-type',
+        x.value = create('CodeableConcept') as cc, cc.coding as c,
+        c.system = 'https://www.medizininformatik-initiative.de/fhir/ext/modul-mtb/CodeSystem/mii-cs-mtb-genomic-analysis-method-type',
+        c.code = translate(lt, 'https://genomde.de/fhir/ConceptMap/mvgs-cm-grz-library-type-method-type', 'code') as mt,
+        c.display = (iif(%mt = 'gene-panel', 'Genpanel', iif(%mt = 'whole-exom-sequencing', 'Whole Exom Sequencing (WES)',
+                     iif(%mt = 'whole-genom-sequencing', 'Whole Genom Sequencing (WGS)', {})))) "method-type";
+  // exact libraryType (incl. long-read) in the GR title extension (Procedure.code is 0..0)
+  ld.libraryType as lt where ((lt = 'other' or lt = 'unknown' or lt = 'none' or lt = 'notApplicable').not())
+     -> an.extension as x, x.url = 'http://hl7.org/fhir/uv/genomics-reporting/StructureDefinition/genomic-study-analysis-title',
+        x.value = ((iif(%lt = 'panel', 'Gene panel', iif(%lt = 'panel_lr', 'Gene panel, long-read', iif(%lt = 'wes', 'Whole exome sequencing',
+                  iif(%lt = 'wes_lr', 'Whole exome sequencing, long-read', iif(%lt = 'wgs', 'Whole genome sequencing',
+                  iif(%lt = 'wgs_lr', 'Whole genome sequencing, long-read', iif(%lt = 'wxs', 'Whole exome sequencing (WXS)',
+                  iif(%lt = 'wxs_lr', 'Whole exome sequencing (WXS), long-read', %lt))))))))) & ' (GRZ libraryType ' & %lt & ')') "title";
+  ld.sequenceType as s where (s = 'rna') -> an.extension as x,
+        x.url = 'http://hl7.org/fhir/uv/genomics-reporting/StructureDefinition/genomic-study-analysis-method-type',
+        x.value = create('CodeableConcept') as cc, cc.coding as c,
+        c.system = 'https://www.medizininformatik-initiative.de/fhir/ext/modul-mtb/CodeSystem/mii-cs-mtb-genomic-analysis-method-type',
+        c.code = 'rnaseq-transcriptomics', c.display = 'RNA Sequencing (RNA-Seq)' "rna";
+  ld.sequenceData as sd then {
+    sd.referenceGenome as g where (g = 'GRCh37' or g = 'GRCh38') -> an.extension as x,
+          x.url = 'http://hl7.org/fhir/uv/genomics-reporting/StructureDefinition/genomic-study-analysis-genome-build',
+          x.value = create('CodeableConcept') as cc, cc.coding as c, c.system = 'http://loinc.org',
+          c.code = (iif(%g = 'GRCh37', 'LA14029-5', 'LA26806-2')), c.display = g "genome-build";
+  } "sequenceData";
+  ld.sequenceSubtype as s where (s = 'germline' or s = 'somatic') -> an.extension as x,
+        x.url = 'http://hl7.org/fhir/uv/genomics-reporting/StructureDefinition/genomic-study-analysis-genomic-source-class',
+        x.value = create('CodeableConcept') as cc, cc.coding as c, c.system = 'http://loinc.org',
+        c.code = (iif(%s = 'germline', 'LA6683-2', 'LA6684-0')), c.display = (iif(%s = 'germline', 'Germline', 'Somatic')) "source-class";
+  ld -> an.extension as x, x.url = 'http://hl7.org/fhir/uv/genomics-reporting/StructureDefinition/genomic-study-analysis-specimen',
+        x.value = create('Reference') as r then DkReference(spid, r) "specimen";
+  ld -> an.status = 'completed' "status";
+  ld -> an.category as cc, cc.coding as c, c.system = 'http://terminology.hl7.org/CodeSystem/observation-category', c.code = 'laboratory' "category";
+  ld -> an.subject as s then DkReference(did, s) "subject";
+  sub.labName as v where (v != '') -> an.performer as p, p.actor as a then DkReference(labid, a) "performer";
+}
+
+// ---- Devices (GR genomic-study-analysis-device; labdata.py _devices) -------------------------------------------
+// A device needs a usable name (not empty / na / n/a / none / unknown) or a usable manufacturer (additionally not
+// other / notApplicable). dk = 'device:<pseudo>:<labDataName>:'
+
+group GrzDevices(source ld, source ck, source dk, target an : Procedure, target bundle : Bundle) {
+  ld where ((sequencerModel.trim() != '' and (sequencerModel.trim().lower() = 'na' or sequencerModel.trim().lower() = 'n/a'
+          or sequencerModel.trim().lower() = 'none' or sequencerModel.trim().lower() = 'unknown').not())
+        or (sequencerManufacturer.trim() != '' and (sequencerManufacturer.trim().lower() = 'na' or sequencerManufacturer.trim().lower() = 'n/a'
+          or sequencerManufacturer.trim().lower() = 'none' or sequencerManufacturer.trim().lower() = 'unknown'
+          or sequencerManufacturer = 'other' or sequencerManufacturer = 'notApplicable').not()))
+     -> bundle.entry as e, e.resource = create('Device') as dev, uuid() as fid, (%dk & 'sequencer') as role,
+        an.extension as x, x.url = 'http://hl7.org/fhir/uv/genomics-reporting/StructureDefinition/genomic-study-analysis-device',
+        x.extension as xd, xd.url = 'device', xd.value = create('Reference') as r,
+        x.extension as xf, xf.url = 'function', xf.value = create('CodeableConcept') as cc, cc.coding as c,
+        c.system = 'https://www.medizininformatik-initiative.de/fhir/ext/modul-mtb/CodeSystem/mii-cs-mtb-genomicanalysis-devicefunction',
+        c.code = 'sequencing-device', c.display = 'Sequenziergerät'
+     then {
+    ld -> dev.meta as m, m.profile = 'https://www.medizininformatik-initiative.de/fhir/ext/modul-mtb/StructureDefinition/genomic-study-device' "profile";
+    ld.sequencerModel as v where (v.trim() != '' and (v.trim().lower() = 'na' or v.trim().lower() = 'n/a' or v.trim().lower() = 'none'
+          or v.trim().lower() = 'unknown').not()) -> dev.deviceName as dn, dn.name = v, dn.type = 'user-friendly-name' "name";
+    ld.sequencerManufacturer as v where (v.trim() != '' and (v.trim().lower() = 'na' or v.trim().lower() = 'n/a' or v.trim().lower() = 'none'
+          or v.trim().lower() = 'unknown' or v = 'other' or v = 'notApplicable').not()) -> dev.manufacturer = v "manufacturer";
+    ld then DkEntry(ck, role, fid, e, dev), DkReference(fid, r) "entry";
+  } "sequencer";
+
+  ld where ((kitName.trim() != '' and (kitName.trim().lower() = 'na' or kitName.trim().lower() = 'n/a'
+          or kitName.trim().lower() = 'none' or kitName.trim().lower() = 'unknown').not())
+        or (kitManufacturer.trim() != '' and (kitManufacturer.trim().lower() = 'na' or kitManufacturer.trim().lower() = 'n/a'
+          or kitManufacturer.trim().lower() = 'none' or kitManufacturer.trim().lower() = 'unknown'
+          or kitManufacturer = 'other' or kitManufacturer = 'notApplicable').not()))
+     -> bundle.entry as e, e.resource = create('Device') as dev, uuid() as fid, (%dk & 'sequencing-kit') as role,
+        an.extension as x, x.url = 'http://hl7.org/fhir/uv/genomics-reporting/StructureDefinition/genomic-study-analysis-device',
+        x.extension as xd, xd.url = 'device', xd.value = create('Reference') as r,
+        x.extension as xf, xf.url = 'function', xf.value = create('CodeableConcept') as cc, cc.coding as c,
+        c.system = 'https://www.medizininformatik-initiative.de/fhir/ext/modul-mtb/CodeSystem/mii-cs-mtb-genomicanalysis-devicefunction',
+        c.code = 'sequencing-kit', c.display = 'Sequenzier-Kit'
+     then {
+    ld -> dev.meta as m, m.profile = 'https://www.medizininformatik-initiative.de/fhir/ext/modul-mtb/StructureDefinition/genomic-study-device' "profile";
+    ld.kitName as v where (v.trim() != '' and (v.trim().lower() = 'na' or v.trim().lower() = 'n/a' or v.trim().lower() = 'none'
+          or v.trim().lower() = 'unknown').not()) -> dev.deviceName as dn, dn.name = v, dn.type = 'user-friendly-name' "name";
+    ld.kitManufacturer as v where (v.trim() != '' and (v.trim().lower() = 'na' or v.trim().lower() = 'n/a' or v.trim().lower() = 'none'
+          or v.trim().lower() = 'unknown' or v = 'other' or v = 'notApplicable').not()) -> dev.manufacturer = v "manufacturer";
+    ld then DkEntry(ck, role, fid, e, dev), DkReference(fid, r) "entry";
+  } "sequencing-kit";
+
+  ld where ((libraryPrepKit.trim() != '' and (libraryPrepKit.trim().lower() = 'na' or libraryPrepKit.trim().lower() = 'n/a'
+          or libraryPrepKit.trim().lower() = 'none' or libraryPrepKit.trim().lower() = 'unknown').not())
+        or (libraryPrepKitManufacturer.trim() != '' and (libraryPrepKitManufacturer.trim().lower() = 'na' or libraryPrepKitManufacturer.trim().lower() = 'n/a'
+          or libraryPrepKitManufacturer.trim().lower() = 'none' or libraryPrepKitManufacturer.trim().lower() = 'unknown'
+          or libraryPrepKitManufacturer = 'other' or libraryPrepKitManufacturer = 'notApplicable').not()))
+     -> bundle.entry as e, e.resource = create('Device') as dev, uuid() as fid, (%dk & 'library-prep-kit') as role,
+        an.extension as x, x.url = 'http://hl7.org/fhir/uv/genomics-reporting/StructureDefinition/genomic-study-analysis-device',
+        x.extension as xd, xd.url = 'device', xd.value = create('Reference') as r,
+        x.extension as xf, xf.url = 'function', xf.value = create('CodeableConcept') as cc, cc.coding as c,
+        c.system = 'https://www.medizininformatik-initiative.de/fhir/ext/modul-mtb/CodeSystem/mii-cs-mtb-genomicanalysis-devicefunction',
+        c.code = 'library-preparation-kit', c.display = 'Library-Preparation Kit'
+     then {
+    ld -> dev.meta as m, m.profile = 'https://www.medizininformatik-initiative.de/fhir/ext/modul-mtb/StructureDefinition/genomic-study-device' "profile";
+    ld.libraryPrepKit as v where (v.trim() != '' and (v.trim().lower() = 'na' or v.trim().lower() = 'n/a' or v.trim().lower() = 'none'
+          or v.trim().lower() = 'unknown').not()) -> dev.deviceName as dn, dn.name = v, dn.type = 'user-friendly-name' "name";
+    ld.libraryPrepKitManufacturer as v where (v.trim() != '' and (v.trim().lower() = 'na' or v.trim().lower() = 'n/a' or v.trim().lower() = 'none'
+          or v.trim().lower() = 'unknown' or v = 'other' or v = 'notApplicable').not()) -> dev.manufacturer = v "manufacturer";
+    ld then DkEntry(ck, role, fid, e, dev), DkReference(fid, r) "entry";
+  } "library-prep-kit";
+
+  // enrichment kit: manufacturer 'none' without a usable description = no enrichment (WGS) -> no device ('none' is
+  // never a usable manufacturer, so the name / manufacturer condition below covers it). Panels
+  // (libraryType panel*) get the MTB function gene-panel and, for a description of the MII 2027 panel catalogue,
+  // Device.definition (logical reference to the mii-pr-mtb-panel-devicedefinition instance); otherwise library-preparation-kit. Plus mvgs enrichment-kit.
+  ld where ((enrichmentKitDescription.trim() != '' and (enrichmentKitDescription.trim().lower() = 'na' or enrichmentKitDescription.trim().lower() = 'n/a'
+          or enrichmentKitDescription.trim().lower() = 'none' or enrichmentKitDescription.trim().lower() = 'unknown').not())
+        or (enrichmentKitManufacturer.trim() != '' and (enrichmentKitManufacturer.trim().lower() = 'na' or enrichmentKitManufacturer.trim().lower() = 'n/a'
+          or enrichmentKitManufacturer.trim().lower() = 'none' or enrichmentKitManufacturer.trim().lower() = 'unknown'
+          or enrichmentKitManufacturer = 'other' or enrichmentKitManufacturer = 'notApplicable').not()))
+     -> bundle.entry as e, e.resource = create('Device') as dev, uuid() as fid, (%dk & 'enrichment-kit') as role,
+        (iif(%ld.libraryType.startsWith('panel'), 'gene-panel', 'library-preparation-kit')) as fn,
+        an.extension as x, x.url = 'http://hl7.org/fhir/uv/genomics-reporting/StructureDefinition/genomic-study-analysis-device',
+        x.extension as xd, xd.url = 'device', xd.value = create('Reference') as r,
+        x.extension as xf, xf.url = 'function', xf.value = create('CodeableConcept') as cc, cc.coding as c,
+        c.system = 'https://www.medizininformatik-initiative.de/fhir/ext/modul-mtb/CodeSystem/mii-cs-mtb-genomicanalysis-devicefunction',
+        c.code = (%fn), c.display = (iif(%fn = 'gene-panel', 'Genpanel', 'Library-Preparation Kit')),
+        cc.coding as c2, c2.system = 'https://genomde.de/fhir/CodeSystem/mvgs-cs-grz-device-function', c2.code = 'enrichment-kit',
+        c2.display = 'Enrichment kit'
+     then {
+    ld -> dev.meta as m, m.profile = 'https://www.medizininformatik-initiative.de/fhir/ext/modul-mtb/StructureDefinition/genomic-study-device' "profile";
+    ld.enrichmentKitDescription as v where (v.trim() != '' and (v.trim().lower() = 'na' or v.trim().lower() = 'n/a' or v.trim().lower() = 'none'
+          or v.trim().lower() = 'unknown').not()) -> dev.deviceName as dn, dn.name = v, dn.type = 'user-friendly-name' "name";
+    ld.enrichmentKitManufacturer as v where (v.trim() != '' and (v.trim().lower() = 'na' or v.trim().lower() = 'n/a' or v.trim().lower() = 'none'
+          or v.trim().lower() = 'unknown' or v = 'other' or v = 'notApplicable').not()) -> dev.manufacturer = v "manufacturer";
+    ld where (libraryType.startsWith('panel')) then GrzPanelDefinition(ld, dev) "definition";
+    ld then DkEntry(ck, role, fid, e, dev), DkReference(fid, r) "entry";
+  } "enrichment-kit";
+
+  ld.sequenceData as sd then GrzSoftware(sd, ck, dk, an, bundle) "software";
+}
+
+// MII MTB 2027 panel catalogue (labdata.py PANEL_CATALOGUE): normalised description fragments -> logical reference
+// (identifier = canonical of the catalogue DeviceDefinition; package content, not a bundle entry)
+group GrzPanelDefinition(source ld, target dev : Device) {
+  ld -> (%ld.enrichmentKitDescription.lower().replaceMatches('[^a-z0-9]', '')) as n then {
+    ld where (%n != '' and (%n.contains('trusightoncology500') or %n.contains('tso500') or %n.contains('oncominefocusassayplus')
+          or %n.contains('ofaplus') or %n.contains('oncominefocusassay') or %n.contains('sureselectcancercgpassay')
+          or %n.contains('sureselectcgp') or %n.contains('fusionplexarcherlungv2') or %n.contains('archerlungv2')
+          or %n.contains('dhs3501z') or %n.contains('mhivd600') or %n.contains('mh600')))
+       -> dev.definition as df, df.type = 'DeviceDefinition', df.identifier as did, did.system = 'urn:ietf:rfc:3986',
+          did.value = ('https://www.medizininformatik-initiative.de/fhir/ext/modul-mtb/DeviceDefinition/' &
+                       iif(%n.contains('trusightoncology500') or %n.contains('tso500'), 'mii-dd-mtb-panel-tso-500',
+                       iif(%n.contains('oncominefocusassayplus') or %n.contains('ofaplus'), 'mii-dd-mtb-panel-ofa-plus',
+                       iif(%n.contains('oncominefocusassay'), 'mii-dd-mtb-panel-ofa',
+                       iif(%n.contains('sureselectcancercgpassay') or %n.contains('sureselectcgp'), 'mii-dd-mtb-panel-cgp',
+                       iif(%n.contains('fusionplexarcherlungv2') or %n.contains('archerlungv2'), 'mii-dd-mtb-panel-archer-lung-v2',
+                       iif(%n.contains('dhs3501z'), 'mii-dd-mtb-panel-dhs-3501z', 'mii-dd-mtb-panel-mh600plus'))))))),
+          df.display = (iif(%n.contains('trusightoncology500') or %n.contains('tso500'), 'TruSight Oncology 500',
+                        iif(%n.contains('oncominefocusassayplus') or %n.contains('ofaplus'), 'Oncomine Focus Assay Plus',
+                        iif(%n.contains('oncominefocusassay'), 'Oncomine Focus Assay',
+                        iif(%n.contains('sureselectcancercgpassay') or %n.contains('sureselectcgp'), 'SureSelect Cancer CGP Assay',
+                        iif(%n.contains('fusionplexarcherlungv2') or %n.contains('archerlungv2'), 'FusionPlex Archer Lung V2',
+                        iif(%n.contains('dhs3501z'), 'Qiagen DHS-3501Z', 'MH IVD 600+'))))))) "catalogue";
+  } "normalised";
+}
+
+// software devices: bioinformatics pipeline and variant callers (name + version; no manufacturer)
+group GrzSoftware(source sd, source ck, source dk, target an : Procedure, target bundle : Bundle) {
+  sd where (bioinformaticsPipelineName.trim() != '' and (bioinformaticsPipelineName.trim().lower() = 'na'
+        or bioinformaticsPipelineName.trim().lower() = 'n/a' or bioinformaticsPipelineName.trim().lower() = 'none'
+        or bioinformaticsPipelineName.trim().lower() = 'unknown').not())
+     -> bundle.entry as e, e.resource = create('Device') as dev, uuid() as fid, (%dk & 'pipeline') as role,
+        an.extension as x, x.url = 'http://hl7.org/fhir/uv/genomics-reporting/StructureDefinition/genomic-study-analysis-device',
+        x.extension as xd, xd.url = 'device', xd.value = create('Reference') as r,
+        x.extension as xf, xf.url = 'function', xf.value = create('CodeableConcept') as cc, cc.coding as c,
+        c.system = 'https://genomde.de/fhir/CodeSystem/mvgs-cs-grz-device-function', c.code = 'bioinformatics-pipeline',
+        c.display = 'Bioinformatics pipeline'
+     then {
+    sd -> dev.meta as m, m.profile = 'https://www.medizininformatik-initiative.de/fhir/ext/modul-mtb/StructureDefinition/genomic-study-device' "profile";
+    sd.bioinformaticsPipelineName as v -> dev.deviceName as dn, dn.name = v, dn.type = 'user-friendly-name' "name";
+    sd.bioinformaticsPipelineVersion as v where (v != '') -> dev.version as dv, dv.value = v "version";
+    sd then DkEntry(ck, role, fid, e, dev), DkReference(fid, r) "entry";
+  } "pipeline";
+  sd.callerUsed as cu where (name.trim() != '' and (name.trim().lower() = 'na' or name.trim().lower() = 'n/a'
+        or name.trim().lower() = 'none' or name.trim().lower() = 'unknown').not())
+     -> bundle.entry as e, e.resource = create('Device') as dev, uuid() as fid,
+        (%dk & 'caller-' & %sd.callerUsed.select(iif($this = %cu, $index.toString(), {})).first()) as role,
+        an.extension as x, x.url = 'http://hl7.org/fhir/uv/genomics-reporting/StructureDefinition/genomic-study-analysis-device',
+        x.extension as xd, xd.url = 'device', xd.value = create('Reference') as r,
+        x.extension as xf, xf.url = 'function', xf.value = create('CodeableConcept') as cc, cc.coding as c,
+        c.system = 'https://genomde.de/fhir/CodeSystem/mvgs-cs-grz-device-function', c.code = 'variant-caller',
+        c.display = 'Variant caller'
+     then {
+    cu -> dev.meta as m, m.profile = 'https://www.medizininformatik-initiative.de/fhir/ext/modul-mtb/StructureDefinition/genomic-study-device' "profile";
+    cu.name as v -> dev.deviceName as dn, dn.name = v, dn.type = 'user-friendly-name' "name";
+    cu.version as v where (v != '') -> dev.version as dv, dv.value = v "version";
+    cu then DkEntry(ck, role, fid, e, dev), DkReference(fid, r) "entry";
+  } "caller";
+}
+
+// ---- QC (REPRESENTATIONS #22): MTB extension:qc / MolGen GR genomic-study-analysis-metrics ----------------------
+// read-depth = meanDepthOfCoverage [x], sequencing-coverage = targetedRegionsAboveMinCoverage * 100 [%],
+// sequencing-read-type = sequencingLayout (MTB only), metrics-description = the remaining values as key=value text
+// (MolGen: also the layout). Numbers are written like Python (integral values without '.0').
+
+group GrzQc(source ld, source fam, target an : Procedure) {
+  ld -> (iif(%fam = 'molgen' and %ld.sequencingLayout.exists() and %ld.sequencingLayout != ''
+             and (%ld.sequencingLayout = 'other' or %ld.sequencingLayout = 'unknown' or %ld.sequencingLayout = 'none' or %ld.sequencingLayout = 'notApplicable').not(),
+             'sequencingLayout=' & %ld.sequencingLayout, {})
+        .combine(iif(%ld.sequenceData.minCoverage.exists(),
+             'minCoverage=' & %ld.sequenceData.minCoverage.toString().replaceMatches('([.][0-9]*[1-9])0+$', '$1').replaceMatches('[.]0*$', '') & 'x', {}))
+        .combine(iif(%ld.sequenceData.percentBasesAboveQualityThreshold.percent.exists(),
+             'percentBasesAboveQualityThreshold=' & %ld.sequenceData.percentBasesAboveQualityThreshold.percent.toString().replaceMatches('([.][0-9]*[1-9])0+$', '$1').replaceMatches('[.]0*$', '') & '%'
+             & iif(%ld.sequenceData.percentBasesAboveQualityThreshold.minimumQuality.exists(),
+                   ' (Q>=' & %ld.sequenceData.percentBasesAboveQualityThreshold.minimumQuality.toString().replaceMatches('([.][0-9]*[1-9])0+$', '$1').replaceMatches('[.]0*$', '') & ')', ''), {}))
+        .combine(iif(%ld.fragmentationMethod = 'sonication' or %ld.fragmentationMethod = 'enzymatic' or %ld.fragmentationMethod = 'none',
+             'fragmentationMethod=' & %ld.fragmentationMethod, {}))
+        .combine(iif(%ld.sequenceData.nonCodingVariants.exists(), 'nonCodingVariants=' & %ld.sequenceData.nonCodingVariants.toString().lower(), {}))
+        .join('; ')) as txt
+     then {
+    ld where (sequenceData.meanDepthOfCoverage.exists() or sequenceData.targetedRegionsAboveMinCoverage.exists() or %txt != ''
+          or (%fam = 'mtb' and sequencingLayout != '' and (sequencingLayout = 'other' or sequencingLayout = 'unknown'
+              or sequencingLayout = 'none' or sequencingLayout = 'notApplicable').not()))
+       -> an.extension as q, q.url = (iif(%fam = 'mtb', 'https://www.medizininformatik-initiative.de/fhir/ext/modul-mtb/StructureDefinition/mii-ex-mtb-genomic-study-analysis-qc',
+                                     'http://hl7.org/fhir/uv/genomics-reporting/StructureDefinition/genomic-study-analysis-metrics'))
+       then GrzQcParts(ld, fam, txt, q) "qc";
+  } "text";
+}
+
+group GrzQcParts(source ld, source fam, source txt, target q : Extension) {
+  ld.sequenceData as sd then {
+    sd.meanDepthOfCoverage as v -> q.extension as x, x.url = 'read-depth', x.value = create('Quantity') as qty, qty.value = v,
+          qty.unit = 'x', qty.system = 'http://unitsofmeasure.org', qty.code = '1' "read-depth";
+    sd.targetedRegionsAboveMinCoverage as v -> q.extension as x, x.url = 'sequencing-coverage', x.value = create('Quantity') as qty,
+          qty.value = ((%v * 100).round(6).toString().replaceMatches('([.][0-9]*[1-9])0+$', '$1').replaceMatches('[.]0*$', '')),
+          qty.unit = '%', qty.system = 'http://unitsofmeasure.org', qty.code = '%' "sequencing-coverage";
+  } "sequenceData";
+  ld.sequencingLayout as l where (%fam = 'mtb' and l != '' and (l = 'other' or l = 'unknown' or l = 'none' or l = 'notApplicable').not())
+     -> q.extension as x, x.url = 'sequencing-read-type', x.value = create('CodeableConcept') as cc, cc.coding as c,
+        c.system = 'https://genomde.de/fhir/CodeSystem/mvgs-cs-grz-sequencing-layout', c.code = l,
+        c.display = (iif(%l = 'single-end', 'Single-end', iif(%l = 'paired-end', 'Paired-end', iif(%l = 'reverse', 'Reverse', %l)))) "read-type";
+  ld where (%txt != '') -> q.extension as x, x.url = 'metrics-description', x.value = (%txt) "metrics-description";
+}

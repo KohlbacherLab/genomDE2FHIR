@@ -1,0 +1,420 @@
+/// url = 'https://genomde.de/fhir/StructureMap/DatenkranzCommon'
+/// name = 'DatenkranzCommon'
+/// title = 'genomDE Datenkranz to MII KDS 2027: shared groups (envelope, codings, references, Patient, Coverage, consents)'
+/// status = 'draft'
+
+// Library map: no main group. Imported by every Datenkranz*ToMii map (and by their sub-maps that call Dk* groups).
+// Conventions and the verified matchbox 4.1.21 behaviour: mappers/fml/README.md. Reference implementation:
+// genomde2fhir/src/genomde2fhir/builders/{common,patient,coverage,consent,research_consent,submission}.py.
+//
+// Group parameters are always variables: a literal argument in a group call is looked up as a variable name
+// (quirk Q3), so callers bind literals first, e.g.  md -> ('patient') as role, uuid() as fid then DkEntry(...).
+// Every group name starts with 'Dk' (a local group with the same name silently shadows an imported one).
+// Codings are written element by element: the c(system, code, display) transform ignores its display argument and
+// looks the display up in the terminology instead (README, EngineCodingProbe).
+
+uses "http://hl7.org/fhir/StructureDefinition/Bundle" alias Bundle as target
+uses "http://hl7.org/fhir/StructureDefinition/Patient" alias Patient as target
+uses "http://hl7.org/fhir/StructureDefinition/Coverage" alias Coverage as target
+uses "http://hl7.org/fhir/StructureDefinition/Consent" alias Consent as target
+uses "http://hl7.org/fhir/StructureDefinition/CarePlan" alias CarePlan as target
+uses "http://hl7.org/fhir/StructureDefinition/Coding" alias Coding as target
+uses "http://hl7.org/fhir/StructureDefinition/CodeableConcept" alias CodeableConcept as target
+uses "http://hl7.org/fhir/StructureDefinition/Identifier" alias Identifier as target
+uses "http://hl7.org/fhir/StructureDefinition/Period" alias Period as target
+uses "http://hl7.org/fhir/StructureDefinition/Reference" alias Reference as target
+uses "http://hl7.org/fhir/StructureDefinition/Extension" alias Extension as target
+
+// ================================================================================================================
+// Bundle entry envelope
+// ================================================================================================================
+
+// One transaction entry for a resource created by the caller in the same rule:
+//   x -> bundle.entry as e, e.resource = create('Type') as res, uuid() as fid, ('role') as role
+//     then DkEntry(ck, role, fid, e, res), Body(...) "rule";
+// ck   = case key 'kdk:<submitterId>:<localCaseId|tanC>' or 'grz:<submitterId>:<localCaseId|tanG>' (README)
+// role = semantic role (+ ':' + local id / index), unique per resource type within a case
+// fid  = uuid() of the entry; references to the resource are 'urn:uuid:' + fid (DkReference)
+// The resource key ck:role is stored base64url-encoded (FHIRPath encode('urlbase64')) in the identifier
+// https://genomde.de/fhir/sid/resource-key and used in the conditional PUT, so re-submissions update in place.
+group DkEntry(source ck, source role, source fid, target e, target res) {
+  ck -> e.fullUrl = ('urn:uuid:' + %fid) "fullUrl";
+  ck -> res.identifier as id, id.system = 'https://genomde.de/fhir/sid/resource-key',
+        id.value = ((%ck & ':' & %role).encode('urlbase64')) "key";
+  ck -> e.request as rq, rq.method = 'PUT',
+        rq.url = (%res.type().name & '?identifier=https://genomde.de/fhir/sid/resource-key|' & (%ck & ':' & %role).encode('urlbase64')) "request";
+}
+
+// Reference to a resource of this Bundle by its entry uuid (Patient reference passing: callers hand the Patient's
+// fid down as a source parameter and call  -> res.subject as s then DkReference(pid, s)).
+group DkReference(source fid, target ref : Reference) {
+  fid -> ref.reference = ('urn:uuid:' + %fid) "reference";
+}
+
+// ================================================================================================================
+// Datatypes (builders/common.py)
+// ================================================================================================================
+
+// KDK Coding {system, version, code, display} -> Coding (src_coding); nothing without a code.
+group DkCoding(source src, target c : Coding) {
+  src where (code.exists()) then {
+    src.system as s -> c.system = s "system";
+    src.version as v -> c.version = v "version";
+    src.code as cd -> c.code = cd "code";
+    src.display as d -> c.display = d "display";
+  } "coding";
+}
+
+// KDK Coding with a profile-fixed system (src_coding(src, system)): the source system and its version are dropped.
+group DkCodingSystem(source src, source sys, target c : Coding) {
+  src where (code.exists()) then {
+    src -> c.system = sys "system";
+    src.code as cd -> c.code = cd "code";
+    src.display as d -> c.display = d "display";
+  } "coding";
+}
+
+// KDK Coding {system, version, code, display, text?} -> CodeableConcept (src_cc); nothing without a code.
+group DkCodeableConcept(source src, target cc : CodeableConcept) {
+  src where (code.exists()) then {
+    src -> cc.coding as c then DkCoding(src, c) "coding";
+    src.text as t -> cc.text = t "text";
+  } "cc";
+}
+
+// KDK Coding with a profile-fixed system -> CodeableConcept.
+group DkCodeableConceptSystem(source src, source sys, target cc : CodeableConcept) {
+  src where (code.exists()) then {
+    src -> cc.coding as c then DkCodingSystem(src, sys, c) "coding";
+    src.text as t -> cc.text = t "text";
+  } "cc";
+}
+
+// Plain code string + system -> Coding (coding(system, code)).
+group DkCodeCoding(source code, source sys, target c : Coding) {
+  code -> c.system = sys, c.code = code "coding";
+}
+
+// Identifier {system, value}; both parameters are variables (identifier(system, value)).
+group DkIdentifier(source sys, source val, target id : Identifier) {
+  val -> id.system = sys, id.value = val "identifier";
+}
+
+// Period from two values (period(start, end)); with only one value use DkPeriodStart / DkPeriodEnd.
+group DkPeriod(source start, source end, target p : Period) {
+  start -> p.start = start "start";
+  end -> p.end = end "end";
+}
+
+group DkPeriodStart(source start, target p : Period) {
+  start -> p.start = start "start";
+}
+
+group DkPeriodEnd(source end, target p : Period) {
+  end -> p.end = end "end";
+}
+
+// ================================================================================================================
+// KDK Patient (builders/patient.py), shared by the oncology and rare-disease maps; md = metaData, pid = Patient fid
+// ================================================================================================================
+
+group DkKdkPatient(source md, source ck, source pid, target bundle : Bundle) {
+  md -> bundle.entry as e, e.resource = create('Patient') as pat, ('patient') as role
+     then DkEntry(ck, role, pid, e, pat), DkKdkPatientBody(md, pat) "patient";
+}
+
+group DkKdkPatientBody(source md, target pat : Patient) {
+  md -> pat.meta as m, m.profile = 'https://www.medizininformatik-initiative.de/fhir/core/modul-person/StructureDefinition/PatientPseudonymisiert' "profile";
+  md.tanC as t -> pat.identifier as id, id.system = 'https://genomde.de/fhir/sid/tan-c', id.value = t,
+        id.type as ty, ty.coding as c, c.system = 'http://terminology.hl7.org/CodeSystem/v3-ObservationValue', c.code = 'PSEUDED' "tanC";
+  // local-case-id = '<submitterId>|<localCaseId>' (MR, assigner = LE id); only when the case key is the local case id
+  md.localCaseId as l where (l != '') -> pat.identifier as id, id.system = 'https://genomde.de/fhir/sid/local-case-id',
+        id.value = (%md.submission.submitterId & '|' & %l),
+        id.type as ty, ty.coding as c, c.system = 'http://terminology.hl7.org/CodeSystem/v2-0203', c.code = 'MR'
+     then DkLocalCaseAssigner(md, id) "localCaseId";
+  // gender: FHIR codes pass, anything else -> unknown; other needs gender-amtlich-de D (mii-pat-1)
+  md.gender as g where (g = 'male' or g = 'female' or g = 'unknown') -> pat.gender = g "gender";
+  md.gender as g where (g = 'other') -> pat.gender = g as pg, pg.extension as ex,
+        ex.url = 'http://fhir.de/StructureDefinition/gender-amtlich-de',
+        ex.value = create('Coding') as vc, vc.system = 'http://fhir.de/CodeSystem/gender-amtlich-de', vc.code = 'D',
+        vc.display = 'divers' "gender-other";
+  md.gender as g where ((g = 'male' or g = 'female' or g = 'other' or g = 'unknown' or g = '').not()) -> pat.gender = 'unknown' "gender-unknown";
+  md.birthDate as bd -> pat.birthDate = bd "birthDate";
+  // 8-digit AGS -> ags extension on address.city; any other value -> address.text 'AGS <value>'
+  md.addressAGS as a where (a.matches('^[0-9]{8}$')) -> pat.address as ad, ad.country = 'DE', ad.city as city,
+        city.extension as ex, ex.url = 'http://fhir.de/StructureDefinition/destatis/ags',
+        ex.value = create('Coding') as vc, vc.system = 'http://fhir.de/sid/destatis/ags', vc.code = a "ags";
+  md.addressAGS as a where ((a.matches('^[0-9]{8}$') or a = '').not()) -> pat.address as ad, ad.country = 'DE',
+        ad.text = ('AGS ' & %a) "ags-text";
+}
+
+// assigner = LE id (submitterId) on the local-case-id identifier
+group DkLocalCaseAssigner(source md, target id : Identifier) {
+  md where (submission.submitterId.exists()) -> id.assigner as asg, asg.identifier as aid,
+        aid.system = 'https://genomde.de/fhir/sid/le-id', aid.value = (%md.submission.submitterId) "assigner";
+}
+
+// ================================================================================================================
+// Coverage (builders/coverage.py, grz/donors.py _coverage); ct = coverageType value, pid = Patient fid
+// ================================================================================================================
+
+group DkCoverage(source ct, source ck, source pid, target bundle : Bundle) {
+  ct where (ct != '') -> bundle.entry as e, e.resource = create('Coverage') as cov, uuid() as fid, ('coverage') as role
+     then DkEntry(ck, role, fid, e, cov), DkCoverageBody(ct, pid, cov) "coverage";
+}
+
+group DkCoverageBody(source ct, source pid, target cov : Coverage) {
+  ct -> cov.meta as m, m.profile = 'http://fhir.de/StructureDefinition/coverage-de-basis' "profile";
+  ct -> cov.status = 'active' "status";
+  // versicherungsart-de-basis codes; SKT and UNK come from the other systems of VersicherungsartDeBasisVS
+  ct where ((ct = 'SKT' or ct = 'UNK').not()) -> cov.type as t, t.coding as c,
+        c.system = 'http://fhir.de/CodeSystem/versicherungsart-de-basis', c.code = ct "type";
+  ct where (ct = 'SKT') -> cov.type as t, t.coding as c, c.system = 'https://fhir.kbv.de/CodeSystem/KBV_CS_FOR_Payor_Type_KBV',
+        c.code = 'SKT', c.display = 'Sonstige Kostenträger' "type-skt";
+  ct where (ct = 'UNK') -> cov.type as t, t.coding as c, c.system = 'http://terminology.hl7.org/CodeSystem/v3-NullFlavor',
+        c.code = 'UNK', c.display = 'unknown' "type-unk";
+  ct -> cov.beneficiary as b then DkReference(pid, b) "beneficiary";
+  // payor: the patient only for self-pay (SEL); the insurer is not submitted, so other types get a data-absent-reason
+  ct where (ct = 'SEL') -> cov.payor as p then DkReference(pid, p) "payor-self";
+  ct where ((ct = 'SEL').not()) -> cov.payor as p, p.extension as dx, dx.url = 'http://hl7.org/fhir/StructureDefinition/data-absent-reason',
+        dx.value = create('code') as cv, cv.value = 'unknown' "payor-absent";
+}
+
+// ================================================================================================================
+// MV-GenomSeq participation consent (builders/consent.py) -> mvgs-consent; mvc = metaData.mvConsent or
+// donors[].mvConsent, role = 'mv-consent' (KDK) or 'mv-consent:<donorPseudonym>' (GRZ), pid = Patient fid.
+// A scope entry is usable when its domain is in mvgs-cs-mv-consent-domain, its type is permit/deny and it has a
+// date; without a usable entry no Consent is emitted.
+// ================================================================================================================
+
+group DkMvConsent(source mvc, source ck, source role, source pid, target bundle : Bundle) {
+  mvc where (scope.where((domain = 'mvSequencing' or domain = 'reIdentification' or domain = 'caseIdentification')
+        and (type = 'permit' or type = 'deny') and date.exists()).exists())
+     -> bundle.entry as e, e.resource = create('Consent') as con, uuid() as fid
+     then DkEntry(ck, role, fid, e, con), DkMvConsentBody(mvc, pid, con) "mv-consent";
+}
+
+group DkMvConsentBody(source mvc, source pid, target con : Consent) {
+  mvc -> con.meta as m, m.profile = 'https://genomde.de/fhir/StructureDefinition/mvgs-consent' "profile";
+  mvc -> con.status = 'active' "status";
+  mvc -> con.scope as s, s.coding as c, c.system = 'http://terminology.hl7.org/CodeSystem/consentscope', c.code = 'patient-privacy',
+        c.display = 'Privacy Consent' "scope";
+  mvc -> con.category as cat, cat.coding as c, c.system = 'http://loinc.org', c.code = '57016-8',
+        c.display = 'Privacy policy acknowledgment Document' "category";
+  mvc -> con.patient as p then DkReference(pid, p) "patient";
+  // dateTime = presentationDate; absent -> earliest date of the usable scope entries (no min() in matchbox 4.1.21)
+  mvc.presentationDate as d -> con.dateTime = d "dateTime";
+  mvc where (presentationDate.exists().not()) -> con.dateTime = (%mvc.scope.where((domain = 'mvSequencing' or domain = 'reIdentification'
+        or domain = 'caseIdentification') and (type = 'permit' or type = 'deny') and date.exists()).date.aggregate(iif($total.empty() or $this < $total, $this, $total))) "dateTime-scope";
+  mvc.version as v -> con.policyRule as pr, pr.text = v "policyRule";
+  mvc.scope as sc where ((domain = 'mvSequencing' or domain = 'reIdentification' or domain = 'caseIdentification')
+        and (type = 'permit' or type = 'deny') and date.exists())
+     -> con.provision as top, top.provision as p, p.type = (%sc.type), p.period as per, per.start = (%sc.date),
+        p.code as cc, cc.coding as c, c.system = 'https://genomde.de/fhir/CodeSystem/mvgs-cs-mv-consent-domain', c.code = (%sc.domain),
+        c.display = (iif(%sc.domain = 'mvSequencing', 'Teilnahme am Modellvorhaben Genomsequenzierung',
+                     iif(%sc.domain = 'reIdentification', 'Re-Identifizierung', 'Fallidentifizierung'))) "provision";
+}
+
+// ================================================================================================================
+// Embedded MII Broad Consent (builders/research_consent.py _migrate) -> mii-pr-consent-einwilligung.
+// rc = metaData.researchConsents[] (KDK) or donors[].researchConsents[] (GRZ); role = 'research-consent:<i>' (KDK) or
+// 'research-consent:<donorPseudonym>:<i>' (GRZ), i = position in researchConsents[]; pid = Patient fid.
+// The logical models declare the Consent elements under researchConsents[].scope as extras (scripts/schema_to_logical.py
+// EXTRAS, FHIR datatypes at the leaves), so they are copied whole where the migration keeps them unchanged.
+// Migrated only when scope is a FHIR Consent with a status; otherwise Python emits nothing for the entry (an empty scope
+// with a noScopeJustification is the absence Observation of the branch maps).
+//   - id, meta, text, contained, implicitRules and the sender's patient are dropped; patient = our Patient,
+//     meta.profile = mii-pr-consent-einwilligung (versionless)
+//   - scope = consentscope#research; category: mii-cs-consent-consent_category -> mii-cs-consent-version-modules,
+//     LOINC 57016-8 and the MII Broad Consent category (...2.184) added when missing
+//   - policy.uri / policy.authority: a bare OID -> 'urn:oid:<OID>'
+//   - dateTime = researchConsents[].presentationDate, else the embedded dateTime
+//   - references into the sender's system (not urn:uuid:/#) are removed (DkRcReference); a DomainReference extension
+//     is kept only when its domain still has a display, an identifier or an internal reference; sourceReference only
+//     with an internal reference (source[x].reference 1..1)
+// Deliberate simplifications: references are stripped in Reference-typed elements, extension values (any depth) and
+// Identifier.assigner, not inside other datatypes (e.g. an Annotation author); Consent.provision is declared to depth 3.
+// ================================================================================================================
+
+group DkResearchConsent(source rc, source ck, source role, source pid, target bundle : Bundle) {
+  rc.scope as s where (resourceType = 'Consent' and status.exists())
+     -> bundle.entry as e, e.resource = create('Consent') as con, uuid() as fid
+     then DkEntry(ck, role, fid, e, con), DkResearchConsentBody(rc, s, pid, con) "research-consent";
+}
+
+group DkResearchConsentBody(source rc, source s, source pid, target con : Consent) {
+  s -> con.meta as m, m.profile = 'https://www.medizininformatik-initiative.de/fhir/modul-consent/StructureDefinition/mii-pr-consent-einwilligung' "profile";
+  s.identifier as x -> con.identifier as t then DkRcIdentifier(x, t) "identifier";
+  s.language as x -> con.language = x "language";
+  s.extension as x where (url != 'http://fhir.de/ConsentManagement/StructureDefinition/DomainReference')
+     -> con.extension as t then DkRcExtension(x, t) "extension";
+  s.extension as x where (url = 'http://fhir.de/ConsentManagement/StructureDefinition/DomainReference'
+        and extension.where(url = 'domain').first().value.where(($this is Reference) and (reference.where($this.startsWith('urn:uuid:')
+            or $this.startsWith('#')).exists() or identifier.exists() or display.exists())).exists())
+     -> con.extension as t then DkRcExtension(x, t) "domain-reference";
+  s.modifierExtension as x -> con.modifierExtension as t then DkRcExtension(x, t) "modifierExtension";
+  s.status as x -> con.status = x "status";
+  s -> con.scope as sc, sc.coding as c, c.system = 'http://terminology.hl7.org/CodeSystem/consentscope', c.code = 'research' "scope";
+  // categories in Python order: [LOINC if missing], [MII if both missing], first category, [MII if only it is missing], rest
+  s where (category.coding.where(system = 'http://loinc.org' and code = '57016-8').exists().not())
+     -> con.category as cat, cat.coding as c, c.system = 'http://loinc.org', c.code = '57016-8' "category-loinc";
+  s where (category.coding.where(system = 'http://loinc.org' and code = '57016-8').exists().not()
+        and category.coding.where((system = 'https://www.medizininformatik-initiative.de/fhir/modul-consent/CodeSystem/mii-cs-consent-version-modules'
+            or system = 'https://www.medizininformatik-initiative.de/fhir/modul-consent/CodeSystem/mii-cs-consent-consent_category')
+            and code = '2.16.840.1.113883.3.1937.777.24.2.184').exists().not())
+     -> con.category as cat, cat.coding as c, c.system = 'https://www.medizininformatik-initiative.de/fhir/modul-consent/CodeSystem/mii-cs-consent-version-modules',
+        c.code = '2.16.840.1.113883.3.1937.777.24.2.184' "category-mii-second";
+  s.category as k where (%s.category.select(iif($this = %k, $index, {})).first() = 0) -> con.category as t then DkRcCategory(k, t) "category-first";
+  s where (category.coding.where(system = 'http://loinc.org' and code = '57016-8').exists()
+        and category.coding.where((system = 'https://www.medizininformatik-initiative.de/fhir/modul-consent/CodeSystem/mii-cs-consent-version-modules'
+            or system = 'https://www.medizininformatik-initiative.de/fhir/modul-consent/CodeSystem/mii-cs-consent-consent_category')
+            and code = '2.16.840.1.113883.3.1937.777.24.2.184').exists().not())
+     -> con.category as cat, cat.coding as c, c.system = 'https://www.medizininformatik-initiative.de/fhir/modul-consent/CodeSystem/mii-cs-consent-version-modules',
+        c.code = '2.16.840.1.113883.3.1937.777.24.2.184' "category-mii";
+  s.category as k where (%s.category.select(iif($this = %k, $index, {})).first() != 0) -> con.category as t then DkRcCategory(k, t) "category";
+  s -> con.patient as p then DkReference(pid, p) "patient";
+  rc.presentationDate as d where (d != '') -> con.dateTime = d "dateTime";
+  rc where (presentationDate.where($this != '').exists().not()) then DkRcDateTime(s, con) "dateTime-embedded";
+  s.performer as x -> con.performer as t then DkRcReference(x, t) "performer";
+  s.organization as x -> con.organization as t then DkRcReference(x, t) "organization";
+  s.sourceAttachment as x -> con.source = x "sourceAttachment";
+  s.sourceReference as x where (reference.where($this.startsWith('urn:uuid:') or $this.startsWith('#')).exists())
+     -> con.source = create('Reference') as t then DkRcReference(x, t) "sourceReference";
+  s.policy as x -> con.policy as t then DkRcPolicy(x, t) "policy";
+  s.policyRule as x -> con.policyRule = x "policyRule";
+  s.verification as x -> con.verification as t then DkRcVerification(x, t) "verification";
+  s.provision as x -> con.provision as t then DkRcProvision(x, t) "provision";
+}
+
+group DkRcDateTime(source s, target con : Consent) {
+  s.dateTime as d -> con.dateTime = d "dateTime";
+}
+
+group DkRcCategory(source k, target t : CodeableConcept) {
+  k.extension as x -> t.extension as tx then DkRcExtension(x, tx) "extension";
+  k.coding as c -> t.coding as tc then DkRcCategoryCoding(c, tc) "coding";
+  k.text as x -> t.text = x "text";
+}
+
+group DkRcCategoryCoding(source c, target t : Coding) {
+  c.extension as x -> t.extension as tx then DkRcExtension(x, tx) "extension";
+  c.system as x -> t.system = (iif(%x = 'https://www.medizininformatik-initiative.de/fhir/modul-consent/CodeSystem/mii-cs-consent-consent_category',
+        'https://www.medizininformatik-initiative.de/fhir/modul-consent/CodeSystem/mii-cs-consent-version-modules', %x)) "system";
+  c.version as x -> t.version = x "version";
+  c.code as x -> t.code = x "code";
+  c.display as x -> t.display = x "display";
+  c.userSelected as x -> t.userSelected = x "userSelected";
+}
+
+// a literal reference outside the transaction (not urn:uuid:/#) is removed; without display and identifier the target
+// is kept as display '<reference> (sender system)' (otherwise e.g. provision.actor would lose its 1..1 reference)
+group DkRcReference(source r, target t : Reference) {
+  r.extension as x -> t.extension as tx then DkRcExtension(x, tx) "extension";
+  r.reference as x where (x.startsWith('urn:uuid:') or x.startsWith('#')) -> t.reference = x "reference";
+  r.type as x -> t.type = x "type";
+  r.identifier as x -> t.identifier as ti then DkRcIdentifier(x, ti) "identifier";
+  r.display as x -> t.display = x "display";
+  r.reference as x where ((x.startsWith('urn:uuid:') or x.startsWith('#')).not() and %r.display.exists().not() and %r.identifier.exists().not())
+     -> t.display = (%x & ' (sender system)') "sender-system";
+}
+
+group DkRcIdentifier(source i, target t : Identifier) {
+  i.extension as x -> t.extension as tx then DkRcExtension(x, tx) "extension";
+  i.use as x -> t.use = x "use";
+  i.type as x -> t.type = x "type";
+  i.system as x -> t.system = x "system";
+  i.value as x -> t.value = x "value";
+  i.period as x -> t.period = x "period";
+  i.assigner as x -> t.assigner as ta then DkRcReference(x, ta) "assigner";
+}
+
+group DkRcExtension(source x, target t : Extension) {
+  x.url as u -> t.url = u "url";
+  x.value : Reference as v -> t.value = create('Reference') as r then DkRcReference(v, r) "value-reference";
+  x.value as v where ((v is Reference).not()) -> t.value = v "value";
+  x.extension as sx -> t.extension as tx then DkRcExtension(sx, tx) "extension";
+}
+
+group DkRcPolicy(source x, target t) {
+  x.extension as e -> t.extension as te then DkRcExtension(e, te) "extension";
+  x.modifierExtension as e -> t.modifierExtension as te then DkRcExtension(e, te) "modifierExtension";
+  x.authority as a -> t.authority = (iif(%a.matches('^[0-2](\\.(0|[1-9][0-9]*))+$'), 'urn:oid:' & %a, %a)) "authority";
+  x.uri as u -> t.uri = (iif(%u.matches('^[0-2](\\.(0|[1-9][0-9]*))+$'), 'urn:oid:' & %u, %u)) "uri";
+}
+
+group DkRcVerification(source x, target t) {
+  x.extension as e -> t.extension as te then DkRcExtension(e, te) "extension";
+  x.modifierExtension as e -> t.modifierExtension as te then DkRcExtension(e, te) "modifierExtension";
+  x.verified as v -> t.verified = v "verified";
+  x.verifiedWith as r -> t.verifiedWith as tr then DkRcReference(r, tr) "verifiedWith";
+  x.verificationDate as d -> t.verificationDate = d "verificationDate";
+}
+
+// Consent.provision, recursive (the logical model declares 3 levels)
+group DkRcProvision(source x, target t) {
+  x.extension as e -> t.extension as te then DkRcExtension(e, te) "extension";
+  x.modifierExtension as e -> t.modifierExtension as te then DkRcExtension(e, te) "modifierExtension";
+  x.type as v -> t.type = v "type";
+  x.period as v -> t.period = v "period";
+  x.actor as a -> t.actor as ta then DkRcActor(a, ta) "actor";
+  x.action as v -> t.action = v "action";
+  x.securityLabel as v -> t.securityLabel = v "securityLabel";
+  x.purpose as v -> t.purpose = v "purpose";
+  x.class as v -> t.class = v "class";
+  x.code as v -> t.code = v "code";
+  x.dataPeriod as v -> t.dataPeriod = v "dataPeriod";
+  x.data as d -> t.data as td then DkRcData(d, td) "data";
+  x.provision as sub -> t.provision as ts then DkRcProvision(sub, ts) "provision";
+}
+
+group DkRcActor(source a, target t) {
+  a.extension as e -> t.extension as te then DkRcExtension(e, te) "extension";
+  a.role as v -> t.role = v "role";
+  a.reference as r -> t.reference as tr then DkRcReference(r, tr) "reference";
+}
+
+group DkRcData(source d, target t) {
+  d.extension as e -> t.extension as te then DkRcExtension(e, te) "extension";
+  d.meaning as v -> t.meaning = v "meaning";
+  d.reference as r -> t.reference as tr then DkRcReference(r, tr) "reference";
+}
+
+// ================================================================================================================
+// KDK indication board (builders/submission.py) -> CarePlan mvgs-inclusion-decision; md = metaData
+//   created = molecularBoardDecisionDate (required: no date, no CarePlan)
+//   decisionToInclude true -> active/scheduled, false -> revoked/cancelled (+ reasonCode), absent -> unknown/unknown
+// ================================================================================================================
+
+group DkKdkIndicationBoard(source md, source ck, source pid, target bundle : Bundle) {
+  md where (molecularBoardDecisionDate.exists()) -> bundle.entry as e, e.resource = create('CarePlan') as cp, uuid() as fid,
+        ('indication-board') as role
+     then DkEntry(ck, role, fid, e, cp), DkKdkIndicationBoardBody(md, pid, cp) "indication-board";
+}
+
+group DkKdkIndicationBoardBody(source md, source pid, target cp : CarePlan) {
+  md -> cp.meta as m, m.profile = 'https://genomde.de/fhir/StructureDefinition/mvgs-inclusion-decision' "profile";
+  md -> cp.intent = 'plan' "intent";
+  md -> cp.category as cat, cat.coding as c, c.system = 'https://genomde.de/fhir/CodeSystem/mvgs-cs-mv-administrative',
+        c.code = 'indication-board', c.display = 'Fallkonferenz zur Indikationsstellung (MV GenomSeq)' "category";
+  md -> cp.subject as s then DkReference(pid, s) "subject";
+  md.molecularBoardDecisionDate as d -> cp.created = d "created";
+  md -> cp.activity as act, act.detail as det, det.code as cc, cc.coding as c,
+        c.system = 'https://genomde.de/fhir/CodeSystem/mvgs-cs-mv-administrative', c.code = 'mv-genome-sequencing',
+        c.display = 'Genomsequenzierung im Modellvorhaben' then DkKdkIndicationBoardDetail(md, cp, det) "activity";
+}
+
+group DkKdkIndicationBoardDetail(source md, target cp : CarePlan, target det) {
+  md where (decisionToInclude = true) -> cp.status = 'active', det.status = 'scheduled' "include";
+  md where (decisionToInclude = false) -> cp.status = 'revoked', det.status = 'cancelled' "reject";
+  md where (decisionToInclude.exists().not()) -> cp.status = 'unknown', det.status = 'unknown' "undecided";
+  // reasonCode unless the decision is 'include' (submission.py: a reason with decisionToInclude = true is dropped)
+  md where (decisionToInclude.exists().not() or decisionToInclude = false) then {
+    md.rejectionJustification as r where (r = 'targetedDiagnosticRecommended' or r = 'probablyPsychosomaticIllness'
+          or r = 'probablyCommonDisease' or r = 'probablyNoGeneticCause' or r = 'otherReason')
+       -> det.reasonCode as rc, rc.coding as c, c.system = 'https://genomde.de/fhir/CodeSystem/mvgs-cs-mv-rejection-reason', c.code = r,
+          c.display = (iif(%r = 'targetedDiagnosticRecommended', 'Gezielte Diagnostik empfohlen',
+                       iif(%r = 'probablyPsychosomaticIllness', 'Wahrscheinlich psychosomatische Erkrankung',
+                       iif(%r = 'probablyCommonDisease', 'Wahrscheinlich häufige Erkrankung',
+                       iif(%r = 'probablyNoGeneticCause', 'Wahrscheinlich keine genetische Ursache', 'Anderer Grund'))))) "reason";
+  } "rejection";
+}

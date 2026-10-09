@@ -1,0 +1,811 @@
+/// url = 'https://genomde.de/fhir/StructureMap/OncoPlanFollowUp'
+/// name = 'OncoPlanFollowUp'
+/// title = 'genomDE oncology Datenkranz to MII KDS 2027: therapy plan and follow-up (sub-map of DatenkranzOncologyToMii)'
+/// status = 'draft'
+
+// Sub-map of DatenkranzOncologyToMii (deliverable b, docs/PLAN-2027.md section 6). Reference implementation (same
+// resources, profiles, codings, links): genomde2fhir/src/genomde2fhir/builders/onco/{careplan,recommendations,followup,ecog}.py.
+// Conventions and the verified matchbox 4.1.21 behaviour: mappers/fml/README.md (section "OncoPlanFollowUp").
+//
+// Entry groups (signatures fixed, called from DatenkranzOncologyToMii.OncoCase):
+//   OncoPlanFollowUp(src, bundle, ctx)   src = Datenkranz root; emits the MTB Therapieplan with every recommendation it
+//                                        references, and the follow-up resources
+//   OncoPlanPatient(src, ctx, pat)       Patient.deceased[x] from the follow-up (called from the rule creating the Patient)
+// ctx (Parameters, never emitted): ck, patient, primary (only when emitted), episode, ngsReport, submitterId, caseId.
+//
+// reg: a second in-memory Parameters, filled once by OncoPlanReserve before anything is emitted. It reserves the entry
+// uuids that resources of one block need from another block, because target variables are only reachable from the rule
+// that created them (Q4):
+//   tr:<therapy id>        first MedicationRequest of a therapy recommendation (plan activity / RequestGroup action,
+//                          follow-up Procedure causedBy, MedicationStatement basedOn); only for recommendations with a
+//                          coded substance (careplan._therapy emits nothing otherwise)
+//   sr:<study id>          study recommendation (exists = the follow-up therapy refers to a study: note, no causedBy)
+//   rs:study:<register>:<number | name>   ResearchStudy (one per study, also when it is recommended twice)
+//   pm:<measure id>        preventive-measure ServiceRequest (basedOn of the follow-up result Observation)
+//   death                  mii-pr-onko-tod (Verlauf.hasMember)
+//   ft:<reference>|<start> follow-up therapy Procedure (partOf of its MedicationStatements and response)
+// Lookups take .first(): the first item with a given id wins.
+//
+// Variant references (recommendedSystemicTherapies[].variants[], recommendedStudies[].variants[]): OncoMolecular runs
+// before this map (OncoCase rule order) and writes every molecular finding into the Bundle with the identifier
+// https://genomde.de/fhir/sid/molecular-finding-id '<submitterId>|<caseId>|<KDK id>' (molecular_*.finding_identifier).
+// The reference is the fullUrl of the FIRST Observation in the Bundle with that identifier (Python: ctx.ids, first
+// registration wins). The target Bundle is readable in FHIRPath (%bundle). An id that no finding carries gives no
+// reference (Python drops it).
+//
+// Group names start with 'OncoPlan' (plan) and 'OncoFu' (follow-up).
+
+uses "http://hl7.org/fhir/StructureDefinition/Bundle" alias Bundle as target
+uses "http://hl7.org/fhir/StructureDefinition/Patient" alias Patient as target
+uses "http://hl7.org/fhir/StructureDefinition/CarePlan" alias CarePlan as target
+uses "http://hl7.org/fhir/StructureDefinition/MedicationRequest" alias MedicationRequest as target
+uses "http://hl7.org/fhir/StructureDefinition/RequestGroup" alias RequestGroup as target
+uses "http://hl7.org/fhir/StructureDefinition/ServiceRequest" alias ServiceRequest as target
+uses "http://hl7.org/fhir/StructureDefinition/ResearchStudy" alias ResearchStudy as target
+uses "http://hl7.org/fhir/StructureDefinition/Procedure" alias Procedure as target
+uses "http://hl7.org/fhir/StructureDefinition/MedicationStatement" alias MedicationStatement as target
+uses "http://hl7.org/fhir/StructureDefinition/Observation" alias Observation as target
+uses "http://hl7.org/fhir/StructureDefinition/Condition" alias Condition as target
+uses "http://hl7.org/fhir/StructureDefinition/Parameters" alias Parameters as target
+uses "http://hl7.org/fhir/StructureDefinition/CodeableConcept" alias CodeableConcept as target
+uses "http://hl7.org/fhir/StructureDefinition/Coding" alias Coding as target
+uses "http://hl7.org/fhir/StructureDefinition/Reference" alias Reference as target
+uses "http://hl7.org/fhir/StructureDefinition/Period" alias Period as target
+
+imports "https://genomde.de/fhir/StructureMap/DatenkranzCommon"
+
+// ================================================================================================================
+// Entry groups
+// ================================================================================================================
+
+group OncoPlanFollowUp(source src, target bundle : Bundle, source ctx) {
+  src -> create('Parameters') as reg, (%ctx.parameter.where(name = 'ck').value) as ck
+     then OncoPlanReserve(src, reg), OncoPlanEmit(src, ck, ctx, reg, bundle) "plan-followup";
+}
+
+// onco/followup._patient_deceased: the last deathDate -> deceasedDateTime; deceased without any deathDate -> deceasedBoolean
+group OncoPlanPatient(source src, source ctx, target pat : Patient) {
+  src.followUp as fu where (followUpOds.deathDate.where($this != '').exists())
+     -> pat.deceased = create('dateTime') as d, d.value = (%fu.followUpOds.deathDate.where($this != '').last()) "deceased-date";
+  src.followUp as fu where (followUpOds.deathDate.where($this != '').exists().not() and followUpOds.vitalStatus.where($this = 'deceased').exists())
+     -> pat.deceased = create('boolean') as b, b.value = true "deceased";
+}
+
+// ================================================================================================================
+// Reserved uuids (reg)
+// ================================================================================================================
+
+group OncoPlanReserve(source src, target reg : Parameters) {
+  // careplan.build returns early without carePlanOd: no recommendation is emitted, the follow-up sees none
+  src.plan as p where (carePlanOd.exists()) then {
+    p.recommendedSystemicTherapies as t where (substances.where(code.code.where($this != '').exists()).exists())
+       -> reg.parameter as par, par.name = ('tr:' & iif(%t.identifier.where($this != '').exists(), %t.identifier,
+            'index-' & %p.recommendedSystemicTherapies.select(iif($this = %t, $index, {})).first().toString())), par.value = uuid() "therapy";
+    p.recommendedStudies as s
+       -> reg.parameter as par, par.name = ('sr:' & iif(%s.identifier.where($this != '').exists(), %s.identifier,
+            'index-' & %p.recommendedStudies.select(iif($this = %s, $index, {})).first().toString())), par.value = uuid() "study";
+    p.recommendedStudies as s where ((register = 'yesButStudyIsUnknown').not() and (id.where($this != '').exists() or name.where($this != '').exists()))
+       -> reg.parameter as par, par.name = ('rs:study:' & %s.register & ':' & iif(%s.id.where($this != '').exists(), %s.id, %s.name)), par.value = uuid() "research-study";
+    p.preventiveMeasures as m
+       -> reg.parameter as par, par.name = ('pm:' & iif(%m.identifier.where($this != '').exists(), %m.identifier,
+            'index-' & %p.preventiveMeasures.select(iif($this = %m, $index, {})).first().toString())), par.value = uuid() "preventive";
+  } "plan";
+  src.followUp as fu then {
+    fu where (followUpOds.deathDate.where($this != '').exists()) -> reg.parameter as par, par.name = 'death', par.value = uuid() "death";
+    fu.followUpOds as f then {
+      f.therapies as t -> reg.parameter as par, par.name = ('ft:' & %t.reference & '|' & %t.therapyStartDate), par.value = uuid() "therapy";
+    } "item";
+  } "followup";
+}
+
+group OncoPlanEmit(source src, source ck, source ctx, source reg, target bundle : Bundle) {
+  // MTB Therapieplan; every recommendation it lists is created from this rule (its activity, Q4)
+  src.plan as p where (carePlanOd.exists()) -> bundle.entry as e, e.resource = create('CarePlan') as plan, uuid() as fid,
+        ('therapy-plan') as role
+     then DkEntry(ck, role, fid, e, plan), OncoPlanBody(p, ctx, plan), OncoPlanTherapies(p, ck, ctx, reg, plan, bundle),
+          OncoPlanStudies(p, ck, ctx, reg, plan, bundle), OncoPlanRequests(p, ck, ctx, plan, bundle),
+          OncoPlanInterventions(p, ck, ctx, plan, bundle), OncoPlanObds(p, plan), OncoPlanPreventive(p, ck, ctx, reg, plan, bundle) "careplan";
+  src.followUp as fu then OncoFu(src, fu, ck, ctx, reg, bundle) "followup";
+}
+
+// ---- references by ctx -----------------------------------------------------------------------------------------
+group OncoPlanRefPatient(source ctx, target ref : Reference) {
+  ctx -> ref.reference = ('urn:uuid:' & %ctx.parameter.where(name = 'patient').value) "patient";
+}
+
+group OncoPlanRefPrimary(source ctx, target ref : Reference) {
+  ctx where (parameter.where(name = 'primary').exists()) -> ref.reference = ('urn:uuid:' & %ctx.parameter.where(name = 'primary').value) "primary";
+}
+
+// ================================================================================================================
+// plan.carePlanOd -> CarePlan mii-pr-mtb-therapieplan (onco/careplan.py build)
+// ================================================================================================================
+
+group OncoPlanBody(source p, source ctx, target plan : CarePlan) {
+  p -> plan.meta as m, m.profile = 'https://www.medizininformatik-initiative.de/fhir/ext/modul-mtb/StructureDefinition/mii-pr-mtb-therapieplan' "profile";
+  p -> plan.status = 'active', plan.intent = 'plan' "status";
+  // category 1..1 (required mii-vs-onko-therapieplanung-typ): 'praeth' by convention (Python, REPRESENTATIONS)
+  p -> plan.category as cat, cat.coding as c, c.system = 'https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/CodeSystem/mii-cs-onko-therapieplanung-typ',
+        c.code = 'praeth', cat.text = 'Molekulares Tumorboard' "category";
+  p -> plan.subject as s then OncoPlanRefPatient(ctx, s) "subject";
+  p.carePlanOd as cp then {
+    cp.molecularBoardDecisionDate as d where (d != '') -> plan.created = d "created";
+  } "created";
+  p where (%ctx.parameter.where(name = 'primary').exists()) -> plan.addresses as a then OncoPlanRefPrimary(ctx, a) "addresses";
+  p where (%ctx.parameter.where(name = 'episode').exists()) -> plan.supportingInfo as si,
+        si.reference = ('urn:uuid:' & %ctx.parameter.where(name = 'episode').value) "episode";
+}
+
+// subject + authoredOn (careplan `base`), shared by the requests
+group OncoPlanBase(source p, source ctx, target r) {
+  p -> r.subject as s then OncoPlanRefPatient(ctx, s) "subject";
+  p where (carePlanOd.molecularBoardDecisionDate.where($this != '').exists()) -> r.authoredOn = (%p.carePlanOd.molecularBoardDecisionDate) "authoredOn";
+}
+
+// KDK object identifier '<submitterId>|<caseId>|<KDK id>' (careplan._identifier = scoped_id)
+group OncoPlanKdkId(source v, source ctx, target r) {
+  v where ($this != '') -> r.identifier as i, i.system = 'https://genomde.de/fhir/sid/kdk-object-id',
+        i.value = (%ctx.parameter.where(name = 'submitterId').value & '|' & %ctx.parameter.where(name = 'caseId').value & '|' & %v) "identifier";
+}
+
+// mii-ex-mtb-empfehlung-prioritaet: positive integers only
+group OncoPlanPrio(source x, target r) {
+  x.priority as pr where (pr > 0) -> r.extension as ex, ex.url = 'https://www.medizininformatik-initiative.de/fhir/ext/modul-mtb/StructureDefinition/mii-ex-mtb-empfehlung-prioritaet',
+        ex.value = create('positiveInt') as v, v.value = pr "priority";
+}
+
+// evidence CodeableConcept (careplan._evidence_cc): coding:Evidenzgrad + coding:Zusatzverweis; Z(FDA) -> Z + text
+group OncoPlanEvidence(source x, source url, target r) {
+  x.evidenceLevel as lv where (lv = 'm1A' or lv = 'm1B' or lv = 'm1C' or lv = 'm2A' or lv = 'm2B' or lv = 'm2C' or lv = 'm3' or lv = 'm4' or lv = 'undefined')
+     -> r.extension as ex, ex.url = url, ex.value = create('CodeableConcept') as v then OncoPlanEvidenceCc(x, lv, v) "evidence";
+}
+
+group OncoPlanEvidenceCc(source x, source lv, target v : CodeableConcept) {
+  lv -> v.coding as c, c.system = 'https://www.medizininformatik-initiative.de/fhir/ext/modul-mtb/CodeSystem/mii-cs-mtb-empfehlung-evidenzgrad', c.code = lv "level";
+  x where (evidenceLevelDetails.where($this = 'is').exists()) -> v.coding as c,
+        c.system = 'https://www.medizininformatik-initiative.de/fhir/ext/modul-mtb/CodeSystem/mii-cs-mtb-empfehlung-evidenzgrad-zusatzverweis', c.code = 'is' "is";
+  x where (evidenceLevelDetails.where($this = 'iv').exists()) -> v.coding as c,
+        c.system = 'https://www.medizininformatik-initiative.de/fhir/ext/modul-mtb/CodeSystem/mii-cs-mtb-empfehlung-evidenzgrad-zusatzverweis', c.code = 'iv' "iv";
+  x where (evidenceLevelDetails.where($this = 'Z' or $this = 'Z(FDA)').exists()) -> v.coding as c,
+        c.system = 'https://www.medizininformatik-initiative.de/fhir/ext/modul-mtb/CodeSystem/mii-cs-mtb-empfehlung-evidenzgrad-zusatzverweis', c.code = 'Z' "Z";
+  x where (evidenceLevelDetails.where($this = 'R').exists()) -> v.coding as c,
+        c.system = 'https://www.medizininformatik-initiative.de/fhir/ext/modul-mtb/CodeSystem/mii-cs-mtb-empfehlung-evidenzgrad-zusatzverweis', c.code = 'R' "R";
+  x where (evidenceLevelDetails.where($this = 'Z(FDA)').exists()) -> v.text = 'Zusatzverweis Z(FDA)' "z-fda";
+}
+
+// oBDS therapy type (mii-cs-onko-therapie-typ) display; '' for an unknown code (callers guard)
+group OncoPlanTherapyTypeCoding(source code, target c : Coding) {
+  code -> c.system = 'https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/CodeSystem/mii-cs-onko-therapie-typ', c.code = code,
+        c.display = (iif(%code = 'CH', 'Chemotherapie', iif(%code = 'HO', 'Hormontherapie', iif(%code = 'IM', 'Immun-/Antikörpertherapie',
+                     iif(%code = 'ZS', 'zielgerichtete Substanzen', iif(%code = 'SZ', 'Stammzelltransplantation (inklusive Knochenmarktransplantation)',
+                     iif(%code = 'CI', 'Chemo- + Immun-/Antikörpertherapie', iif(%code = 'CZ', 'Chemotherapie + zielgerichtete Substanzen',
+                     iif(%code = 'CIZ', 'Chemo- + Immun-/Antikörpertherapie + zielgerichtete Substanzen',
+                     iif(%code = 'IZ', 'Immun-/Antikörpertherapie + zielgerichtete Substanzen', iif(%code = 'WW', 'Watchful Waiting',
+                     iif(%code = 'AS', 'Active Surveillance', iif(%code = 'WS', 'Wait and see', iif(%code = 'OP', 'Operation',
+                     iif(%code = 'ST', 'Strahlentherapie', iif(%code = 'KW', 'keine weitere tumorspezifische Therapie empfohlen', 'Sonstiges')))))))))))))))) "coding";
+}
+
+// substance -> CodeableConcept (careplan._medication): ATC BfArM / WHO, text = name, else the code display
+group OncoPlanMedCode(source sub, target mc : CodeableConcept) {
+  sub.code as sc where (code.where($this != '').exists()) -> mc.coding as c then OncoPlanAtcCoding(sc, c) "coding";
+  sub.name as n where (n != '') -> mc.text = n "text";
+  sub where (name.where($this != '').exists().not() and code.display.where($this != '').exists()) -> mc.text = (%sub.code.display) "text-display";
+}
+
+// common.atc_system: German edition (BfArM; WIdO URLs normalised) -> http://fhir.de/CodeSystem/bfarm/atc, WHO -> http://www.whocc.no/atc
+group OncoPlanAtcCoding(source sc, target c : Coding) {
+  sc -> c.system = (iif(%sc.system.where($this != '').exists().not() or %sc.system = 'http://fhir.de/CodeSystem/bfarm/atc'
+          or %sc.system = 'https://www.wido.de/publikationen-produkte/analytik/arzneimittel-klassifikation/'
+          or %sc.system = 'https://www.wido.de/publikationen-produkte/analytik/arzneimittel-klassifikation',
+          'http://fhir.de/CodeSystem/bfarm/atc',
+          iif(%sc.system.replaceMatches('/+$', '') = 'http://www.whocc.no/atc', 'http://www.whocc.no/atc', %sc.system))) "system";
+  sc.code as cd -> c.code = cd "code";
+  sc.version as v where (v != '') -> c.version = v "version";
+  sc.display as dsp where (dsp != '') -> c.display = dsp "display";
+}
+
+// variant references (careplan._variant_refs): fullUrl of the first Observation carrying the molecular-finding-id
+group OncoPlanVariantRefs(source x, source ctx, target r, target bundle : Bundle) {
+  x.variants as v where (%bundle.entry.where(resource.identifier.where(system = 'https://genomde.de/fhir/sid/molecular-finding-id'
+        and value = (%ctx.parameter.where(name = 'submitterId').value & '|' & %ctx.parameter.where(name = 'caseId').value & '|' & %v)).exists()).exists())
+     -> r.reasonReference as rr, rr.reference = (%bundle.entry.where(resource.identifier.where(system = 'https://genomde.de/fhir/sid/molecular-finding-id'
+        and value = (%ctx.parameter.where(name = 'submitterId').value & '|' & %ctx.parameter.where(name = 'caseId').value & '|' & %v)).exists()).first().fullUrl) "variant";
+}
+
+// same, into supportingInfo (study requests: no reasonReference slice for Observations)
+group OncoPlanVariantInfo(source x, source ctx, target r, target bundle : Bundle) {
+  x.variants as v where (%bundle.entry.where(resource.identifier.where(system = 'https://genomde.de/fhir/sid/molecular-finding-id'
+        and value = (%ctx.parameter.where(name = 'submitterId').value & '|' & %ctx.parameter.where(name = 'caseId').value & '|' & %v)).exists()).exists())
+     -> r.supportingInfo as rr, rr.reference = (%bundle.entry.where(resource.identifier.where(system = 'https://genomde.de/fhir/sid/molecular-finding-id'
+        and value = (%ctx.parameter.where(name = 'submitterId').value & '|' & %ctx.parameter.where(name = 'caseId').value & '|' & %v)).exists()).first().fullUrl) "variant";
+}
+
+// ---- systemic therapy recommendations (careplan._therapy) -------------------------------------------------------
+// A KDK identifier used twice in one array (therapies, studies, preventive measures) emits only the first item (the
+// one ctx.ids / reg answers); the Python converter stops with 'duplicate resource' there.
+// One coded substance -> one MedicationRequest mii-pr-mtb-therapieempfehlung (the CarePlan activity). Several coded
+// substances -> one MedicationRequest each, grouped by RequestGroup mii-pr-mtb-therapieempfehlung-kombination (the
+// activity). No coded substance -> nothing (medication.coding 1..*); name-only substances -> note on every request.
+group OncoPlanTherapies(source p, source ck, source ctx, source reg, target plan : CarePlan, target bundle : Bundle) {
+  p.recommendedSystemicTherapies as t where (substances.where(code.code.where($this != '').exists()).count() = 1
+        and (identifier.where($this != '').exists().not() or %p.recommendedSystemicTherapies.where(identifier = %t.identifier).first() = %t))
+     -> (iif(%t.identifier.where($this != '').exists(), %t.identifier,
+            'index-' & %p.recommendedSystemicTherapies.select(iif($this = %t, $index, {})).first().toString())) as tid
+     then OncoPlanTherapySingle(p, t, tid, ck, ctx, reg, plan, bundle) "single";
+  p.recommendedSystemicTherapies as t where (substances.where(code.code.where($this != '').exists()).count() > 1
+        and (identifier.where($this != '').exists().not() or %p.recommendedSystemicTherapies.where(identifier = %t.identifier).first() = %t))
+     -> (iif(%t.identifier.where($this != '').exists(), %t.identifier,
+            'index-' & %p.recommendedSystemicTherapies.select(iif($this = %t, $index, {})).first().toString())) as tid,
+        bundle.entry as e, e.resource = create('RequestGroup') as rg, uuid() as gfid, ('therapy-recommendation:' & %tid) as role,
+        plan.activity as a, a.reference as r
+     then DkEntry(ck, role, gfid, e, rg), DkReference(gfid, r), OncoPlanRgBody(p, t, ctx, rg), OncoPlanTherapyCombo(p, t, tid, ck, ctx, reg, rg, bundle) "combination";
+}
+
+group OncoPlanTherapySingle(source p, source t, source tid, source ck, source ctx, source reg, target plan : CarePlan, target bundle : Bundle) {
+  t.substances as s where (code.code.where($this != '').exists())
+     -> bundle.entry as e, e.resource = create('MedicationRequest') as mr, (%reg.parameter.where(name = ('tr:' & %tid)).value.first()) as fid,
+        ('therapy-recommendation:' & %tid) as role, plan.activity as a, a.reference as r
+     then DkEntry(ck, role, fid, e, mr), DkReference(fid, r), OncoPlanTherapyBody(p, t, s, ctx, mr, bundle) "medication-request";
+}
+
+// the first coded substance takes the reserved uuid (the follow-up's causedBy / basedOn target, ctx.ids refs[0])
+group OncoPlanTherapyCombo(source p, source t, source tid, source ck, source ctx, source reg, target rg : RequestGroup, target bundle : Bundle) {
+  t.substances as s where (code.code.where($this != '').exists() and (%t.substances.where(code.code.where($this != '').exists()).first() = %s))
+     -> bundle.entry as e, e.resource = create('MedicationRequest') as mr, (%reg.parameter.where(name = ('tr:' & %tid)).value.first()) as fid,
+        ('therapy-recommendation:' & %tid & ':0') as role, rg.action as act, act.resource as r
+     then DkEntry(ck, role, fid, e, mr), DkReference(fid, r), OncoPlanTherapyBody(p, t, s, ctx, mr, bundle) "first";
+  t.substances as s where (code.code.where($this != '').exists() and (%t.substances.where(code.code.where($this != '').exists()).first() = %s).not())
+     -> bundle.entry as e, e.resource = create('MedicationRequest') as mr, uuid() as fid,
+        ('therapy-recommendation:' & %tid & ':' & %t.substances.where(code.code.where($this != '').exists()).select(iif($this = %s, $index, {})).first().toString()) as role,
+        rg.action as act, act.resource as r
+     then DkEntry(ck, role, fid, e, mr), DkReference(fid, r), OncoPlanTherapyBody(p, t, s, ctx, mr, bundle) "further";
+}
+
+group OncoPlanTherapyExt(source t, target r) {
+  t then OncoPlanPrio(t, r) "priority";
+  t -> ('https://www.medizininformatik-initiative.de/fhir/ext/modul-mtb/StructureDefinition/mii-ex-mtb-empfehlung-evidenzgraduierung') as url
+     then OncoPlanEvidence(t, url, r) "evidence";
+  // local use-type extension; 'unknown' and values outside mvgs-cs-recommendation-use-type are dropped
+  t.type as ty where (ty = 'inLabel' or ty = 'offLabel' or ty = 'compassionateUse' or ty = 'secPreventive')
+     -> r.extension as ex, ex.url = 'https://genomde.de/fhir/StructureDefinition/mvgs-ex-recommendation-use-type',
+        ex.value = create('Coding') as c, c.system = 'https://genomde.de/fhir/CodeSystem/mvgs-cs-recommendation-use-type', c.code = ty,
+        c.display = (iif(%ty = 'inLabel', 'In-label', iif(%ty = 'offLabel', 'Off-label', iif(%ty = 'compassionateUse', 'Compassionate use', 'Secondary preventive')))) "use-type";
+}
+
+group OncoPlanTherapyBody(source p, source t, source s, source ctx, target mr : MedicationRequest, target bundle : Bundle) {
+  s -> mr.meta as m, m.profile = 'https://www.medizininformatik-initiative.de/fhir/ext/modul-mtb/StructureDefinition/mii-pr-mtb-therapieempfehlung' "profile";
+  s then OncoPlanTherapyExt(t, mr) "extensions";
+  t.identifier as id then OncoPlanKdkId(id, ctx, mr) "identifier";
+  s -> mr.status = 'active', mr.intent = 'proposal' "status";
+  t.therapeuticStrategy as st where (st = 'CH' or st = 'HO' or st = 'IM' or st = 'ZS' or st = 'SZ' or st = 'CI' or st = 'CZ' or st = 'CIZ'
+        or st = 'IZ' or st = 'WW' or st = 'AS' or st = 'WS' or st = 'OP' or st = 'ST' or st = 'KW' or st = 'SO')
+     -> mr.category as cat, cat.coding as c then OncoPlanTherapyTypeCoding(st, c) "category";
+  s -> mr.medication = create('CodeableConcept') as mc then OncoPlanMedCode(s, mc) "medication";
+  p then OncoPlanBase(p, ctx, mr) "base";
+  s where (%ctx.parameter.where(name = 'primary').exists()) -> mr.reasonReference as rr then OncoPlanRefPrimary(ctx, rr) "reason-primary";
+  t then OncoPlanVariantRefs(t, ctx, mr, bundle) "reason-variants";
+  t.substances as ns where (code.code.where($this != '').exists().not() and name.where($this != '').exists())
+     -> mr.note as n, n.text = ('Substanz ohne Code: ' & %ns.name) "name-only";
+}
+
+// RequestGroup: the therapy type moves to code (preferred binding); reasonReference = primary tumour only
+group OncoPlanRgBody(source p, source t, source ctx, target rg : RequestGroup) {
+  t -> rg.meta as m, m.profile = 'https://www.medizininformatik-initiative.de/fhir/ext/modul-mtb/StructureDefinition/mii-pr-mtb-therapieempfehlung-kombination' "profile";
+  t then OncoPlanTherapyExt(t, rg) "extensions";
+  t.identifier as id then OncoPlanKdkId(id, ctx, rg) "identifier";
+  t -> rg.status = 'active', rg.intent = 'proposal' "status";
+  t.therapeuticStrategy as st where (st = 'CH' or st = 'HO' or st = 'IM' or st = 'ZS' or st = 'SZ' or st = 'CI' or st = 'CZ' or st = 'CIZ'
+        or st = 'IZ' or st = 'WW' or st = 'AS' or st = 'WS' or st = 'OP' or st = 'ST' or st = 'KW' or st = 'SO')
+     -> rg.code as cc, cc.coding as c then OncoPlanTherapyTypeCoding(st, c) "code";
+  p then OncoPlanBase(p, ctx, rg) "base";
+  t where (%ctx.parameter.where(name = 'primary').exists()) -> rg.reasonReference as rr then OncoPlanRefPrimary(ctx, rr) "reason";
+}
+
+// ---- study recommendations (careplan._study, _research_study) ----------------------------------------------------
+group OncoPlanStudies(source p, source ck, source ctx, source reg, target plan : CarePlan, target bundle : Bundle) {
+  p.recommendedStudies as s where (identifier.where($this != '').exists().not() or %p.recommendedStudies.where(identifier = %s.identifier).first() = %s)
+     -> bundle.entry as e, e.resource = create('ServiceRequest') as sr, uuid() as fid,
+        ('study-recommendation:' & iif(%s.identifier.where($this != '').exists(), %s.identifier,
+            'index-' & %p.recommendedStudies.select(iif($this = %s, $index, {})).first().toString())) as role,
+        plan.activity as a, a.reference as r
+     then DkEntry(ck, role, fid, e, sr), DkReference(fid, r), OncoPlanStudyBody(p, s, ctx, sr, bundle),
+          OncoPlanResearchStudy(p, s, ck, ctx, reg, sr, bundle) "study-request";
+  // studyRecommended without a named study: one unspecific inclusion request
+  p.carePlanOd as cp where (studyRecommended = true and %p.recommendedStudies.exists().not())
+     -> bundle.entry as e, e.resource = create('ServiceRequest') as sr, uuid() as fid, ('study-recommendation:unspecified') as role,
+        plan.activity as a, a.reference as r
+     then DkEntry(ck, role, fid, e, sr), DkReference(fid, r), OncoPlanStudyRequest(p, ctx, sr) "unspecified";
+}
+
+group OncoPlanStudyRequest(source p, source ctx, target sr : ServiceRequest) {
+  p -> sr.meta as m, m.profile = 'https://www.medizininformatik-initiative.de/fhir/ext/modul-mtb/StructureDefinition/mii-pr-mtb-studieneinschluss-anfrage' "profile";
+  p -> sr.status = 'active', sr.intent = 'proposal' "status";
+  p -> sr.category as cat, cat.coding as c, c.system = 'http://snomed.info/sct', c.code = '110465008', c.display = 'Clinical trial (procedure)' "category";
+  p -> sr.code as cc, cc.coding as c, c.system = 'http://snomed.info/sct', c.code = '702475000', c.display = 'Referral to clinical trial (procedure)' "code";
+  p then OncoPlanBase(p, ctx, sr) "base";
+}
+
+group OncoPlanStudyBody(source p, source s, source ctx, target sr : ServiceRequest, target bundle : Bundle) {
+  p then OncoPlanStudyRequest(p, ctx, sr) "request";
+  s then OncoPlanPrio(s, sr) "priority";
+  // mii-ex-mtb-empfehlung-evidenzgraduierung has no ServiceRequest context (ballot): local extension
+  s -> ('https://genomde.de/fhir/StructureDefinition/mvgs-ex-evidence-level') as url then OncoPlanEvidence(s, url, sr) "evidence";
+  s.identifier as id then OncoPlanKdkId(id, ctx, sr) "identifier";
+  s where (%ctx.parameter.where(name = 'primary').exists()) -> sr.reasonReference as rr then OncoPlanRefPrimary(ctx, rr) "reason";
+  s then OncoPlanVariantInfo(s, ctx, sr, bundle) "variants";
+  // study not identified: inclusion request without ResearchStudy, name / number as note
+  s where (register = 'yesButStudyIsUnknown' and (name.where($this != '').exists() or id.where($this != '').exists()))
+     -> sr.note as n, n.text = ('Empfohlene Studie (nicht identifiziert): ' & %s.name.where($this != '').combine(%s.id.where($this != '')).join(' ')) "unknown-study";
+}
+
+// mii-pr-mtb-studie: register number (NCT / DRKS / EudraCT slices, other registers: type.text) and / or name. A study
+// recommended twice (same register and number, else name) is one ResearchStudy (careplan._research_study): its uuid is
+// reserved in reg ('rs:<register>:<number | name>'), the first request emits it, every request references it.
+group OncoPlanResearchStudy(source p, source s, source ck, source ctx, source reg, target sr : ServiceRequest, target bundle : Bundle) {
+  s where ((register = 'yesButStudyIsUnknown').not() and (id.where($this != '').exists() or name.where($this != '').exists()))
+     -> ('study:' & %s.register & ':' & iif(%s.id.where($this != '').exists(), %s.id, %s.name)) as role,
+        (%reg.parameter.where(name = ('rs:' & %role)).value.first()) as fid, sr.supportingInfo as si
+     then DkReference(fid, si), OncoPlanResearchStudyEntry(p, s, ck, role, fid, bundle) "research-study";
+}
+
+group OncoPlanResearchStudyEntry(source p, source s, source ck, source role, source fid, target bundle : Bundle) {
+  s where (%p.recommendedStudies.take(%p.recommendedStudies.select(iif($this = %s, $index, {})).first())
+            .where((register = 'yesButStudyIsUnknown').not() and (id.where($this != '').exists() or name.where($this != '').exists())
+              and ('study:' & register & ':' & iif(id.where($this != '').exists(), id, name)) = %role).exists().not())
+     -> bundle.entry as e, e.resource = create('ResearchStudy') as rs
+     then DkEntry(ck, role, fid, e, rs), OncoPlanResearchStudyBody(s, rs) "entry";
+}
+
+group OncoPlanResearchStudyBody(source s, target rs : ResearchStudy) {
+  s -> rs.meta as m, m.profile = 'https://www.medizininformatik-initiative.de/fhir/ext/modul-mtb/StructureDefinition/mii-pr-mtb-studie' "profile";
+  s.id as n where (n != '' and (%s.register = 'NCT' or %s.register = 'DRKS' or %s.register = 'Eudra-CT/CTIS'))
+     -> rs.identifier as i, i.system = (iif(%s.register = 'NCT', 'https://www.medizininformatik-initiative.de/fhir/modul-mtb/sid/nct',
+          iif(%s.register = 'DRKS', 'https://www.medizininformatik-initiative.de/fhir/modul-studie/sid/drks',
+          'https://www.medizininformatik-initiative.de/fhir/modul-studie/sid/eudract'))), i.value = n "register-id";
+  // 'other' or an unknown register: identifier without a register system
+  s.id as n where (n != '' and (%s.register = 'NCT' or %s.register = 'DRKS' or %s.register = 'Eudra-CT/CTIS').not())
+     -> rs.identifier as i, i.type as ty, ty.text = ('Studienregister: ' & iif(%s.register.where($this != '').exists(), %s.register, 'unbekannt')),
+        i.value = n "other-id";
+  s.name as n where (n != '') -> rs.title = n "title";
+  s -> rs.status = 'active' "status";
+  s.substances as sub where (code.code.where($this != '').exists() or name.where($this != '').exists() or code.display.where($this != '').exists())
+     -> rs.focus as f then OncoPlanMedCode(sub, f) "focus";
+}
+
+// ---- counselling / histology re-evaluation (careplan.build) -----------------------------------------------------
+group OncoPlanRequests(source p, source ck, source ctx, target plan : CarePlan, target bundle : Bundle) {
+  p.carePlanOd as cp where (counsellingRecommended = true) -> bundle.entry as e, e.resource = create('ServiceRequest') as sr, uuid() as fid,
+        ('counselling') as role, plan.activity as a, a.reference as r
+     then DkEntry(ck, role, fid, e, sr), DkReference(fid, r), OncoPlanCounselBody(p, ctx, sr) "counselling";
+  p.carePlanOd as cp where (reEvaluationRecommended = true) -> bundle.entry as e, e.resource = create('ServiceRequest') as sr, uuid() as fid,
+        ('reevaluation') as role, plan.activity as a, a.reference as r
+     then DkEntry(ck, role, fid, e, sr), DkReference(fid, r), OncoPlanReevalBody(p, ctx, sr) "reevaluation";
+}
+
+group OncoPlanCounselBody(source p, source ctx, target sr : ServiceRequest) {
+  p -> sr.meta as m, m.profile = 'https://www.medizininformatik-initiative.de/fhir/ext/modul-mtb/StructureDefinition/mii-pr-mtb-humangenetische-beratung-auftrag' "profile";
+  p -> sr.status = 'active', sr.intent = 'proposal' "status";
+  p -> sr.code as cc, cc.coding as c, c.system = 'http://snomed.info/sct', c.code = '788339009', c.display = 'Genetic consultation (procedure)' "code";
+  p then OncoPlanBase(p, ctx, sr) "base";
+}
+
+group OncoPlanReevalBody(source p, source ctx, target sr : ServiceRequest) {
+  p -> sr.meta as m, m.profile = 'https://www.medizininformatik-initiative.de/fhir/ext/modul-mtb/StructureDefinition/mii-pr-mtb-histologie-evaluation-auftrag' "profile";
+  p -> sr.status = 'active', sr.intent = 'proposal' "status";
+  p -> sr.code as cc, cc.coding as c, c.system = 'http://snomed.info/sct', c.code = '183825009', c.display = 'Refer for histology (procedure)' "code";
+  p then OncoPlanBase(p, ctx, sr) "base";
+}
+
+// ---- interventions -> mii-pr-onko-therapieempfehlung-operation (careplan._intervention) -----------------------------
+group OncoPlanInterventions(source p, source ck, source ctx, target plan : CarePlan, target bundle : Bundle) {
+  p.carePlanOd as cp then {
+    cp.suitableInterventions as si -> bundle.entry as e, e.resource = create('ServiceRequest') as sr, uuid() as fid,
+          ('intervention:' & %cp.suitableInterventions.select(iif($this = %si, $index, {})).first().toString()) as role,
+          plan.activity as a, a.reference as r
+       then DkEntry(ck, role, fid, e, sr), DkReference(fid, r), OncoPlanInterventionBody(p, si, ctx, sr) "intervention";
+  } "care-plan";
+}
+
+group OncoPlanInterventionBody(source p, source si, source ctx, target sr : ServiceRequest) {
+  si -> sr.meta as m, m.profile = 'https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-pr-onko-therapieempfehlung-operation' "profile";
+  // mvgs-ex-intervention-purpose needs both sub-extensions
+  si where (interventionIsTherapeutic.exists() and interventionsIsRiskReducing.exists())
+     -> sr.extension as ex, ex.url = 'https://genomde.de/fhir/StructureDefinition/mvgs-ex-intervention-purpose',
+        ex.extension as x1, x1.url = 'therapeutic', x1.value = (%si.interventionIsTherapeutic),
+        ex.extension as x2, x2.url = 'riskReducing', x2.value = (%si.interventionsIsRiskReducing) "purpose";
+  si -> sr.status = 'active', sr.intent = 'proposal' "status";
+  si.type as ty then {
+    ty -> sr.code as cc then OncoPlanInterventionCode(ty, cc) "code";
+  } "type";
+  p then OncoPlanBase(p, ctx, sr) "base";
+  si where (%ctx.parameter.where(name = 'primary').exists()) -> sr.reasonReference as rr then OncoPlanRefPrimary(ctx, rr) "reason";
+}
+
+group OncoPlanInterventionCode(source ty, target cc : CodeableConcept) {
+  ty.code as c where (code.where($this != '').exists()) -> cc.coding as cd then OncoPlanPlainCoding(c, cd) "coding";
+  ty.name as n where (n != '') -> cc.text = n "text";
+}
+
+// common.coding(system, code, display, version) without system normalisation
+group OncoPlanPlainCoding(source c, target cd : Coding) {
+  c.system as s where (s != '') -> cd.system = s "system";
+  c.code as v -> cd.code = v "code";
+  c.version as v where (v != '') -> cd.version = v "version";
+  c.display as v where (v != '') -> cd.display = v "display";
+}
+
+// ---- otherRecommendations (oBDS therapy type, 1:1, each code once) + 'OP' for interventionRecommended without a
+// specified intervention -> CarePlan.activity.detail ---------------------------------------------------------------
+group OncoPlanObds(source p, target plan : CarePlan) {
+  p.carePlanOd as cp then {
+    cp where (otherRecommendations.where($this = 'CH').exists()) -> ('CH') as code then OncoPlanObdsActivity(code, plan) "CH";
+    cp where (otherRecommendations.where($this = 'HO').exists()) -> ('HO') as code then OncoPlanObdsActivity(code, plan) "HO";
+    cp where (otherRecommendations.where($this = 'IM').exists()) -> ('IM') as code then OncoPlanObdsActivity(code, plan) "IM";
+    cp where (otherRecommendations.where($this = 'ZS').exists()) -> ('ZS') as code then OncoPlanObdsActivity(code, plan) "ZS";
+    cp where (otherRecommendations.where($this = 'SZ').exists()) -> ('SZ') as code then OncoPlanObdsActivity(code, plan) "SZ";
+    cp where (otherRecommendations.where($this = 'CI').exists()) -> ('CI') as code then OncoPlanObdsActivity(code, plan) "CI";
+    cp where (otherRecommendations.where($this = 'CZ').exists()) -> ('CZ') as code then OncoPlanObdsActivity(code, plan) "CZ";
+    cp where (otherRecommendations.where($this = 'CIZ').exists()) -> ('CIZ') as code then OncoPlanObdsActivity(code, plan) "CIZ";
+    cp where (otherRecommendations.where($this = 'IZ').exists()) -> ('IZ') as code then OncoPlanObdsActivity(code, plan) "IZ";
+    cp where (otherRecommendations.where($this = 'WW').exists()) -> ('WW') as code then OncoPlanObdsActivity(code, plan) "WW";
+    cp where (otherRecommendations.where($this = 'AS').exists()) -> ('AS') as code then OncoPlanObdsActivity(code, plan) "AS";
+    cp where (otherRecommendations.where($this = 'WS').exists()) -> ('WS') as code then OncoPlanObdsActivity(code, plan) "WS";
+    cp where (otherRecommendations.where($this = 'OP').exists() or (interventionRecommended = true and suitableInterventions.exists().not()))
+       -> ('OP') as code then OncoPlanObdsActivity(code, plan) "OP";
+    cp where (otherRecommendations.where($this = 'ST').exists()) -> ('ST') as code then OncoPlanObdsActivity(code, plan) "ST";
+    cp where (otherRecommendations.where($this = 'KW').exists()) -> ('KW') as code then OncoPlanObdsActivity(code, plan) "KW";
+    cp where (otherRecommendations.where($this = 'SO').exists()) -> ('SO') as code then OncoPlanObdsActivity(code, plan) "SO";
+  } "care-plan";
+}
+
+group OncoPlanObdsActivity(source code, target plan : CarePlan) {
+  code -> plan.activity as a, a.detail as d, d.status = 'not-started', d.code as cc, cc.coding as c then OncoPlanTherapyTypeCoding(code, c) "activity";
+}
+
+// ---- preventive measures -> ServiceRequest, intent plan, no MII profile (careplan._preventive, REPRESENTATIONS #5) --
+group OncoPlanPreventive(source p, source ck, source ctx, source reg, target plan : CarePlan, target bundle : Bundle) {
+  p.preventiveMeasures as m where (identifier.where($this != '').exists().not() or %p.preventiveMeasures.where(identifier = %m.identifier).first() = %m)
+     -> (iif(%m.identifier.where($this != '').exists(), %m.identifier,
+            'index-' & %p.preventiveMeasures.select(iif($this = %m, $index, {})).first().toString())) as mid,
+        bundle.entry as e, e.resource = create('ServiceRequest') as sr, (%reg.parameter.where(name = ('pm:' & %mid)).value.first()) as fid,
+        ('preventive-measure:' & %mid) as role, plan.activity as a, a.reference as r
+     then DkEntry(ck, role, fid, e, sr), DkReference(fid, r), OncoPlanPreventiveBody(p, m, ctx, sr) "preventive";
+}
+
+group OncoPlanPreventiveBody(source p, source m, source ctx, target sr : ServiceRequest) {
+  m.identifier as id then OncoPlanKdkId(id, ctx, sr) "identifier";
+  m -> sr.status = 'active', sr.intent = 'plan' "status";
+  m -> sr.category as cat, cat.coding as c, c.system = 'http://snomed.info/sct', c.code = '169443000', c.display = 'Preventive procedure (procedure)' "category";
+  m.type as ty where (ty != '') -> sr.code as cc, cc.text = ty "code";
+  p then OncoPlanBase(p, ctx, sr) "base";
+}
+
+// ================================================================================================================
+// followUp.followUpOds[] (onco/followup.py)
+// ================================================================================================================
+
+group OncoFu(source src, source fu, source ck, source ctx, source reg, target bundle : Bundle) {
+  // one mii-pr-onko-tod per patient: the last deathDate
+  fu where (followUpOds.deathDate.where($this != '').exists()) -> bundle.entry as e, e.resource = create('Observation') as o,
+        (%reg.parameter.where(name = 'death').value.first()) as fid, ('followup:death') as role
+     then DkEntry(ck, role, fid, e, o), OncoFuTodBody(fu, ctx, o) "tod";
+  // per follow-up key: followUpDate (a repeated date gets '#<index>', followup.build)
+  fu.followUpOds as f -> (iif(%fu.followUpOds.take(%fu.followUpOds.select(iif($this = %f, $index, {})).first()).where(followUpDate = %f.followUpDate).exists(),
+          %f.followUpDate & '#' & %fu.followUpOds.select(iif($this = %f, $index, {})).first().toString(), %f.followUpDate) & '') as key
+     then OncoFuItem(src, fu, f, key, ck, ctx, reg, bundle) "followup";
+}
+
+group OncoFuTodBody(source fu, source ctx, target o : Observation) {
+  fu -> o.meta as m, m.profile = 'https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-pr-onko-tod' "profile";
+  fu -> o.status = 'final' "status";
+  fu -> o.code as cc, cc.coding as c, c.system = 'http://snomed.info/sct', c.code = '184305005' "code";
+  fu -> o.subject as s then OncoPlanRefPatient(ctx, s) "subject";
+  fu where (%ctx.parameter.where(name = 'primary').exists()) -> o.focus as f then OncoPlanRefPrimary(ctx, f) "focus";
+  fu -> o.effective = create('dateTime') as d, d.value = (%fu.followUpOds.deathDate.where($this != '').last()) "effective";
+}
+
+group OncoFuItem(source src, source fu, source f, source key, source ck, source ctx, source reg, target bundle : Bundle) {
+  // metachronous diagnoses -> mii-pr-onko-diagnose-primaertumor (2027: occurredFollowing -> primary tumour)
+  // keyed by code and date across all follow-ups (Python replaces): emitted from the last report
+  f.additionalDiagnoses as d where (code.where($this != '').exists()
+        and %fu.followUpOds.skip(%fu.followUpOds.select(iif($this = %f, $index, {})).last() + 1).additionalDiagnoses.where(code = %d.code and date = %d.date).exists().not()
+        and %f.additionalDiagnoses.where(code = %d.code and date = %d.date).last() = %d) -> bundle.entry as e, e.resource = create('Condition') as cond, uuid() as fid,
+        ('followup-diagnosis:' & %d.code & ':' & %d.date) as role
+     then DkEntry(ck, role, fid, e, cond), OncoFuDiagnosisBody(f, d, ctx, cond) "diagnosis";
+  // ECOG 0-4 / unknown (U), dated by followUpDate; 5 and notApplicable are not representable (dropped)
+  f.ecogPerformanceStatusScore as s where (s = '0' or s = '1' or s = '2' or s = '3' or s = '4' or s = 'unknown')
+     -> bundle.entry as e, e.resource = create('Observation') as o, uuid() as fid, ('followup:' & %key & ':ecog') as role,
+        (iif(%s = 'unknown', 'U', %s)) as sc
+     then DkEntry(ck, role, fid, e, o), OncoFuEcogBody(f, sc, ctx, o) "ecog";
+  // an HPO code twice in one follow-up: the first item (Python stops with 'duplicate resource')
+  f.phenotypes as ph where (code.where($this != '').exists() and %f.phenotypes.where(code = %ph.code).first() = %ph) -> bundle.entry as e, e.resource = create('Observation') as o, uuid() as fid,
+        ('followup:' & %key & ':phenotype:' & %ph.code) as role
+     then DkEntry(ck, role, fid, e, o), OncoFuPhenotypeBody(f, ph, ctx, o) "phenotype";
+  f.therapies as t then OncoFuTherapy(src, fu, f, t, ck, ctx, reg, bundle) "therapy";
+  f.preventiveMeasures as pm where (preventiveMeasureResult = 'preventive-measure-result' or preventiveMeasureResult = 'noFindings'
+        or preventiveMeasureResult = 'malignoma' or preventiveMeasureResult = 'unclear')
+     -> bundle.entry as e, e.resource = create('Observation') as o, uuid() as fid,
+        ('preventive-measure-result:' & iif(%pm.reference.where($this != '').exists(), %pm.reference, %key) & ':' &
+          iif(%pm.preventiveMeasureDate.where($this != '').exists(), %pm.preventiveMeasureDate,
+              %f.preventiveMeasures.select(iif($this = %pm, $index, {})).first().toString())) as role
+     then DkEntry(ck, role, fid, e, o), OncoFuPreventiveBody(pm, ctx, reg, o) "preventive-result";
+  f.vitalStatus as vs where (vs = 'living' or vs = 'deceased') -> bundle.entry as e, e.resource = create('Observation') as o, uuid() as fid,
+        ('followup:' & %key & ':vitalstatus') as role
+     then DkEntry(ck, role, fid, e, o), OncoFuVitalBody(f, vs, ctx, o) "vitalstatus";
+  // Verlauf: focus 1..1 -> primary tumour; without it no Verlauf
+  f where (%ctx.parameter.where(name = 'primary').exists()) -> bundle.entry as e, e.resource = create('Observation') as o, uuid() as fid,
+        ('followup:' & %key & ':verlauf') as role
+     then DkEntry(ck, role, fid, e, o), OncoFuVerlaufBody(f, ctx, reg, o) "verlauf";
+}
+
+// mvgs-ex-metachronous-tumor (followup.diagnoses): the flag itself unless it is derivable (true and every coded
+// diagnosis linked by occurredFollowing, which needs the primary tumour)
+group OncoFuMetachronous(source f, target o : Observation) {
+  f.metachroneDiagnoses as md where (md = false or (%f.additionalDiagnoses.where(code.where($this != '').exists()).exists().not()))
+     -> o.extension as ex, ex.url = 'https://genomde.de/fhir/StructureDefinition/mvgs-ex-metachronous-tumor', ex.value = md "flag";
+}
+
+group OncoFuVerlaufBody(source f, source ctx, source reg, target o : Observation) {
+  f -> o.meta as m, m.profile = 'https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-pr-onko-verlauf' "profile";
+  f then OncoFuMetachronous(f, o) "metachronous";
+  f -> o.status = 'final' "status";
+  f -> o.code as cc, cc.coding as c, c.system = 'http://snomed.info/sct', c.code = '396432002', c.display = 'Status of regression of tumor (observable entity)' "code";
+  f -> o.subject as s then OncoPlanRefPatient(ctx, s) "subject";
+  f -> o.focus as fo then OncoPlanRefPrimary(ctx, fo) "focus";
+  f.followUpDate as d where (d != '') -> o.effective = create('dateTime') as dt, dt.value = d "effective";
+  f where (deathDate.where($this != '').exists() and %reg.parameter.where(name = 'death').exists())
+     -> o.hasMember as hm, hm.reference = ('urn:uuid:' & %reg.parameter.where(name = 'death').value.first()) "tod";
+}
+
+group OncoFuDiagnosisBody(source f, source d, source ctx, target cond : Condition) {
+  d -> cond.meta as m, m.profile = 'https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-pr-onko-diagnose-primaertumor' "profile";
+  d.date as dt where (dt != '') -> cond.extension as ex, ex.url = 'http://hl7.org/fhir/StructureDefinition/condition-assertedDate',
+        ex.value = create('dateTime') as v, v.value = dt "asserted";
+  // 2027 widens occurredFollowing to diagnose-primaertumor (temporal sequence); not when metachroneDiagnoses = false
+  d where (%ctx.parameter.where(name = 'primary').exists() and (%f.metachroneDiagnoses = false).not())
+     -> cond.extension as ex, ex.url = 'http://hl7.org/fhir/StructureDefinition/condition-occurredFollowing',
+        ex.value = create('Reference') as r then OncoPlanRefPrimary(ctx, r) "occurred-following";
+  d -> cond.category as cat, cat.coding as c, c.system = 'http://snomed.info/sct', c.code = '55342001', c.display = 'Neoplastic disease' "category";
+  d -> cond.code as cc, cc.coding as c then OncoFuIcdCoding(d, c) "code";
+  d -> cond.subject as s then OncoPlanRefPatient(ctx, s) "subject";
+  d.date as dt where (dt != '') -> cond.recordedDate = dt "recorded";
+}
+
+// common.icd10gm: always ICD-10-GM; trailing multiple-coding mark -> fhir.de extension, a missing dot is added
+group OncoFuIcdCoding(source d, target c : Coding) {
+  d -> c.system = 'http://fhir.de/CodeSystem/bfarm/icd-10-gm',
+        c.code = (iif(%d.code.trim().upper().replaceMatches('[†+*!]+$', '').matches('^[A-Z][0-9]{2}[0-9A-Z]{1,4}$'),
+                  %d.code.trim().upper().replaceMatches('[†+*!]+$', '').replaceMatches('^([A-Z][0-9]{2})([0-9A-Z]{1,4})$', '$1.$2'),
+                  %d.code.trim().upper().replaceMatches('[†+*!]+$', ''))) "icd";
+  d where (code.trim().upper().matches('^.*[†+*!]$'))
+     -> c.extension as ex, ex.url = 'http://fhir.de/StructureDefinition/icd-10-gm-mehrfachcodierungs-kennzeichen',
+        ex.value = create('Coding') as vc, vc.system = 'http://fhir.de/CodeSystem/icd-10-gm-mehrfachcodierungs-kennzeichen',
+        vc.code = (iif(%d.code.trim().endsWith('+'), '†', %d.code.trim().substring(%d.code.trim().length() - 1))) "icd-mark";
+  d.version as v where (v != '') -> c.version = v "version";
+  d.display as dsp where (dsp != '') -> c.display = dsp "display";
+}
+
+// ---- ECOG (onco/ecog.ecog_observation, effective = followUpDate) --------------------------------------------------
+group OncoFuEcogBody(source f, source sc, source ctx, target o : Observation) {
+  sc -> o.meta as m, m.profile = 'https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-pr-onko-allgemeiner-leistungszustand-ecog' "profile";
+  sc -> o.status = 'final' "status";
+  sc -> o.code as cc, cc.coding as c, c.system = 'http://snomed.info/sct', c.code = '423740007', c.display = 'ECOG performance status',
+        cc.coding as c2, c2.system = 'http://loinc.org', c2.code = '89262-0', c2.display = 'ECOG Performance Status [Interpretation]' "code";
+  sc -> o.subject as s then OncoPlanRefPatient(ctx, s) "subject";
+  sc where (%ctx.parameter.where(name = 'primary').exists()) -> o.focus as fo then OncoPlanRefPrimary(ctx, fo) "focus";
+  f.followUpDate as d where (d != '') -> o.effective = create('dateTime') as dt, dt.value = d "effective";
+  sc -> o.value = create('CodeableConcept') as v then OncoFuEcogValue(sc, v) "value";
+}
+
+group OncoFuEcogValue(source sc, target v : CodeableConcept) {
+  sc -> v.coding as c, c.system = 'https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/CodeSystem/mii-cs-onko-allgemeiner-leistungszustand-ecog', c.code = sc,
+        c.display = (iif(%sc = '0', 'Normale, uneingeschränkte Aktivität wie vor der Erkrankung (90 - 100 % nach Karnofsky)',
+                     iif(%sc = '1', 'Einschränkung bei körperlicher Anstrengung, aber gehfähig; leichte körperliche Arbeit bzw. Arbeit im Sitzen (z. B. leichte Hausarbeit oder Büroarbeit) möglich (70 - 80 % nach Karnofsky)',
+                     iif(%sc = '2', 'Gehfähig, Selbstversorgung möglich, aber nicht arbeitsfähig; kann mehr als 50 % der Wachzeit aufstehen (50 - 60 % nach Karnofsky)',
+                     iif(%sc = '3', 'Nur begrenzte Selbstversorgung möglich; ist 50 % oder mehr der Wachzeit an Bett oder Stuhl gebunden (30  40 % nach Karnofsky)',
+                     iif(%sc = '4', 'Völlig pflegebedürftig, keinerlei Selbstversorgung möglich; völlig an Bett oder Stuhl gebunden (10 - 20 % nach Karnofsky)',
+                     'Unbekannt')))))) "obds";
+  sc where (sc != 'U') -> v.coding as c, c.system = 'http://loinc.org',
+        c.code = (iif(%sc = '0', 'LA9622-7', iif(%sc = '1', 'LA9623-5', iif(%sc = '2', 'LA9624-3', iif(%sc = '3', 'LA9625-0', 'LA9626-8'))))),
+        c.display = (iif(%sc = '0', 'Fully active, able to carry on all pre-disease performance without restriction',
+                     iif(%sc = '1', 'Restricted in physically strenuous activity but ambulatory and able to carry out work of a light or sedentary nature, e.g., light house work, office work',
+                     iif(%sc = '2', 'Ambulatory and capable of all selfcare but unable to carry out any work activities. Up and about more than 50% of waking hours',
+                     iif(%sc = '3', 'Capable of only limited selfcare, confined to bed or chair more than 50% of waking hours',
+                     'Completely disabled. Cannot carry on any selfcare. Totally confined to bed or chair'))))) "loinc";
+}
+
+// ---- phenotypes -> mii-pr-seltene-hpo-assessment (followup.phenotypes) -------------------------------------------
+group OncoFuPhenotypeBody(source f, source ph, source ctx, target o : Observation) {
+  ph -> o.meta as m, m.profile = 'https://www.medizininformatik-initiative.de/fhir/ext/modul-seltene/StructureDefinition/mii-pr-seltene-hpo-assessment' "profile";
+  ph -> o.status = 'final' "status";
+  ph -> o.code as cc then OncoFuHpoCode(ph, cc) "code";
+  ph -> o.subject as s then OncoPlanRefPatient(ctx, s) "subject";
+  f.followUpDate as d where (d != '') -> o.effective = create('dateTime') as dt, dt.value = d "effective";
+  ph.change as ch where (ch = 'newlyAdded' or ch = 'improved' or ch = 'degraded' or ch = 'noLongerObserved' or ch = 'unchanged')
+     -> o.component as comp, comp.code as cc, cc.coding as c, c.system = 'http://snomed.info/sct', c.code = '260411009', c.display = 'Presence findings',
+        comp.value = create('CodeableConcept') as v, v.coding as vc, vc.system = 'http://loinc.org',
+        vc.code = (iif(%ch = 'noLongerObserved', 'LA9634-2', 'LA9633-4')), vc.display = (iif(%ch = 'noLongerObserved', 'Absent', 'Present')),
+        comp.interpretation as ip, ip.coding as ic, ic.system = 'https://www.medizininformatik-initiative.de/fhir/ext/modul-seltene/CodeSystem/mii-cs-seltene-hpo-change-status',
+        ic.code = (iif(%ch = 'newlyAdded', 'newly-added', iif(%ch = 'noLongerObserved', 'no-longer-observed', %ch))) "change";
+}
+
+group OncoFuHpoCode(source ph, target cc : CodeableConcept) {
+  ph -> cc.coding as c then OncoFuHpoCoding(ph, c) "coding";
+  ph.text as t where (t != '') -> cc.text = t "text";
+}
+
+group OncoFuHpoCoding(source ph, target c : Coding) {
+  ph.code as cd -> c.system = 'http://human-phenotype-ontology.org', c.code = cd "code";
+  ph.version as v where (v != '') -> c.version = v "version";
+  ph.display as dsp where (dsp != '') -> c.display = dsp "display";
+}
+
+// ---- vital status (MII Vitalstatus) --------------------------------------------------------------------------------
+group OncoFuVitalBody(source f, source vs, source ctx, target o : Observation) {
+  vs -> o.meta as m, m.profile = 'https://www.medizininformatik-initiative.de/fhir/core/modul-person/StructureDefinition/Vitalstatus' "profile";
+  // without a primary tumour there is no Verlauf: the metachronous flag goes here
+  f where (%ctx.parameter.where(name = 'primary').exists().not()) then OncoFuMetachronousAny(f, o) "metachronous";
+  vs -> o.status = 'final' "status";
+  vs -> o.category as cat, cat.coding as c, c.system = 'http://terminology.hl7.org/CodeSystem/observation-category', c.code = 'survey' "category";
+  vs -> o.code as cc, cc.coding as c, c.system = 'http://loinc.org', c.code = '67162-8' "code";
+  vs -> o.subject as s then OncoPlanRefPatient(ctx, s) "subject";
+  // 'living' holds as of the last contact; 'deceased' is dated by the follow-up, the last contact goes to a note
+  f where (%vs = 'living' and lastContactDate.where($this != '').exists()) -> o.effective = create('dateTime') as dt, dt.value = (%f.lastContactDate) "effective-last-contact";
+  f.followUpDate as d where (d != '' and (%vs = 'living' and %f.lastContactDate.where($this != '').exists()).not()) -> o.effective = create('dateTime') as dt, dt.value = d "effective";
+  f.lastContactDate as lc where (lc != '' and %vs = 'deceased') -> o.note as n, n.text = ('Letzter Kontakt mit dem Patienten (lastContactDate): ' & %lc) "last-contact";
+  vs -> o.value = create('CodeableConcept') as v, v.coding as c, c.system = 'https://www.medizininformatik-initiative.de/fhir/core/modul-person/CodeSystem/Vitalstatus',
+        c.code = (iif(%vs = 'living', 'L', 'T')), c.display = (iif(%vs = 'living', 'Patient lebt', 'Patient verstorben')) "value";
+}
+
+// without the primary tumour no diagnosis is linked: the flag is never derivable
+group OncoFuMetachronousAny(source f, target o : Observation) {
+  f.metachroneDiagnoses as md -> o.extension as ex, ex.url = 'https://genomde.de/fhir/StructureDefinition/mvgs-ex-metachronous-tumor', ex.value = md "flag";
+}
+
+// ---- preventive-measure result (followup.preventive): basedOn -> the plan's preventive ServiceRequest -----------------
+group OncoFuPreventiveBody(source pm, source ctx, source reg, target o : Observation) {
+  pm.reference as r where (r != '' and %reg.parameter.where(name = ('pm:' & %r)).exists())
+     -> o.basedOn as b, b.reference = ('urn:uuid:' & %reg.parameter.where(name = ('pm:' & %r)).value.first()) "based-on";
+  // plan not in this submission: logical reference by the KDK identifier
+  pm.reference as r where (r != '' and %reg.parameter.where(name = ('pm:' & %r)).exists().not())
+     -> o.basedOn as b, b.type = 'ServiceRequest', b.identifier as i, i.system = 'https://genomde.de/fhir/sid/kdk-object-id',
+        i.value = (%ctx.parameter.where(name = 'submitterId').value & '|' & %ctx.parameter.where(name = 'caseId').value & '|' & %r) "based-on-logical";
+  pm -> o.status = 'final' "status";
+  pm -> o.code as cc, cc.coding as c, c.system = 'https://genomde.de/fhir/CodeSystem/mvgs-cs-preventive-measure-result',
+        c.code = 'preventive-measure-result', c.display = 'Result of preventive measure' "code";
+  pm -> o.subject as s then OncoPlanRefPatient(ctx, s) "subject";
+  pm.preventiveMeasureDate as d where (d != '') -> o.effective = create('dateTime') as dt, dt.value = d "effective";
+  pm.type as ty where (ty != '') -> o.method as me, me.text = ty "method";
+  pm.preventiveMeasureResult as res -> o.value = create('CodeableConcept') as v, v.coding as c,
+        c.system = 'https://genomde.de/fhir/CodeSystem/mvgs-cs-preventive-measure-result', c.code = res,
+        c.display = (iif(%res = 'noFindings', 'No findings', iif(%res = 'malignoma', 'Malignancy', iif(%res = 'unclear', 'Unclear finding', 'Result of preventive measure')))) "value";
+}
+
+// ---- performed systemic therapies (followup.therapy / medication / response) ------------------------------------------
+// One Procedure per (reference, therapyStartDate): a therapy reported again by a later follow-up replaces it, so it is
+// emitted from the LAST report ('later' = the follow-ups after the current one; equal items are told apart by their
+// follow-up's position, the last equal follow-up counts, so fully identical follow-ups emit twice instead of never). A MedicationStatement per coded substance (emitted from the last report that lists the
+// substance) takes the final status and period (followup._harmonize_medications).
+group OncoFuTherapy(source src, source fu, source f, source t, source ck, source ctx, source reg, target bundle : Bundle) {
+  t where (%fu.followUpOds.skip(%fu.followUpOds.select(iif($this = %f, $index, {})).last() + 1).therapies.where(reference = %t.reference and therapyStartDate = %t.therapyStartDate).exists().not()
+        and %f.therapies.where(reference = %t.reference and therapyStartDate = %t.therapyStartDate).last() = %t)
+     -> bundle.entry as e, e.resource = create('Procedure') as proc,
+        (%reg.parameter.where(name = ('ft:' & %t.reference & '|' & %t.therapyStartDate)).value.first()) as fid,
+        ('followup-therapy:' & %t.reference & ':' & %t.therapyStartDate) as role
+     then DkEntry(ck, role, fid, e, proc), OncoFuProcBody(src, t, ctx, reg, proc) "procedure";
+  t.substances as s where (code.code.where($this != '').exists()
+        and %t.substances.where(code.code = %s.code.code).last() = %s
+        and %fu.followUpOds.skip(%fu.followUpOds.select(iif($this = %f, $index, {})).last() + 1).therapies.where(reference = %t.reference and therapyStartDate = %t.therapyStartDate
+            and substances.where(code.code = %s.code.code).exists()).exists().not()
+        and %f.therapies.where(reference = %t.reference and therapyStartDate = %t.therapyStartDate and substances.where(code.code = %s.code.code).exists()).last() = %t)
+     -> bundle.entry as e, e.resource = create('MedicationStatement') as ms, uuid() as fid,
+        ('followup-therapy:' & %t.reference & ':' & %t.therapyStartDate & ':substance:' & %s.code.code) as role,
+        (%fu.followUpOds.therapies.where(reference = %t.reference and therapyStartDate = %t.therapyStartDate).last()) as fin
+     then DkEntry(ck, role, fid, e, ms), OncoFuMedBody(fin, t, s, ctx, reg, ms) "medication";
+  // one response per (therapy, response date or follow-up date): the last report wins (Python replace)
+  t.therapyResponse as r where (r != '') -> (iif(%t.therapyResponseDate.where($this != '').exists(), %t.therapyResponseDate, %f.followUpDate) & '') as rkey
+     then OncoFuResponse(fu, f, t, r, rkey, ck, ctx, reg, bundle) "response";
+}
+
+group OncoFuResponse(source fu, source f, source t, source r, source rkey, source ck, source ctx, source reg, target bundle : Bundle) {
+  r where (%fu.followUpOds.skip(%fu.followUpOds.select(iif($this = %f, $index, {})).last() + 1).select(iif(followUpDate = %rkey,
+            therapies.where(reference = %t.reference and therapyStartDate = %t.therapyStartDate and therapyResponse.where($this != '').exists()
+              and (therapyResponseDate = %rkey or therapyResponseDate.where($this != '').exists().not())),
+            therapies.where(reference = %t.reference and therapyStartDate = %t.therapyStartDate and therapyResponse.where($this != '').exists()
+              and therapyResponseDate = %rkey))).exists().not()
+        and iif(%f.followUpDate = %rkey,
+            %f.therapies.where(reference = %t.reference and therapyStartDate = %t.therapyStartDate and therapyResponse.where($this != '').exists()
+              and (therapyResponseDate = %rkey or therapyResponseDate.where($this != '').exists().not())),
+            %f.therapies.where(reference = %t.reference and therapyStartDate = %t.therapyStartDate and therapyResponse.where($this != '').exists()
+              and therapyResponseDate = %rkey)).last() = %t)
+     -> bundle.entry as e, e.resource = create('Observation') as o, uuid() as fid,
+        ('followup-therapy:' & %t.reference & ':' & %t.therapyStartDate & ':response:' & %rkey) as role
+     then DkEntry(ck, role, fid, e, o), OncoFuResponseBody(f, t, r, ctx, reg, o) "response";
+}
+
+group OncoFuProcBody(source src, source t, source ctx, source reg, target proc : Procedure) {
+  t -> proc.meta as m, m.profile = 'https://www.medizininformatik-initiative.de/fhir/ext/modul-mtb/StructureDefinition/mii-pr-mtb-systemische-therapie' "profile";
+  // Intention 1..1; KDK follow-ups carry none -> oBDS X 'fehlende Angabe'
+  t -> proc.extension as ex, ex.url = 'https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-ex-onko-systemische-therapie-intention',
+        ex.value = create('CodeableConcept') as v, v.coding as c, c.system = 'https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/CodeSystem/mii-cs-onko-intention',
+        c.code = 'X' "intention";
+  // a therapy recommendation of this plan -> causedBy
+  t.reference as r where (r != '' and %reg.parameter.where(name = ('tr:' & %r)).exists())
+     -> proc.extension as ex, ex.url = 'http://hl7.org/fhir/StructureDefinition/procedure-causedBy',
+        ex.value = create('Reference') as vr, vr.reference = ('urn:uuid:' & %reg.parameter.where(name = ('tr:' & %r)).value.first()) "caused-by";
+  // the plan of this submission does not recommend it: per KDK schema the reference is the therapy's own new identifier
+  t.reference as r where (r != '' and %reg.parameter.where(name = ('tr:' & %r)).exists().not() and %reg.parameter.where(name = ('sr:' & %r)).exists().not()
+        and %src.plan.recommendedSystemicTherapies.exists())
+     -> proc.identifier as i, i.system = 'https://genomde.de/fhir/sid/kdk-object-id',
+        i.value = (%ctx.parameter.where(name = 'submitterId').value & '|' & %ctx.parameter.where(name = 'caseId').value & '|' & %r) "own-identifier";
+  // plan not in this submission: logical causedBy by the recommendation's KDK identifier
+  t.reference as r where (r != '' and %reg.parameter.where(name = ('tr:' & %r)).exists().not() and %reg.parameter.where(name = ('sr:' & %r)).exists().not()
+        and %src.plan.recommendedSystemicTherapies.exists().not())
+     -> proc.extension as ex, ex.url = 'http://hl7.org/fhir/StructureDefinition/procedure-causedBy',
+        ex.value = create('Reference') as vr, vr.type = 'MedicationRequest', vr.identifier as i, i.system = 'https://genomde.de/fhir/sid/kdk-object-id',
+        i.value = (%ctx.parameter.where(name = 'submitterId').value & '|' & %ctx.parameter.where(name = 'caseId').value & '|' & %r) "caused-by-logical";
+  t -> proc.status = (iif(%t.terminationReasonOBDS.where($this = 'A' or $this = 'P' or $this = 'S' or $this = 'V' or $this = 'T').exists(), 'stopped',
+          iif(%t.terminationReasonOBDS.where($this != '').exists() or %t.therapyEndDate.where($this != '').exists(), 'completed', 'in-progress'))) "status";
+  // oBDS Ende-Grund -> outcome (as sent) and statusReason:Therapiestatusgrund (1:1)
+  t.terminationReasonOBDS as r where (r = 'E' or r = 'R' or r = 'W' or r = 'A' or r = 'P' or r = 'S' or r = 'V' or r = 'T' or r = 'U')
+     -> proc.statusReason as sr, sr.coding as c, c.system = 'https://www.medizininformatik-initiative.de/fhir/ext/modul-mtb/CodeSystem/mii-cs-mtb-therapiestatusgrund',
+        c.code = (iif(%r = 'E', 'regular-completion', iif(%r = 'R', 'regular-completion-with-dosage-reduction', iif(%r = 'W', 'regular-completion-with-substance-change',
+                  iif(%r = 'A', 'toxicity', iif(%r = 'P', 'progression', iif(%r = 'S', 'other', iif(%r = 'V', 'patient-refusal', iif(%r = 'T', 'patient-death', 'unknown'))))))))) "status-reason";
+  t.terminationReasonOBDS as r where (r != '') -> proc.outcome as oc, oc.coding as c,
+        c.system = 'https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/CodeSystem/mii-cs-onko-therapie-ende-grund', c.code = r "outcome";
+  t -> proc.code as cc, cc.coding as c, c.system = 'http://snomed.info/sct', c.code = '18629005', c.display = 'Administration of drug or medicament (procedure)' "code";
+  t -> proc.subject as s then OncoPlanRefPatient(ctx, s) "subject";
+  t where (therapyStartDate.where($this != '').exists() or therapyEndDate.where($this != '').exists())
+     -> proc.performed = create('Period') as per then OncoFuPeriod(t, per) "performed";
+  t where (%ctx.parameter.where(name = 'primary').exists()) -> proc.reasonReference as rr then OncoPlanRefPrimary(ctx, rr) "reason";
+  // study recommendation: causedBy admits only MedicationRequest -> note; name-only substances -> note (one note)
+  t where ((reference.where($this != '').exists() and %reg.parameter.where(name = ('tr:' & %t.reference)).exists().not()
+            and %reg.parameter.where(name = ('sr:' & %t.reference)).exists())
+        or substances.where(code.code.where($this != '').exists().not() and name.where($this != '').exists()).exists())
+     -> proc.note as n, n.text = ((iif(%t.reference.where($this != '').exists() and %reg.parameter.where(name = ('tr:' & %t.reference)).exists().not()
+            and %reg.parameter.where(name = ('sr:' & %t.reference)).exists(), 'Bezug: Studienempfehlung ' & %t.reference, '')
+          .combine(iif(%t.substances.where(code.code.where($this != '').exists().not() and name.where($this != '').exists()).exists(),
+            'Substanzen ohne ATC-Code: ' & %t.substances.where(code.code.where($this != '').exists().not() and name.where($this != '').exists()).name.join(', '), '')))
+          .where($this != '').join('; ')) "note";
+}
+
+group OncoFuPeriod(source t, target per : Period) {
+  t.therapyStartDate as sd where (sd != '') -> per.start = sd "start";
+  t.therapyEndDate as ed where (ed != '') -> per.end = ed "end";
+}
+
+// fin = the final report of the therapy (status and period, followup._harmonize_medications)
+group OncoFuMedBody(source fin, source t, source s, source ctx, source reg, target ms : MedicationStatement) {
+  s -> ms.meta as m, m.profile = 'https://www.medizininformatik-initiative.de/fhir/ext/modul-mtb/StructureDefinition/mii-pr-mtb-systemtherapie-medication-statement' "profile";
+  // 2027: basedOn:therapieempfehlung
+  t.reference as r where (r != '' and %reg.parameter.where(name = ('tr:' & %r)).exists())
+     -> ms.basedOn as b, b.reference = ('urn:uuid:' & %reg.parameter.where(name = ('tr:' & %r)).value.first()) "based-on";
+  s -> ms.partOf as po, po.reference = ('urn:uuid:' & %reg.parameter.where(name = ('ft:' & %t.reference & '|' & %t.therapyStartDate)).value.first()) "part-of";
+  fin -> ms.status = (iif(%fin.terminationReasonOBDS.where($this = 'A' or $this = 'P' or $this = 'S' or $this = 'V' or $this = 'T').exists(), 'stopped',
+          iif(%fin.terminationReasonOBDS.where($this != '').exists() or %fin.therapyEndDate.where($this != '').exists(), 'completed', 'active'))) "status";
+  fin where (therapyStartDate.where($this != '').exists() or therapyEndDate.where($this != '').exists())
+     -> ms.effective = create('Period') as per then OncoFuPeriod(fin, per) "effective";
+  s -> ms.medication = create('CodeableConcept') as mc then OncoFuMedCode(s, mc) "medication";
+  s -> ms.subject as sj then OncoPlanRefPatient(ctx, sj) "subject";
+}
+
+group OncoFuMedCode(source s, target mc : CodeableConcept) {
+  s.code as sc -> mc.coding as c then OncoPlanAtcCoding(sc, c) "coding";
+  s.name as n where (n != '') -> mc.text = n "text";
+}
+
+// REPRESENTATIONS #14: local mvgs-therapy-response (mii-pr-mtb-response-befund needs method RECIST/RANO)
+group OncoFuResponseBody(source f, source t, source r, source ctx, source reg, target o : Observation) {
+  r -> o.meta as m, m.profile = 'https://genomde.de/fhir/StructureDefinition/mvgs-therapy-response' "profile";
+  r -> o.status = 'final' "status";
+  r -> o.partOf as po, po.reference = ('urn:uuid:' & %reg.parameter.where(name = ('ft:' & %t.reference & '|' & %t.therapyStartDate)).value.first()) "part-of";
+  r -> o.code as cc, cc.coding as c, c.system = 'http://snomed.info/sct', c.code = '396432002' "code";
+  r -> o.subject as s then OncoPlanRefPatient(ctx, s) "subject";
+  r where (%ctx.parameter.where(name = 'primary').exists()) -> o.focus as fo then OncoPlanRefPrimary(ctx, fo) "focus";
+  t.therapyResponseDate as d where (d != '') -> o.effective = create('dateTime') as dt, dt.value = d "effective";
+  t where (therapyResponseDate.where($this != '').exists().not() and %f.followUpDate.where($this != '').exists())
+     -> o.effective = create('dateTime') as dt, dt.value = (%f.followUpDate) "effective-followup";
+  r -> o.value = create('CodeableConcept') as v, v.coding as c,
+        c.system = 'https://www.medizininformatik-initiative.de/fhir/ext/modul-mtb/CodeSystem/mii-cs-mtb-response-befund-beurteilung', c.code = r "value";
+  t.therapyResponseSource as src where (src != '') -> o.note as n, n.text = ('Datenquelle: ' & %src) "source";
+}

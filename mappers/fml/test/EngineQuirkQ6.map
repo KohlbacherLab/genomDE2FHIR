@@ -1,0 +1,16 @@
+/// url = 'https://genomde.de/fhir/StructureMap/EngineQuirkQ6'
+/// name = 'EngineQuirkQ6'
+/// title = 'Engine probe: fml-edit-safe quirk Q6 (source path not declared in the logical model)'
+/// status = 'draft'
+
+uses "https://genomde.de/fhir/StructureDefinition/DatenkranzOncology" alias Datenkranz as source
+uses "http://hl7.org/fhir/StructureDefinition/Patient" alias Patient as target
+
+group main(source src : Datenkranz, target pat : Patient) {
+  src.metaData as md then Md(md, pat) "md";
+}
+
+group Md(source md, target pat : Patient) {
+  md.notDeclaredInModel as x -> pat.identifier as id, id.system = 'urn:q6', id.value = x "undeclared";
+  md.tanC as t -> pat.identifier as id, id.system = 'urn:q6:declared', id.value = t "declared";
+}

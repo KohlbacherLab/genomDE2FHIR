@@ -1,0 +1,33 @@
+/// url = 'https://genomde.de/fhir/StructureMap/EngineTranslateProbe'
+/// name = 'EngineTranslateProbe'
+/// title = 'Engine probe: translate() against the de.genomde.mvgs ConceptMaps'
+/// status = 'draft'
+
+uses "https://genomde.de/fhir/StructureDefinition/DatenkranzOncology" alias Datenkranz as source
+uses "http://hl7.org/fhir/StructureDefinition/Observation" alias Observation as target
+
+group main(source src : Datenkranz, target obs : Observation) {
+  // group with source + target system (cnv-type-so); string input, 'code' and 'coding' outputs
+  src -> ('completeLoss') as c then TrCode(c, obs) "cnv-code";
+  src -> ('completeLoss') as c then TrCoding(c, obs) "cnv-coding";
+  // group without a source system (onco-localization-so)
+  src -> ('coding') as c then TrLocalization(c, obs) "loc";
+  // multiple target codes? equivalence 'relatedto' (tissue-sct)
+  src -> ('UBERON:0000178') as c then TrTissue(c, obs) "tissue";
+}
+
+group TrCode(source c, target obs : Observation) {
+  c -> obs.code as cc, cc.coding as cd, cd.system = 'http://www.sequenceontology.org', cd.code = translate(c, 'https://genomde.de/fhir/ConceptMap/mvgs-cm-cnv-type-so', 'code') "tr";
+}
+
+group TrCoding(source c, target obs : Observation) {
+  c -> obs.category as cc, cc.coding = translate(c, 'https://genomde.de/fhir/ConceptMap/mvgs-cm-cnv-type-so', 'coding') "tr";
+}
+
+group TrLocalization(source c, target obs : Observation) {
+  c -> obs.method as cc, cc.coding = translate(c, 'https://genomde.de/fhir/ConceptMap/mvgs-cm-onco-localization-so', 'coding') "tr";
+}
+
+group TrTissue(source c, target obs : Observation) {
+  c -> obs.bodySite as cc, cc.coding = translate(c, 'https://genomde.de/fhir/ConceptMap/mvgs-cm-tissue-sct', 'coding') "tr";
+}

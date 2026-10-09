@@ -1,0 +1,13 @@
+/// url = 'https://genomde.de/fhir/StructureMap/EngineImportTransitive'
+/// name = 'EngineImportTransitive'
+/// title = 'Engine probe: main imports only EngineImportMid, whose group calls EngineImportLib'
+/// status = 'draft'
+
+uses "https://genomde.de/fhir/StructureDefinition/DatenkranzOncology" alias Datenkranz as source
+uses "http://hl7.org/fhir/StructureDefinition/Patient" alias Patient as target
+
+imports "https://genomde.de/fhir/StructureMap/EngineImportMid"
+
+group main(source src : Datenkranz, target pat : Patient) {
+  src.metaData as md then MidPatient(md, pat) "mid";
+}

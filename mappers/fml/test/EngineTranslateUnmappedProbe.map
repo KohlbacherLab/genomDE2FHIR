@@ -1,0 +1,15 @@
+/// url = 'https://genomde.de/fhir/StructureMap/EngineTranslateUnmappedProbe'
+/// name = 'EngineTranslateUnmappedProbe'
+/// title = 'Engine probe: translate() of a code the ConceptMap does not contain'
+/// status = 'draft'
+
+uses "https://genomde.de/fhir/StructureDefinition/DatenkranzOncology" alias Datenkranz as source
+uses "http://hl7.org/fhir/StructureDefinition/Observation" alias Observation as target
+
+group main(source src : Datenkranz, target obs : Observation) {
+  src -> ('notACode') as c then Tr(c, obs) "unmapped";
+}
+
+group Tr(source c, target obs : Observation) {
+  c -> obs.code as cc, cc.coding = translate(c, 'https://genomde.de/fhir/ConceptMap/mvgs-cm-cnv-type-so', 'coding') "tr";
+}

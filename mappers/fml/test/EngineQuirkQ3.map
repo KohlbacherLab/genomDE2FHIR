@@ -1,0 +1,15 @@
+/// url = 'https://genomde.de/fhir/StructureMap/EngineQuirkQ3'
+/// name = 'EngineQuirkQ3'
+/// title = 'Engine probe: fml-edit-safe quirk Q3 (literal argument in a group call) - expected: literal is looked up as a variable name'
+/// status = 'draft'
+
+uses "https://genomde.de/fhir/StructureDefinition/DatenkranzOncology" alias Datenkranz as source
+uses "http://hl7.org/fhir/StructureDefinition/Patient" alias Patient as target
+
+group main(source src : Datenkranz, target pat : Patient) {
+  src.metaData as md then Lit(md, 'literal', pat) "literal-arg";
+}
+
+group Lit(source md, source s, target pat : Patient) {
+  s -> pat.identifier as id, id.system = 'urn:q3', id.value = s "lit";
+}

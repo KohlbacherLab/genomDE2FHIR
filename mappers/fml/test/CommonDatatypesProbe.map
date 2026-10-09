@@ -1,0 +1,46 @@
+/// url = 'https://genomde.de/fhir/StructureMap/CommonDatatypesProbe'
+/// name = 'CommonDatatypesProbe'
+/// title = 'Common probe: datatype groups of DatenkranzCommon on an oncology file'
+/// status = 'draft'
+
+// One Basic resource collecting the datatype groups; test_fml_common.py compares it with genomde2fhir.builders.common.
+
+uses "https://genomde.de/fhir/StructureDefinition/DatenkranzOncology" alias Datenkranz as source
+uses "http://hl7.org/fhir/StructureDefinition/Parameters" alias Parameters as target
+
+imports "https://genomde.de/fhir/StructureMap/DatenkranzCommon"
+
+group main(source src : Datenkranz, target out : Parameters) {
+  src.case as cs then Case(cs, out) "case";
+  src.metaData as md then Meta(md, out) "meta";
+}
+
+group Case(source cs, target out : Parameters) {
+  cs.diagnosisOd as dx then Dx(dx, out) "dx";
+}
+
+group Dx(source dx, target out : Parameters) {
+  dx.mainDiagnosis as d -> out.parameter as p, p.name = 'coding', p.value = create('Coding') as c then DkCoding(d, c) "coding";
+  dx.mainDiagnosis as d -> out.parameter as p, p.name = 'coding-system', p.value = create('Coding') as c,
+        ('http://fhir.de/CodeSystem/bfarm/icd-10-gm') as sys then DkCodingSystem(d, sys, c) "coding-system";
+  dx.mainDiagnosis as d -> out.parameter as p, p.name = 'cc', p.value = create('CodeableConcept') as cc then DkCodeableConcept(d, cc) "cc";
+  dx.mainDiagnosis as d -> out.parameter as p, p.name = 'cc-system', p.value = create('CodeableConcept') as cc,
+        ('http://fhir.de/CodeSystem/bfarm/icd-10-gm') as sys then DkCodeableConceptSystem(d, sys, cc) "cc-system";
+}
+
+group Meta(source md, target out : Parameters) {
+  md.gender as g -> out.parameter as p, p.name = 'code-coding', p.value = create('Coding') as c,
+        ('http://hl7.org/fhir/administrative-gender') as sys then DkCodeCoding(g, sys, c) "code-coding";
+  md.tanC as t -> out.parameter as p, p.name = 'identifier', p.value = create('Identifier') as id,
+        ('https://genomde.de/fhir/sid/tan-c') as sys then DkIdentifier(sys, t, id) "identifier";
+  md.mvConsent as mc then MetaPeriod(md, mc, out) "period";
+}
+
+group MetaPeriod(source md, source mc, target out : Parameters) {
+  mc.presentationDate as s then {
+    md.molecularBoardDecisionDate as e -> out.parameter as p, p.name = 'period', p.value = create('Period') as per
+       then DkPeriod(s, e, per) "both";
+    s -> out.parameter as p, p.name = 'period-start', p.value = create('Period') as per then DkPeriodStart(s, per) "start";
+    s -> out.parameter as p, p.name = 'period-end', p.value = create('Period') as per then DkPeriodEnd(s, per) "end";
+  } "presentation";
+}

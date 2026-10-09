@@ -1,0 +1,34 @@
+/// url = 'https://genomde.de/fhir/StructureMap/EngineImportMain'
+/// name = 'EngineImportMain'
+/// title = 'Engine probe: imports, multi-source groups, uuid passing, concatenation, encode'
+/// status = 'draft'
+
+uses "https://genomde.de/fhir/StructureDefinition/DatenkranzOncology" alias Datenkranz as source
+uses "http://hl7.org/fhir/StructureDefinition/Bundle" alias Bundle as target
+uses "http://hl7.org/fhir/StructureDefinition/Patient" alias Patient as target
+
+imports "https://genomde.de/fhir/StructureMap/EngineImportLib"
+
+group main(source src : Datenkranz, target bundle : Bundle) {
+  src -> bundle.type = 'transaction' "type";
+  src.metaData as md then Meta(md, bundle) "meta";
+}
+
+group Meta(source md, target bundle : Bundle) {
+  md -> uuid() as pid, bundle.entry as e, e.resource = create('Patient') as pat,
+        e.fullUrl = ('urn:uuid:' + pid) then MetaPatient(md, pid, pat, e) "pat";
+}
+
+group MetaPatient(source md, source pid, target pat : Patient, target e) {
+  md then LibPatient(md, pat) "imported";
+  md.submission as sub then KeyFromSubmission(md, sub, pid, pat, e) "key";
+}
+
+group KeyFromSubmission(source md, source sub, source pid, target pat : Patient, target e) {
+  sub.submitterId as sid -> pat.identifier as id, id.system = 'https://genomde.de/fhir/sid/resource-key',
+        id.value = (sid + ':' + %md.tanC + ':patient') "key";
+  sub.submitterId as sid -> e.request as rq, rq.method = 'PUT',
+        rq.url = ('Patient?identifier=https://genomde.de/fhir/sid/resource-key|' + (sid + ':' + %md.tanC + ':patient').encode('urlbase64')) "url";
+  sub.submitterId as sid -> pat.identifier as id then LibIdentifier(sid, pid, id) "pass-uuid";
+  sub.submitterId as sid -> pat.identifier as id, id.system = 'urn:probe:plain-concat', id.value = (sid + '|' + 'x') "plain";
+}

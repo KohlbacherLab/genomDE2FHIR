@@ -1,0 +1,13 @@
+/// url = 'https://genomde.de/fhir/StructureMap/EngineQuirkQ4b'
+/// name = 'EngineQuirkQ4b'
+/// title = 'Engine probe: fml-edit-safe quirk Q4 (target variable used inside a nested then-block of the binding rule) - expected: works'
+/// status = 'draft'
+
+uses "https://genomde.de/fhir/StructureDefinition/DatenkranzOncology" alias Datenkranz as source
+uses "http://hl7.org/fhir/StructureDefinition/Patient" alias Patient as target
+
+group main(source src : Datenkranz, target pat : Patient) {
+  src.metaData as md -> pat.identifier as id, id.system = 'urn:q4b' then {
+    md.tanC as t -> id.value = t "nested";
+  } "bind";
+}

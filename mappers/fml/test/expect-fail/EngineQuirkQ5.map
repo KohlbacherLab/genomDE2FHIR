@@ -1,0 +1,11 @@
+/// url = 'https://genomde.de/fhir/StructureMap/EngineQuirkQ5'
+/// name = 'EngineQuirkQ5'
+/// title = 'Engine probe: fml-edit-safe quirk Q5 (multi-step source path in one rule)'
+/// status = 'draft'
+
+uses "https://genomde.de/fhir/StructureDefinition/DatenkranzOncology" alias Datenkranz as source
+uses "http://hl7.org/fhir/StructureDefinition/Patient" alias Patient as target
+
+group main(source src : Datenkranz, target pat : Patient) {
+  src.metaData.submission.submitterId as s -> pat.identifier as id, id.system = 'urn:q5', id.value = s "multistep";
+}

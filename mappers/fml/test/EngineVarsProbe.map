@@ -1,0 +1,43 @@
+/// url = 'https://genomde.de/fhir/StructureMap/EngineVarsProbe'
+/// name = 'EngineVarsProbe'
+/// title = 'Engine probe: computed string variables, literal group params, resource assignment, multi-then'
+/// status = 'draft'
+
+// Expected on matchbox 4.1.21: entry 1 has fullUrl, resource-key, typename 'Patient' and raw key, but request.url is
+// missing (%res.resourceType is empty; %res.type().name works); entry 2 has no resource (e2.resource = p2 assigns a
+// resource created earlier in the rule and loses it); Bundle.identifier echoes the computed role variable.
+
+uses "https://genomde.de/fhir/StructureDefinition/DatenkranzOncology" alias Datenkranz as source
+uses "http://hl7.org/fhir/StructureDefinition/Bundle" alias Bundle as target
+uses "http://hl7.org/fhir/StructureDefinition/Patient" alias Patient as target
+
+group main(source src : Datenkranz, target bundle : Bundle) {
+  src -> bundle.type = 'transaction' "type";
+  src.metaData as md -> ('kdk:' + md.submission.submitterId + ':' + iif(md.localCaseId.exists(), md.localCaseId, md.tanC)) as ck
+     then Case(md, ck, bundle) "case";
+}
+
+group Case(source md, source ck, target bundle : Bundle) {
+  // Q3: a literal group argument is resolved as a variable name -> bind literals to variables first
+  md -> bundle.entry as e, e.resource = create('Patient') as pat, uuid() as pid, ('patient') as role
+     then Envelope(ck, role, pid, e, pat), Body(md, ck, pat) "patient";
+  md -> create('Patient') as p2, uuid() as pid2, bundle.entry as e2, e2.resource = p2, ('patient2') as role2
+     then Envelope(ck, role2, pid2, e2, p2) "assign-later";
+  md.mvConsent as mc -> ('consent:' + %mc.version) as role then RoleEcho(role, bundle) "role-var";
+}
+
+group Envelope(source ck, source role, source fid, target e, target res) {
+  ck -> e.fullUrl = ('urn:uuid:' + %fid) "fullurl";
+  ck -> res.identifier as id, id.system = 'https://genomde.de/fhir/sid/resource-key', id.value = ((%ck + ':' + %role).encode('urlbase64')) "key";
+  ck -> e.request as rq, rq.method = 'PUT', rq.url = (%res.resourceType + '?identifier=https://genomde.de/fhir/sid/resource-key|' + (%ck + ':' + %role).encode('urlbase64')) "url";
+  ck -> res.identifier as id, id.system = 'urn:probe:typename', id.value = (%res.type().name) "typename";
+  ck -> res.identifier as id, id.system = 'urn:probe:raw', id.value = (%ck + ':' + %role) "raw";
+}
+
+group Body(source md, source ck, target pat : Patient) {
+  md.gender as g -> pat.gender = g "gender";
+}
+
+group RoleEcho(source role, target bundle : Bundle) {
+  role -> bundle.identifier as id, id.system = 'urn:probe:role', id.value = role "echo";
+}
