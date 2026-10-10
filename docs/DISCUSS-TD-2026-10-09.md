@@ -29,14 +29,14 @@ Kinds: **contradiction** = the packages say something different from the note; *
 | 8 | Onkologie | 2027 diagnosis profiles: mandatory category and required ICD-O-3 topography binding | O 17–20, 27–31, 37–40 | 2027 change to confirm |
 | 9 | Onkologie | HGNC system URI differs between modules in 2027 | — | 2027 change to confirm |
 | 10 | MTB | Transcript ID bound required to http://ensembl.org | O 49–52, 169–172; OI 13–16 | decision |
-| 11 | MTB | coding-change-type is 0..1 while KDK variantTypes is an array; fusion slot already used for gene_fusion | O 53–56, 173–176, 190; OI 17–20 | decision |
-| 12 | MTB | Prior findings: container, free-text carrier, method type | O 41–48, 57; OI 5–12, 21 | contradiction, decision |
+| 11 | MTB | coding-change-type is 0..1 while KDK variantTypes is an array; fusion slot already used for gene_fusion | O 53–56, 173–176, 190; OI 17–20 | decision; updated 2026-10-10 |
+| 12 | MTB | Prior findings: container, free-text carrier, method type | O 41–48, 57; OI 5–12, 21 | contradiction, decision; updated 2026-10-10 |
 | 13 | MTB | Link between a performed therapy and its recommendation | O 90; OI 25 | contradiction, decision |
 | 14 | MTB | therapyResponseSource is a data source; Observation.method is mandatory | O 100; OI 26 | contradiction, decision |
-| 15 | MTB | Study recommendations: evidence grading, Z(FDA), supporting variants | O 206–207, 211, 218–220; OI 49–54 | decision |
+| 15 | MTB | Study recommendations: evidence grading, Z(FDA), supporting variants | O 206–207, 211, 218–220; OI 49–54 | decision; updated 2026-10-10 |
 | 16 | MTB | Recommendation type (inLabel/offLabel/compassionateUse/secPreventive/unknown) has no element | O 229; OI 56 | decision |
 | 17 | MTB | CNV type: undefined code system, genomDE 6 levels | O 134 | decision |
-| 18 | MTB | Expression level (noExpression/normal/high/low) not codable | O 144; OI 30 | decision, 2027 |
+| 18 | MTB | Expression level (noExpression/normal/high/low) not codable | O 144; OI 30 | decision, 2027; updated 2026-10-10 |
 | 19 | MTB | LOH per variant has no concept on the simple variant | O 165; OI 35 | decision |
 | 20 | MTB | COSMIC SBS signatures have no concept | O 151–153; OI 32–33 | decision |
 | 21 | MTB | Fusions: mandatory breakpoint components, unbound partner genes, intragenic SVs | O 178–185, 189; OI 36–43, 45 | decision |
@@ -45,15 +45,15 @@ Kinds: **contradiction** = the packages say something different from the note; *
 | 24 | MTB | Panel DeviceDefinition catalogue (2027) as home for GRZ kit names | G 5–6, 8–9, 11–12, 16–19, 38–39 | 2027 change to confirm |
 | 25 | MTB | Notes labelled 2027 describe elements identical in the 2026 packages | O 2–3, 41–48, 53–56, 130, 134, 144, 151–153, 165, 178–185, 189–190; OI 2–3, 5–12, 17–20, 28, 30, 32–33, 35–43, 45 | contradiction |
 | 26 | MolGen | Variant localization (HDB-976) | O 142, 164, 188; R 72, 92, 110; OI 29, 34, 44, 65, 69, 73 | in Thomas' ballot comment |
-| 27 | MolGen | Finding category primary/incidental/candidate (HDB-976) | R 66, 86, 105; OI 64, 68, 72 | in Thomas' ballot comment |
+| 27 | MolGen | Finding category primary/incidental/candidate (HDB-976) | R 66, 86, 105; OI 64, 68, 72 | in Thomas' ballot comment; updated 2026-10-10 |
 | 28 | MolGen | Segregation analysis: biparental and notPerformed (HDB-976 c) | R 76, 97, 114; OI 67, 71, 75 | in Thomas' ballot comment |
-| 29 | MolGen | Mode of inheritance: LOINC answer codes vs HPO | R 73, 93, 111 | contradiction |
+| 29 | MolGen | Mode of inheritance: LOINC answer codes vs HPO | R 73, 93, 111 | contradiction; updated 2026-10-10 |
 | 30 | MolGen | ACMG evidence criteria have no component | R 62–63, 81–82, 101–102 | decision |
 | 31 | MolGen | Study design single/duo/trio has no concept | R 20; OI 59 | open, no note |
 | 32 | Seltene | GMFCS (HDB-975) | R 6, 29; OI 58, 62 | in Thomas' ballot comment |
 | 33 | Seltene | Hospitalisation duration and periods bands (HDB-975) | R 22–23; OI 60–61 | in Thomas' ballot comment |
 | 34 | Seltene | Therapy strategy 'other' unreachable for medication; medication/non-medication split | R 129 | decision |
-| 35 | Consent | MV-GenomSeq consent domains cannot be expressed | O 112; R 46; G 49; OI 27, 63, 82 | contradiction, decision |
+| 35 | Consent | MV-GenomSeq consent domains cannot be expressed | O 112; R 46; G 49; OI 27, 63, 82 | contradiction, decision; updated 2026-10-10 |
 
 ## Onkologie
 
@@ -289,6 +289,8 @@ Kinds: **contradiction** = the packages say something different from the note; *
 
 **To decide with Thomas.** Are several SO codings in one CodeableConcept acceptable? On fusions, gene_fusion or structural mechanism in coding-change-type? Is translocation inside dna-change-type-vs, and which SO system URI?
 
+**Update 2026-10-10 (mapping table now differs; text above kept as discussed).** Translocation is now verified: in the Sequence Ontology (OLS) SO:0000199 translocation lies under structural_alteration SO:0001785, sequence_alteration SO:0001059 and sequence_comparison SO:0002072, so it is a member of `dna-change-type-vs` (SO is-a SO:0002072). gene_fusion SO:0001565 is not: its ancestors are feature_fusion, structural_variant SO:0001537 and sequence_variant SO:0001060 (molecular consequence), so the MII `fgfr2-fusion` example puts a code outside the value set into coding-change-type. The gene_fusion part of our proposal is withdrawn. On fusions the converter emits only the structural mechanism from `mvgs-cm-structure-type-so` (translocation SO:0000199, inversion SO:1000036, deletion SO:0000159, duplication SO:1000035) plus the KDK enum as a second coding (O 190), which is Thomas' first option. The multi-coding convention for `variantTypes` (O 53–56, 173–176) stands. Open for Thomas: only the SO system URI.
+
 ### 12. Prior findings: container, free-text carrier, method type
 
 *Rows:* O 41–48, 57; OI 5–12, 21 · *Kind:* contradiction, decision
@@ -309,6 +311,8 @@ Kinds: **contradiction** = the packages say something different from the note; *
 **Our proposal.** Map as in the options with uniform `conclusion for free text and GR codes for the missing types; file one MTB ballot comment covering carrier, effective\[x\], the unprofiled link and the missing concepts.
 
 **To decide with Thomas.** Confirm ngs-bericht` (not molecular-pathology-report) as container, via `supportingInfo:Vorbefund` or `investigation:NgsBericht`; accept conclusion/valueString; which GR codes for single and array; is `sequencing-read-type` meant for short/long read; will he slice the genomic-study extension?
+
+**Update 2026-10-10.** A profiled free-text carrier does exist: `component:conclusion-string` (GR `tbd-codes-cs#conclusion-string`, valueString, 0..1 MS) on `mii-pr-mtb-einfache-variante` and the other variant profiles, inherited from GR / MolGen `variante`. It needs a variant Observation, though. The converter keeps `DiagnosticReport.conclusion` for `complexVariants[]` (O 41), and BALLOT-COMMENTS MTB-10 now says this.
 
 ### 13. Link between a performed therapy and its recommendation
 
@@ -373,6 +377,8 @@ Kinds: **contradiction** = the packages say something different from the note; *
 
 **To decide with Thomas.** Does he support (or will he file) the three ballot asks? Is `supportingInfo` acceptable as interim for study variants? Is `valuePositiveInt` the intended slice for an integer rank? Is the LM `EmpfohleneStudie.Evidenzgrad` meant to land in MTB or in the MVGS spec?
 
+**Update 2026-10-10 (mapping table now differs; text above kept as discussed).** The rows are split as proposed and no longer cite `ResearchStudy.extension` / `CarePlan.activity.detail`. Therapy `evidenceLevel` / `evidenceLevelDetails[]` map to `MedicationRequest.extension:Evidenzgraduierung` (Z(FDA) as `Z` plus text; O 219–220). Both priority rows map to `extension:Prioritaet.valuePositiveInt` (O 211, 222). Study variants go to `ServiceRequest.supportingInfo` (O 218). Study `evidenceLevel` / `evidenceLevelDetails[]` (O 206–207) are not GAP: they are MAPPED to a local extension `mvgs-ex-evidence-level` that carries the MII MTB evidence code systems, because the MII extension has no ServiceRequest context. The three ballot asks are unchanged.
+
 ### 16. Recommendation type (inLabel/offLabel/compassionateUse/secPreventive/unknown) has no element
 
 *Rows:* O 229; OI 56 · *Kind:* decision
@@ -436,6 +442,8 @@ Kinds: **contradiction** = the packages say something different from the note; *
 **Our proposal.** Status BALLOT-PENDING with the interim mapping (LL1971-2 value plus `interpretation` H/L/N plus genomDE component). File two MTB ballot items: a coded expression level with reference cohort, and fixed codes for the six undiscriminable component slices.
 
 **To decide with Thomas.** Does MTB prefer a bound `expression-level` component or binding `interpretation` (high-low plus N, not-detected)? Is the closed value\[x\] slicing in 2027 intended (differential says open)? Will the six component slices get codes? Is H/L/N acceptable interim?
+
+**Update 2026-10-10 (mapping table now differs; text above kept as discussed).** O 144 is MAPPED, not BALLOT-PENDING. The value is LL1971-2 (noExpression to Absent LA9634-2, normal/high/low to Present LA9633-4) and the level goes to `Observation.interpretation` H / L / N. Together these are lossless, so there is no extra genomDE component. The `reference` field goes to `Observation.note` ('Bewertungsgrundlage: …', O 150). The ballot items are unchanged.
 
 ### 19. LOH per variant has no concept on the simple variant
 
@@ -627,6 +635,8 @@ Kinds: **contradiction** = the packages say something different from the note; *
 
 **To decide with Thomas.** Exact canonical and code strings proposed in HDB-976, and does the component sit on `diagnostische-implikation` or `variante`? Should incidental also set `extension:secondary-finding`? Who maintains the interim MVGS CodeSystem?
 
+**Update 2026-10-10 (mapping table now differs; text above kept as discussed).** The interim is implemented, and the impact paragraph above no longer applies. `diagnosticSignificance` on small, copy-number and structural variants (R 66, 87, 107 in our table) is an open component on `diagnostische-implikation`, code `mvgs-cs-finding-category#finding-category`, value primary / incidental / candidate, not `Observation.note`. The status stays DRAFT until HDB-976 lands. These rows cite the real `.../diagnostische-implikation` canonical.
+
 ### 28. Segregation analysis: biparental and notPerformed (HDB-976 c)
 
 *Rows:* R 76, 97, 114; OI 67, 71, 75 · *Kind:* in Thomas' ballot comment
@@ -669,6 +679,8 @@ Kinds: **contradiction** = the packages say something different from the note; *
 **Our proposal.** Switch the three rows to HPO on diagnostische-implikation (one implication per variant, derivedFrom the variant) and keep `unclear` as a coded value under the preferred binding rather than omitting it; drop any LOINC LA mode-of-inheritance codes from the oncology tab too, since MTB has the same binding.
 
 **To decide with Thomas.** Which MTB counterpart did TD mean, given MTB uses the same HPO binding? For `unclear` with value\[x\] 1..1: omit, coded placeholder under preferred binding, or ballot 0..1? Drop LA codes in the oncology tab as well?
+
+**Update 2026-10-10 (mapping table now differs; text above kept as discussed).** The switch is implemented. The three `modeOfInheritance` rows (R 74, 95, 114 in our table) map to `diagnostische-implikation.component:mode-of-inheritance` with HPO (dominant HP:0000006, recessive HP:0000007, XLinked HP:0001417, mitochondrial HP:0001427) and emit no LOINC LA codes. Our `unclear` proposal (a coded placeholder) was not adopted. `unclear` gives `valueCodeableConcept.text` only, without a coding and without dataAbsentReason. The oncology table has no mode-of-inheritance row.
 
 ### 30. ACMG evidence criteria have no component
 
@@ -800,10 +812,13 @@ Kinds: **contradiction** = the packages say something different from the note; *
 
 **To decide with Thomas.** Registration path: new codes under ...24.5.3 (own top-level group) or a separate CS/OID, and who files (AG Consent/TMF), by when? Which `policy.uri` identifies the MV Teilnahmeerklaerung? Must the MV Consent satisfy mii-pr-consent-einwilligung meanwhile? Note: .2/.6/.8 do exist.
 
+**Update 2026-10-10 (mapping table now differs; text above kept as discussed).** The .2/.6/.8 mapping is dropped. The three `scope[].domain` rows (O 112, R 46, G 49) are MAPPED, not DRAFT, to the local code system `mvgs-cs-mv-consent-domain` (mvSequencing / reIdentification / caseIdentification, 1:1) in the local Consent profile `mvgs-consent`. The declaration name and version go to `Consent.policyRule.text`, since no policy URI exists. The status DRAFT in this section was our proposal, not Thomas': his note asks for a Consent ballot candidate and how codes get registered. The registration questions are unchanged (ballot CONSENT-1).
+
 ## Cross-cutting questions
 
 1. Who files the ballot comments, we or you? Can we see the HDB-975/976 texts to align ours?
 2. HGVS strings: KDK gives bare `c.` / `g.` / `p.V600E`; must they be prefixed with transcript / NC_ accession and normalised, given that GR `hgvs-vs` accepts any varnomen coding?
+   *Update 2026-10-10:* the premise is wrong. tx.fhir.org checks varnomen codings and rejects bare strings without a reference sequence (`c.181C>A`, `p.Gln61Lys`), so `hgvs-vs` does not accept just any varnomen coding. The converter qualifies them with the versioned transcript where the input allows it and otherwise reports them as source data quality (REPRESENTATIONS #43). The question to Thomas is now only whether qualification and normalisation are the sender's job.
 3. Which terminology server should implementers validate German terminologies against (ICD-O-3 topography becomes a required binding in 2027; tx.fhir.org cannot)?
 4. Should our mapping table feed `mii-lm-mvgenomseq-onkologie` and `mii-cm-onkologie-to-mvgenomseq`?
 5. Identity and linkage rules for MV-GenomSeq bundles: one Patient per donor, Specimen to donor, report to result, Encounter versus EpisodeOfCare.

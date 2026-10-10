@@ -199,9 +199,11 @@
   - `Condition.bodySite.coding:icd-o-3` 0..1, required `…/ValueSet/mii-vs-onko-icdo3-topographie` (VS an die Versionen 2014 und 2019 gebunden),
   - `Condition.bodySite` 0..*.
 - **Problem:** OncologyCase.diagnosisOd.topography (code, system, version) wird mit required-Bindung gegen ICD-O-3 geprüft.
-  Öffentliche Terminologieserver wie tx.fhir.org liefern ICD-O-3 nicht aus, daher können Implementierer die Bindung nicht
-  prüfen. Erzwungen ist die Codierung nicht, weil `bodySite` optional bleibt.
-- **Evidenz:** siehe Profil/Element (Snapshot geprüft).
+  tx.fhir.org kennt ICD-O-3 nur in der Ausgabe 2000 („Valid versions: 2000") und akzeptiert dort per
+  `$validate-code` sogar nicht existierende Codes; die von der VS geforderten Ausgaben 2014 und 2019 fehlen. Implementierer
+  können die Bindung daher nicht prüfen (matchbox: „version '2019' … could not be found", also ungeprüft).
+  Erzwungen ist die Codierung nicht, weil `bodySite` optional bleibt.
+- **Evidenz:** siehe Profil/Element (Snapshot geprüft); tx.fhir.org-Abfragen vom 2026-10-09 (`docs/TERMINOLOGY-CAPABILITY.md`).
 - **Vorschlag:** Dokumentieren, gegen welchen Terminologieserver oder welches Paket ICD-O-3 (2014/2019) geprüft werden soll,
   oder ein CodeSystem-Fragment bereitstellen. Außerdem klären, ob `required` beabsichtigt ist oder `extensible` genügt.
 - **Bezug:** 8
@@ -338,14 +340,18 @@
   `-dna-fusion`, `-rna-fusion` und MolGen `variante`.
 - **Problem:** OncologyMolecular.smallVariants[].variantTypes[] und OncologyCase.priorDiagnostics[].simpleVariants[].variantTypes[]
   können mehrere SO-Codings je Variante enthalten. Es gibt aber nur eine Komponente; die Kardinalität 0..1 ist aus GR
-  geerbt und kann von MII nicht erweitert werden. Bei Fusionen konkurrieren zwei Werte um denselben Slot: der
-  Strukturmechanismus aus OncologyMolecular.structuralVariants[].structureType und SO:0001565 gene_fusion, das das MII-Beispiel
-  `fgfr2-fusion` dort einträgt.
-- **Evidenz:** max 1 in allen genannten Profilen. GR `dna-change-type-vs` = SO is-a SO:0002072. Ob SO:0000199 (translocation)
-  enthalten ist, ist nicht verifiziert.
-- **Vorschlag:** Als Konvention dokumentieren, dass mehrere SO-Codings in ein `CodeableConcept.coding[]` gehören; bei Fusionen
-  gene_fusion plus den Strukturcode im selben CodeableConcept. Das SO-System vereinheitlichen (GR nutzt
-  `http://www.sequenceontology.org`, siehe MOLGEN-2).
+  geerbt und kann von MII nicht erweitert werden. Das MII-Beispiel `fgfr2-fusion` trägt SO:0001565 gene_fusion in
+  `coding-change-type` ein; dieser Code liegt außerhalb von `dna-change-type-vs`.
+- **Evidenz:** max 1 in allen genannten Profilen. GR `dna-change-type-vs` = SO is-a SO:0002072. Geprüft 2026-10-10 an der
+  SO-Hierarchie (OLS): SO:0000199 translocation liegt unter structural_alteration SO:0001785 → sequence_alteration
+  SO:0001059 → sequence_comparison SO:0002072 und ist damit enthalten (ebenso deletion, duplication, inversion).
+  SO:0001565 gene_fusion liegt unter feature_fusion / structural_variant SO:0001537 / sequence_variant SO:0001060
+  (molekulare Konsequenz), nicht unter SO:0002072.
+- **Vorschlag:** Als Konvention dokumentieren, dass mehrere SO-Codings in ein `CodeableConcept.coding[]` gehören. Bei
+  Fusionen gehört der Strukturmechanismus (translocation, inversion, deletion, duplication) in `coding-change-type`;
+  das Beispiel `fgfr2-fusion` entsprechend korrigieren (gene_fusion ist kein Mitglied des ValueSets). Das SO-System
+  vereinheitlichen (GR nutzt `http://www.sequenceontology.org`, siehe MOLGEN-2). (Stand 2026-10-10: der frühere
+  Vorschlag, gene_fusion zusätzlich einzutragen, ist zurückgezogen.)
 - **Bezug:** 11
 
 #### MTB-10 – Vorbefunde: Freitext-Träger, Datum, Untersuchungsart
@@ -358,15 +364,19 @@
   - Extension `…/mii-ex-mtb-ngs-bericht-genomic-study`,
   - `mii-pr-mtb-genomic-study-analysis.Procedure.extension:method-type` (required `…/ValueSet/mii-vs-mtb-genomic-analysis-method-type`).
 - **Problem:**
-  - OncologyCase.priorDiagnostics[].complexVariants[] ist Freitext, die typisierten `result`-Slices verlangen aber
-    strukturierte Komponenten. Passend sind nur `conclusion` (nicht MS) oder eine unprofilierte valueString-Observation.
+  - OncologyCase.priorDiagnostics[].complexVariants[] ist Freitext. Einen profilierten Freitext-Träger gibt es: die
+    Komponente `conclusion-string` (GR `tbd-codes-cs#conclusion-string`, valueString, 0..1 MS) auf
+    `mii-pr-mtb-einfache-variante` und den übrigen Varianten-Profilen (geerbt aus GR/MolGen `variante`). Sie setzt
+    aber eine Varianten-Observation voraus und ist für eine Freitext-Zeile ohne strukturierte Variante nicht gedacht;
+    auf Berichtsebene bleibt nur `DiagnosticReport.conclusion` (nicht MS). Der Konverter nutzt `conclusion`.
   - `.date` ist tagesgenau, das einzige MS-Datum `issued` ist aber ein instant.
   - Für `.type` gibt es keinen Code für `single` (Einzelgen). Die Unterscheidung Kurz-/Langread beim Genom geht verloren.
   - Die Verknüpfung Bericht → Studie ist als Extension definiert, aber in kein Profil eingehängt.
 - **Evidenz:** `mii-ex-mtb-ngs-bericht-genomic-study` (Kontext DiagnosticReport) wird von keinem Profil verwendet.
   Das method-type-VS besteht aus dem MII-CS (6 Codes) und GR `genomic-study-method-type-cs`; Karyotypisierung, Microarray
   und other sind damit vorhanden.
-- **Vorschlag:** `conclusion` als MS kennzeichnen oder einen profilierten Freitext-Slice für Vorbefunde einführen.
+- **Vorschlag:** `conclusion` als MS kennzeichnen oder festlegen, ob Freitext-Vorbefunde als Varianten-Observation mit
+  `conclusion-string` erfasst werden sollen (Stand 2026-10-10: dieser profilierte Träger existiert bereits).
   `effectiveDateTime` als MS kennzeichnen. Die Extension `genomic-study` in `ngs-bericht` slicen. Codes für die
   Einzelgen-/gezielte Analyse und für Kurz- bzw. Langread ergänzen.
 - **Bezug:** 12
@@ -541,7 +551,7 @@
   `function`-Code für Software ergänzen oder die Darstellung dokumentieren.
 - **Bezug:** 24
 
-#### MTB-22 – NGS-Bericht: `result`-Slices überlappen (Tumorzellgehalt, Ploidie, HRD-Score)
+#### MTB-22 – NGS-Bericht: `result`-Slices überlappen (Tumorzellgehalt, Ploidie, HRD-Score, MSI)
 
 - **Profil/Element:** `…/mii-pr-mtb-ngs-bericht`, `DiagnosticReport.result`: Slicing über
   `discriminator type = profile, path = $this.resolve()`, `rules = open`.
@@ -553,11 +563,26 @@
   **und** in `MolekularerBiomarker` (0..*). Der Validator meldet für konforme Instanzen „matches more than one slice"
   bzw. „max allowed = 1", und Profile, die den NGS-Bericht referenzieren (Behandlungsepisode, Therapieplan), schlagen
   in der Folge mit „Unable to find a profile match" fehl.
+  Dieselbe Doppelzuordnung trifft weitere Slices: Der Slice `MSI` (`mii-pr-mtb-mikrosatelliteninstabilitaet`) hat
+  kein `code`-Pattern, also passt jede TMB-Observation auch in `MSI` (matchbox: „Element matches more than one
+  slice - TumorMutionalBurden, MSI"); sobald die `resolve()`-Slices ausgewertet werden, meldet matchbox an
+  `DiagnosticReport.result[n]` zusätzlich „Element matches more than one slice - EinfacheVariante,
+  CopyNumberVariant". Den Überlauf von `Tumorzellgehalt` („max allowed = 1") meldet matchbox am
+  DiagnosticReport selbst (Expression ohne `.result`).
 - **Evidenz:** Snapshot `mii-pr-mtb-ngs-bericht` (2027.0.0-ballot.1); `baseDefinition` von `mii-pr-mtb-ploidie` und
-  `mii-pr-mtb-hrd-score`; reproduziert mit matchbox 4.1.21 an jedem NGS-Bericht mit mehr als einem Ergebnis.
+  `mii-pr-mtb-hrd-score`; Differential von `mii-pr-mtb-mikrosatelliteninstabilitaet` (kein `code`-Pattern, anders
+  als `mii-pr-mtb-mutationslast` mit LOINC 94076-7); reproduziert mit matchbox 4.1.21 an jedem NGS-Bericht mit
+  mehr als einem Ergebnis.
 - **Vorschlag:** `Tumorzellgehalt.targetProfile` auf `mii-pr-mtb-tumorzellgehalt` setzen; `MolekularerBiomarker` so
   einschränken, dass die spezialisierten Biomarker-Profile nicht doppelt passen (z. B. Discriminator zusätzlich über
-  `code`, oder die spezialisierten Slices nur als Re-Slices von `MolekularerBiomarker`).
+  `code`, oder die spezialisierten Slices nur als Re-Slices von `MolekularerBiomarker`); in
+  `mii-pr-mtb-mikrosatelliteninstabilitaet` ein `code`-Pattern setzen.
+- **Interims-Darstellung:** Bei mehreren `complexBiomarkers[]`-Einträgen erzeugen wir je Eintrag einen eigenen NGS-Bericht,
+  damit TMB, HRD-Score und Ploidie höchstens einmal je Bericht vorkommen (REPRESENTATIONS #48). Die Überlappung mit
+  `Tumorzellgehalt` bleibt und ist in der Validierung als Paketdefekt markiert
+  (`mtb-ngs-bericht-result-slice-overlap`): der `Tumorzellgehalt`-Überlauf am DiagnosticReport selbst und die
+  Mehrfachtreffer „matches more than one slice" (TumorMutionalBurden/MSI, EinfacheVariante/CopyNumberVariant) an
+  `DiagnosticReport.result[n]`.
 - **Bezug:** Diff (E2E-Validierung)
 
 #### MTB-23 – Therapieplan: keine Kategorie für das Molekulare Tumorboard
@@ -817,6 +842,10 @@ Keine.
   - `minCoverage` ≠ `sequencing-coverage`.
   - Die als „2027" bezeichneten Elemente sind identisch mit 2026.
   - Die LOINC-Codes für den Erbgang gelten nicht nur für MTB.
+- **Seltene 2026.0.1 (nur bekannter Fehler, im Ballot behoben):** Im Therapieplan zielt `activity:NichtMedikamentoesTherapie`
+  auch auf die Basis-ServiceRequest, sodass eine Studieneinschluss-Anfrage in `activity.reference` zwei Slices
+  (`NichtMedikamentoesTherapie`, `Studieneinschlussempfehlung`) trifft. In 2027.0.0-ballot ist das behoben. Für das
+  Profilset 2026 verweist die Anfrage stattdessen per `ServiceRequest.basedOn` auf den Therapieplan (REPRESENTATIONS #52).
 - **Patho:** Die nicht deklarierte Abhängigkeit von `hl7.fhir.eu.laboratory` betrifft kein Feld des MV-GenomSeq-Datenkranzes.
   Sie kann bei Bedarf separat gemeldet werden.
 

@@ -23,11 +23,13 @@ Vendored from the authoritative BfArM repos and **verified byte-identical** to u
 
 | Source | Local | Repo | Release tag | Schema content version | Roots |
 |--------|-------|------|-------------|------------------------|-------|
-| KDK | `schemas/kdk/` | BfArM-MVH/MVGenomseq_KDK | v2.3 | **1.7.1** | `Oncology.json`, `RareDiseases.json` |
+| KDK | `schemas/kdk/` | BfArM-MVH/MVGenomseq_KDK | v2.3 + `main` `fe724ff` | **1.7.1** | `Oncology.json`, `RareDiseases.json` |
 | GRZ | `schemas/grz/` | BfArM-MVH/MVGenomseq_GRZ | v1.3.0 | **1.2.3** | `grz-schema.json` |
 
 (The repos tag releases `v2.x`/`v1.3.0`; each schema's own CHANGELOG uses a content version —
-1.7.1 / 1.2.3 — and the latest tag ships the latest content.)
+1.7.1 / 1.2.3 — and the latest tag ships the latest content. KDK is pinned one untagged commit past v2.3:
+`fe724ff` widens the embedded consent's `schemaVersion` enum to 2025.0.1–2026.0.1; the GRZ counterpart, tag
+v1.3.1, is not vendored yet.)
 
 Target: MII KDS profiles, FHIR R4 (4.0.1), **2027.0.0 ballot** (default profile set; the 2026 releases remain
 selectable with `--profile-set 2026`). Package pins and the 2026 → 2027 change analysis: `docs/PLAN-2027.md` §2,
@@ -36,7 +38,8 @@ selectable with `--profile-set 2026`). Package pins and the 2026 → 2027 change
 ## The mapping table
 
 Three CSVs under `mapping/` — the editable, version-controlled central reference:
-`mapping_kdk_oncology.csv` (229 leaves), `mapping_kdk_rarediseases.csv` (132), `mapping_grz.csv` (67).
+`mapping_kdk_oncology.csv` (229 leaves), `mapping_kdk_rarediseases.csv` (132 leaves + 3 rows for non-schema
+fields the converter reads), `mapping_grz.csv` (67).
 Columns: source side (`path,type,required,array,enum,format,description`, auto-extracted) + target
 side (`mii_module,mii_profile,fhir_element,transform,status,notes`, hand-filled).
 `status` ∈ {TODO, MAPPED, DRAFT, NOMAP, REMOVED?}. Online-editable mirror: Google Sheet (round-trip
@@ -51,6 +54,7 @@ bash scripts/regen-mapping.sh
 
 ```bash
 pipx install ./genomde2fhir            # (a); PyPI publication pending
+pipx inject genomde2fhir "genomde-dk-validator @ git+https://github.com/KohlbacherLab/genomde-dk-validator@v1.1.2"
 genomde2fhir convert data/ -o out/ --report report.json
 genomde2fhir validate out/*.bundle.json --matchbox http://localhost:8091/matchboxv3/fhir   # (c)
 
@@ -59,6 +63,17 @@ python scripts/build_mvgs.py --install http://localhost:8091/matchboxv3/fhir --m
 scripts/load_datenkranz.sh submission.json                         # (b) $transform -> HAPI
 python scripts/run_corpus.py --sample 25 --fml                     # E2E: both paths, validation, ingest, parity
 ```
+
+`convert` checks every input against the BfArM schemas with
+[genomde-dk-validator](https://github.com/KohlbacherLab/genomde-dk-validator) (not on PyPI; the pipx environment
+has no pip, hence `pipx inject`). Without it `convert` refuses to run (exit 1) unless `--no-input-check` is given.
+Validator v1.1.2 still knows only consent `schemaVersion` 2025.0.1, so it rejects KDK inputs with 2025.0.2–2026.0.1
+(valid under the vendored KDK schema) until it is updated. `-v` prints per-file lines on stderr, which can contain
+TANs or pseudonyms; `--strict` also rejects input fields the schema does not declare. That rejects all 42
+rare-disease example files (`examples/rarediseases/`, the `mv_dummy_data` revision of 2026-08-09): they carry `molecular.*Variants[].genes[].system` and `localization[].system` / `.display`,
+which the vendored KDK schema does not declare (nor does the upstream schema; RD `genes[].display` is undeclared too,
+but converted). Without `--strict` they convert; the 42 oncology examples pass `--strict`
+([`example-data/README.md`](example-data/README.md)).
 
 The local package `de.genomde.mvgs` (`mvgs-ig/`) holds the logical models of the three Datenkranz branches and the
 local profiles, extensions, CodeSystems and ConceptMaps used where the ballot has no conformant element
@@ -78,9 +93,14 @@ local profiles, extensions, CodeSystems and ConceptMaps used where the ballot ha
   genomde-dk-validator --kdk-rules example-data/synthData-v1/nct
   ```
 - **E2E harness (2027)** — `scripts/run_corpus.py`: converts the whole corpus (schema-invalid inputs must be
-  rejected), validates a sample per branch with matchbox-2027, ingests into HAPI-2027 twice (idempotency), and with
-  `--fml` runs the FML maps, validates and ingests their bundles and compares them graph-aware with the Python
-  output → `docs/E2E-REPORT-2027.md`. (`scripts/e2e_harness.py` / `docs/E2E-REPORT.md` are the 2026 prototype run.)
+  rejected; manifest files not in the checkout are skipped and counted), validates a sample per branch with
+  matchbox-2027, ingests into HAPI-2027 twice (the second transaction must answer 200 for every entry and leave the
+  uncached resource counts unchanged), and with `--fml` runs the FML maps, validates and ingests their bundles and
+  compares them graph-aware with the Python output → `docs/E2E-REPORT-2027.md`. `--gate` exits 1 on any failure
+  (nightly CI). A matchbox whose KDS packages belong to the other profile set is refused: not validated, and
+  `--gate` fails. `--profile-set 2026` writes `docs/E2E-REPORT-2026.md` and validates only with
+  `--matchbox-2026 URL`; without it the run is reported as 'passed without validation'.
+  (`scripts/e2e_harness.py` / `docs/E2E-REPORT.md` are the 2026 prototype run.)
 
 <a name="validation-terminology"></a>
 ## Validation & terminology setup
@@ -107,14 +127,30 @@ certificate (mTLS proxy scaffold: [`infra/mii-termserv-proxy/`](infra/mii-termse
 - [`TERMINOLOGY-CHECK.md`](docs/TERMINOLOGY-CHECK.md), [`TERMINOLOGY-CAPABILITY.md`](docs/TERMINOLOGY-CAPABILITY.md) — mapping-table code check; what the tx server can check.
 - `REVIEW-*.md` — adversarial-review rounds; `OPEN-ISSUES.md`, `FIX-PLAN.md`, `E2E-REPORT.md` — 2026 prototype phase.
 
-## Status (2026-10-09)
+## Status (2026-10-10, after four review-fix rounds)
 
-- Mapping table reconciled with the implementation: oncology 215 / rare disease 108 / GRZ 44 MAPPED rows; terminology
+- Mapping table reconciled with the implementation: oncology 215 / rare disease 111 / GRZ 44 MAPPED rows; terminology
   gate INVALID 0 / MISMATCH 0; coverage over all corpora: 0 MAPPED rows without emission.
-- (a) converts every schema-valid corpus file (oncology 668, rare disease 126, GRZ 459) and rejects every invalid one
-  (1,025); bundles ingest idempotently into HAPI.
-- (b) all six maps transform every valid corpus file; graph-aware parity with (a); idempotent HAPI ingest.
+- (a) converts every schema-valid corpus file (oncology 668, rare disease 132, GRZ 459) and rejects every invalid one
+  (1,025); bundles ingest into HAPI with 2xx twice (the idempotency check is now uncached). KDK and GRZ handle the
+  submission block alike (same submitter / clinical-data-node / genomic-data-center Organizations and Provenance
+  agents, `builders/submission.py`); the KDK examples are the `mv_dummy_data` revision of 2026-08-09
+  ([`example-data/README.md`](example-data/README.md)).
+- (b) all six maps transform every valid corpus file; graph-aware parity with (a) under the deep `canonical()` of
+  `scripts/run_corpus.py`, re-measured after fix round 4: 0 differences over 1,259 manifest files (oncology 668, rare
+  disease 132, GRZ 459) and the 84 `mv_dummy_data` examples, no duplicate fullUrl or conditional URL; HAPI ingest of
+  a validated sample 2xx twice, the second ingest creating nothing.
 - (c) sampled bundles: no converter content errors; remaining errors are invalid codes copied from the synthetic input
   (DATA-QUALITY), terminologies the tx server cannot check (INCONCLUSIVE) or listed ballot package defects (waived;
-  reported as ballot comments).
+  reported as ballot comments). Re-checked after fix round 4 on a sample (8 files per branch plus 2 examples per KDK
+  branch): 0 content errors on both paths, FML verdicts equal to Python; the full 25-per-branch corpus run
+  (`docs/E2E-REPORT-2027.md`) is still to be repeated.
+- Verdicts (`genomde2fhir validate`, `convert --validate`, the harness), by precedence: **ERROR** (validation could
+  not run: server unreachable, HTTP error, no usable OperationOutcome, unknown profile; never PASS) > **FAIL** (a
+  `content` issue: a conformance error in our output) > **DATA-QUALITY** (a `source` issue: an unknown code copied
+  verbatim from the input) > **INCONCLUSIVE** (an `unchecked` issue: terminology the tx server cannot check, for a
+  system the binding admits) > **PASS**. Reported but never failing: `waived` (listed ballot package defects),
+  `cascade` (a reference failure explained by an own error of its target, counted there), `candidate` (errors
+  against a profile the resource does not declare, raised while matchbox tried it as a reference target) and
+  warnings. Details: `docs/PLAN-2027.md` §11, `docs/TERMINOLOGY-CAPABILITY.md`.
 - Numbers per run: `docs/E2E-REPORT-2027.md`. Open items: `docs/PLAN-2027.md` §11.

@@ -1,10 +1,10 @@
 # Terminology / coded-value check of the genomDE→MII mapping
 
-Automated re-run of the NUM-OMICS review via `https://tx.fhir.org/r4` (LOINC+SNOMED $lookup/$expand). Checked **66** distinct coded values.
+Automated re-run of the NUM-OMICS review via `https://tx.fhir.org/r4` (LOINC+SNOMED $lookup/$expand). Checked **67** distinct coded values.
 
 - INVALID (code does not exist): **0**
 - MISMATCH (display unrelated to the mapped concept): **0**
-- OK (exists, display consistent): **66**
+- OK (exists, display consistent): **67**
 
 ## ❌ INVALID codes (do not exist)
 
@@ -45,7 +45,7 @@ Answer codes exist in LOINC (else marked INVALID above); their *display* is show
 - **molecular.copyNumberVariants[].modeOfInheritance** — `LA24789-2`=Mitochondrial; `LA24947-6`=X-linked; `LL3731-8`=[NEI] Inheritance pattern from family history
 - **molecular.copyNumberVariants[].segregationAnalysis** — `LA26320-4`=Maternal; `LA26321-2`=Paternal; `LA26807-0`=De novo; `LL5489-1`=Origin of Genetic Variance
 - **molecular.copyNumberVariants[].startPosition** — `LA26806-2`=GRCh38
-- **molecular.copyNumberVariants[].zygosity** — `LA26217-2`=Compound heterozygous; `LA6703-8`=Heteroplasmic; `LA6704-6`=Homoplasmic; `LA6705-3`=Homozygous; `LA6706-1`=Heterozygous; `LA6707-9`=Hemizygous; `LL381-5`=MG_5_Genetic variant allelic state
+- **molecular.copyNumberVariants[].zygosity** — `LA26217-2`=Compound heterozygous; `LA6703-8`=Heteroplasmic; `LA6704-6`=Homoplasmic; `LA6705-3`=Homozygous; `LA6706-1`=Heterozygous; `LA6707-9`=Hemizygous; `LL381-5`=MG_5_Genetic variant allelic state; `LL3999-1`=Complex variant types
 - **molecular.expressionVariants[].expressionType** — `LA9633-4`=Present; `LA9634-2`=Absent; `LL1971-2`=Variant Assess
 - **molecular.smallVariants[].acmgClass** — `LA26332-9`=Likely pathogenic; `LA26333-7`=Uncertain significance; `LA26334-5`=Likely benign; `LA6668-3`=Pathogenic; `LA6675-8`=Benign; `LL4034-6`=ACMG_Clinical significance of genetic variation
 - **molecular.smallVariants[].chromosome** — `LL2938-0`=List of human chromosomes
@@ -54,14 +54,14 @@ Answer codes exist in LOINC (else marked INVALID above); their *display* is show
 - **molecular.smallVariants[].modeOfInheritance** — `LA24789-2`=Mitochondrial; `LA24947-6`=X-linked; `LL3731-8`=[NEI] Inheritance pattern from family history
 - **molecular.smallVariants[].segregationAnalysis** — `LA26320-4`=Maternal; `LA26321-2`=Paternal; `LA26807-0`=De novo; `LL5489-1`=Origin of Genetic Variance
 - **molecular.smallVariants[].startPosition** — `LA26806-2`=GRCh38; `LA30102-0`=1-based character counting
-- **molecular.smallVariants[].zygosity** — `LA26217-2`=Compound heterozygous; `LA6703-8`=Heteroplasmic; `LA6704-6`=Homoplasmic; `LA6705-3`=Homozygous; `LA6706-1`=Heterozygous; `LA6707-9`=Hemizygous; `LL381-5`=MG_5_Genetic variant allelic state
+- **molecular.smallVariants[].zygosity** — `LA26217-2`=Compound heterozygous; `LA6703-8`=Heteroplasmic; `LA6704-6`=Homoplasmic; `LA6705-3`=Homozygous; `LA6706-1`=Heterozygous; `LA6707-9`=Hemizygous; `LL381-5`=MG_5_Genetic variant allelic state; `LL3999-1`=Complex variant types
 - **molecular.structuralVariants[].acmgClass** — `LA26332-9`=Likely pathogenic; `LA26333-7`=Uncertain significance; `LA26334-5`=Likely benign; `LA6668-3`=Pathogenic; `LA6675-8`=Benign; `LL4034-6`=ACMG_Clinical significance of genetic variation
 - **molecular.structuralVariants[].genomicSource** — `LA6683-2`=Germline; `LA6684-0`=Somatic; `LL378-1`=MG_2_Genetic variant source
 - **molecular.structuralVariants[].modeOfInheritance** — `LA24789-2`=Mitochondrial; `LA24947-6`=X-linked; `LL3731-8`=[NEI] Inheritance pattern from family history
 - **molecular.structuralVariants[].segregationAnalysis** — `LA26320-4`=Maternal; `LA26321-2`=Paternal; `LA26807-0`=De novo; `LL5489-1`=Origin of Genetic Variance
-- **molecular.structuralVariants[].zygosity** — `LA26217-2`=Compound heterozygous; `LA6703-8`=Heteroplasmic; `LA6704-6`=Homoplasmic; `LA6705-3`=Homozygous; `LA6706-1`=Heterozygous; `LA6707-9`=Hemizygous; `LL381-5`=MG_5_Genetic variant allelic state
+- **molecular.structuralVariants[].zygosity** — `LA26217-2`=Compound heterozygous; `LA6703-8`=Heteroplasmic; `LA6704-6`=Homoplasmic; `LA6705-3`=Homozygous; `LA6706-1`=Heterozygous; `LA6707-9`=Hemizygous; `LL381-5`=MG_5_Genetic variant allelic state; `LL3999-1`=Complex variant types
 
-## ✅ Verified consistent (66)
+## ✅ Verified consistent (67)
 
 <details><summary>expand</summary>
 
@@ -125,6 +125,7 @@ Answer codes exist in LOINC (else marked INVALID above); their *display* is show
 | `LL3731-8` | [NEI] Inheritance pattern from family history |
 | `LL378-1` | MG_2_Genetic variant source |
 | `LL381-5` | MG_5_Genetic variant allelic state |
+| `LL3999-1` | Complex variant types |
 | `LL4034-6` | ACMG_Clinical significance of genetic variation |
 | `LL5489-1` | Origin of Genetic Variance |
 | `396432002` | Status of regression of tumour |
