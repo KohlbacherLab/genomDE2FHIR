@@ -24,12 +24,12 @@ Vendored from the authoritative BfArM repos and **verified byte-identical** to u
 | Source | Local | Repo | Release tag | Schema content version | Roots |
 |--------|-------|------|-------------|------------------------|-------|
 | KDK | `schemas/kdk/` | BfArM-MVH/MVGenomseq_KDK | v2.3 + `main` `fe724ff` | **1.7.1** | `Oncology.json`, `RareDiseases.json` |
-| GRZ | `schemas/grz/` | BfArM-MVH/MVGenomseq_GRZ | v1.3.0 | **1.2.3** | `grz-schema.json` |
+| GRZ | `schemas/grz/` | BfArM-MVH/MVGenomseq_GRZ | v1.3.1 | **1.2.3** (schema `version` 1.3.1) | `grz-schema.json` |
 
-(The repos tag releases `v2.x`/`v1.3.0`; each schema's own CHANGELOG uses a content version —
+(The repos tag releases `v2.x`/`v1.3.x`; each schema's own CHANGELOG uses a content version —
 1.7.1 / 1.2.3 — and the latest tag ships the latest content. KDK is pinned one untagged commit past v2.3:
-`fe724ff` widens the embedded consent's `schemaVersion` enum to 2025.0.1–2026.0.1; the GRZ counterpart, tag
-v1.3.1, is not vendored yet.)
+`fe724ff` widens the embedded consent's `schemaVersion` enum to 2025.0.1–2026.0.1, as GRZ v1.3.1 does. KDK `develop`
+has further unreleased changes, not vendored: `schemas/PROVENANCE.md`.)
 
 Target: MII KDS profiles, FHIR R4 (4.0.1), **2027.0.0 ballot** (default profile set; the 2026 releases remain
 selectable with `--profile-set 2026`). Package pins and the 2026 → 2027 change analysis: `docs/PLAN-2027.md` §2,
