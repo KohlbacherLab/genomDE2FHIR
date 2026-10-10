@@ -133,5 +133,8 @@ def build(ctx):
             ctx.cover(BASE + "identifier")
             for n, ref in enumerate(emitted):
                 register(ctx, ref, sid, primary=n == 0)
+            # TMB / HRD score / ploidy fill 0..1 result slices of the NGS report: molecular_report gives every entry
+            # its own report when there are several
+            ctx.bag["ngs_biomarker_sets"].append((key, emitted))
         else:
             ctx.drop(BASE + "identifier", sid, "complex biomarker entry without tmb/ploidy/hrd/lst/tai values")

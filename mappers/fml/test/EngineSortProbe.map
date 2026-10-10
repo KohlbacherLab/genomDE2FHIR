@@ -1,0 +1,25 @@
+/// url = 'https://genomde.de/fhir/StructureMap/EngineSortProbe'
+/// name = 'EngineSortProbe'
+/// title = 'Engine probe: sort, aggregate max, defineVariable with index, distinct order'
+/// status = 'draft'
+
+// Probe (matchbox 4.1.21, 2026-10-09). Input followUp.followUpOds dates [2025-03-01, 2025-01-01, 2025-04-01], the first
+// with therapies [A|2025-01-01, A|2025-01-01, B|2025-01-01], the third with [A|2025-01-01]. Expected notes:
+// '2025-01-01,2025-03-01,2025-04-01' (sort); '2025-04-01 0002' (max processing key);
+// 'A|2025-01-01@0;A|2025-01-01#1@0;B|2025-01-01@0;A|2025-01-01@2' (defineVariable + $index in nested select);
+// 'b,c,a' (distinct keeps the last occurrence order).
+
+uses "https://genomde.de/fhir/StructureDefinition/DatenkranzOncology" alias Datenkranz as source
+uses "http://hl7.org/fhir/StructureDefinition/Bundle" alias Bundle as target
+uses "http://hl7.org/fhir/StructureDefinition/Observation" alias Observation as target
+
+group main(source src : Datenkranz, target bundle : Bundle) {
+  src -> bundle.type = 'transaction' "type";
+  src.followUp as fu -> bundle.entry as e, e.resource = create('Observation') as o, o.status = 'final',
+        o.note as n1, n1.text = (%fu.followUpOds.followUpDate.sort().join(',')),
+        o.note as n2, n2.text = (%fu.followUpOds.select(iif($this.followUpDate.exists(), $this.followUpDate, '') & ' ' & ('000' & $index.toString()).substring(('000' & $index.toString()).length() - 4)).aggregate(iif($total.empty() or $this > $total, $this, $total))),
+        o.note as n3, n3.text = (%fu.followUpOds.select(defineVariable('zg').defineVariable('zgi', $index).therapies.select(defineVariable('ze').defineVariable('zm', $index)
+              .select((%ze.reference & '|' & %ze.therapyStartDate) & iif(%zg.therapies.take(%zm).where((reference & '|' & therapyStartDate) = (%ze.reference & '|' & %ze.therapyStartDate)).exists(), '#' & %zm.toString(), '')
+                      & '@' & %zgi.toString()))).join(';')),
+        o.note as n4, n4.text = (('b,a,c,a').split(',').distinct().join(',')) "probe";
+}

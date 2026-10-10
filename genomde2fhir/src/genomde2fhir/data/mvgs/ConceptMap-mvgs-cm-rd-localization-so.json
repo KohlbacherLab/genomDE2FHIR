@@ -32,7 +32,8 @@
       {
        "code": "SO:0001630",
        "display": "splice_region_variant",
-       "equivalence": "equivalent"
+       "equivalence": "narrower",
+       "comment": "SO:0001630 splice_region_variant covers 1-3 bases into the exon or 3-8 bases into the intron only; it excludes the canonical splice sites (+1/+2, -1/-2: SO:0001629 splice_site_variant, a sibling under SO:0001568 splicing_variant), which the KDK 'splicingRegion' also covers. Kept as the interim target (Python and FML emit it) until the MolGen Variantenlokalisation (HDB-976)."
       }
      ]
     },

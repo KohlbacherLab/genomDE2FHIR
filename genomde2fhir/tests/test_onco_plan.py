@@ -93,7 +93,7 @@ def test_corpus_example(path):
         rs_ref = sr["supportingInfo"][0]["reference"]
         rs = next(r for r in res(ctx, "ResearchStudy") if f"urn:uuid:{r['id']}" == rs_ref)
         assert rs["identifier"][0] == {"system": careplan.REGISTER_SYSTEM[s["register"]], "value": s["id"]}
-        assert rs["title"] == s["name"] and rs["status"] == "active"
+        assert rs.get("title") == careplan._real(s["name"]) and rs["status"] == "active"   # 'N/A' dropped (F20)
 
     n_flags = bool(od.get("counsellingRecommended")) + bool(od.get("reEvaluationRecommended"))
     other = set(od.get("otherRecommendations") or [])
@@ -202,7 +202,9 @@ def test_fixture_studies():
     sr = lambda sid: next(r for r in res(ctx, "ServiceRequest")
                           if f"urn:uuid:{r['id']}" == ctx.ids[("study_recommendation", sid)]["reference"])
     unknown = sr("st-unknown")
-    assert "supportingInfo" not in unknown and "nicht identifiziert" in unknown["note"][0]["text"]
+    # name 'unbekannt' and id 'n/a' are both placeholders (fix round 3, PLACEHOLDERS): no ResearchStudy and no note
+    assert "supportingInfo" not in unknown and "note" not in unknown
+    assert ("plan.recommendedStudies[].name", "unbekannt", "placeholder study name") in ctx.report.dropped
     assert sr("st-nct")["supportingInfo"][0] == sr("st-nct-dup")["supportingInfo"][0]
     assert len(sr("st-nct")["supportingInfo"]) == 2            # study + supporting variant
     ev = ext_of(sr("st-nct"), MVGS_EXT + "mvgs-ex-evidence-level")[0]["valueCodeableConcept"]

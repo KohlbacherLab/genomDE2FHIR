@@ -7,14 +7,16 @@
 // Reference implementation: genomde2fhir/src/genomde2fhir/builders/grz/{donors,labdata}.py (+ consent.py,
 // research_consent.py); conventions and verified engine behaviour: mappers/fml/README.md.
 //
-// Resource keys (README): ck = 'grz:<submitterId>:<localCaseId|tanG>' and the roles
+// Resource keys (README): ck = 'grz:<submitterId>:<CK>' (CK escaped, '|test' for a test submission) and the roles
 //   donor:<pseudo> (Patient), family-history:<pseudo>, mv-consent:<pseudo>, research-consent:<pseudo>:<i>,
 //   research-consent-absent:<pseudo>:<i>,
-//   coverage, genomic-study, org:submitter | org:lab | org:genomic-data-center | org:clinical-data-node,
+//   coverage, genomic-study[:<submissionDate> (followup/addition only)], org:submitter | org:lab:<labName> |
+//   org:genomic-data-center:<genomicDataCenterId> | org:clinical-data-node:<clinicalDataNodeId> (by value, donors.py),
 //   specimen:<lk>, tumor-cell-count:<lk>:<j>, genomic-study-analysis:<lk>,
 //   device:<lk>:<sequencer|sequencing-kit|library-prep-kit|enrichment-kit|pipeline|caller-<i>>
-//   with lk = <pseudo>:<labDataName> ('#<i>' appended for a repeated name, as labdata.py does). Array positions
-//   (<i>, <j>) are found by value equality ($index), so two identical array elements share one key.
+//   with lk = <pseudo>:<labDataName, else '#<i>'> ('#<i>' appended when that name was already produced, as labdata.py
+//   does). Array positions (<i>, <j>) come from counters (README 'Array positions'), so identical array elements are
+//   separate resources.
 //
 // Entry uuids that other resources reference are created once in main (index Patient pid, Organizations, study) or
 // in the rule that creates the resource, and handed down as source parameters. Everything that writes into one
@@ -34,6 +36,7 @@ uses "http://hl7.org/fhir/StructureDefinition/Organization" alias Organization a
 uses "http://hl7.org/fhir/StructureDefinition/Procedure" alias Procedure as target
 uses "http://hl7.org/fhir/StructureDefinition/Specimen" alias Specimen as target
 uses "http://hl7.org/fhir/StructureDefinition/Device" alias Device as target
+uses "http://hl7.org/fhir/StructureDefinition/Parameters" alias Parameters as target
 
 imports "https://genomde.de/fhir/StructureMap/DatenkranzCommon"
 
@@ -44,53 +47,56 @@ imports "https://genomde.de/fhir/StructureMap/DatenkranzCommon"
 
 group main(source src : Datenkranz, target bundle : Bundle) {
   src -> bundle.type = 'transaction' "type";
+  // ck = 'grz:<submitterId>:<CK>', CK = escaped localCaseId (else tanG) + '|test' for a test submission (README).
+  // Two donors with one pseudonym would be one Patient: the transform fails, as Python's 'duplicate resource' does.
+  // meta.source of every resource (DkEntry): 'urn:genomde2fhir:submission:<submitterId>:<caseId>:<date>:<type>'
+  // (identity.CaseKey.source; caseId = localCaseId, else tanG, raw: a test submission differs by its type 'test'). Each
+  // component is percent-encoded like identity.source_component: printable ASCII 0x21-0x7E stays except % : | # ? /,
+  // every other UTF-8 byte becomes '%XX' (upper-case hex; encode('hex') split into byte pairs, kept pairs decoded back)
   src.submission as sub where (%src.donors.where(donorPseudonym != '').exists())
-     -> ('grz:' & %sub.submitterId & ':' & iif(%sub.localCaseId.exists() and %sub.localCaseId != '', %sub.localCaseId, %sub.tanG)) as ck,
+        check (%src.donors.where(donorPseudonym != '').donorPseudonym.isDistinct())
+     -> ('grz:' & %sub.submitterId & ':' & iif(%sub.localCaseId.exists() and %sub.localCaseId != '', %sub.localCaseId, %sub.tanG).replace('\\', '\\\\').replace('|', '\\|')
+        & iif(%sub.submissionType = 'test', '|test', '')) as ck,
+        ck.extension as msx, msx.url = 'urn:genomde2fhir:meta-source',
+        msx.value = ('urn:genomde2fhir:submission:' & (%sub.submitterId).encode('hex').upper().replaceMatches('(..)', '$1 ').trim().split(' ').select(iif($this.matches('^(2[1246-9A-E]|3[0-9B-E]|[4-6][0-9A-F]|7[0-9ABDE])$'), $this.decode('hex'), '%' & $this)).join('') & ':' & (iif(%sub.localCaseId.exists() and %sub.localCaseId != '', %sub.localCaseId, %sub.tanG)).encode('hex').upper().replaceMatches('(..)', '$1 ').trim().split(' ').select(iif($this.matches('^(2[1246-9A-E]|3[0-9B-E]|[4-6][0-9A-F]|7[0-9ABDE])$'), $this.decode('hex'), '%' & $this)).join('') & ':' & (%sub.submissionDate).encode('hex').upper().replaceMatches('(..)', '$1 ').trim().split(' ').select(iif($this.matches('^(2[1246-9A-E]|3[0-9B-E]|[4-6][0-9A-F]|7[0-9ABDE])$'), $this.decode('hex'), '%' & $this)).join('') & ':' & (%sub.submissionType).encode('hex').upper().replaceMatches('(..)', '$1 ').trim().split(' ').select(iif($this.matches('^(2[1246-9A-E]|3[0-9B-E]|[4-6][0-9A-F]|7[0-9ABDE])$'), $this.decode('hex'), '%' & $this)).join('')),
         (iif(%src.donors.where(relation = 'index' and donorPseudonym != '').exists(),
              %src.donors.where(relation = 'index' and donorPseudonym != '').first().donorPseudonym,
              %src.donors.where(donorPseudonym != '').first().donorPseudonym)) as ip,
         (iif(%sub.diseaseType = 'oncological', 'mtb', 'molgen')) as fam,
         uuid() as pid, uuid() as subid, uuid() as labid
      then GrzSubmission(src, sub, ck, ip, fam, pid, subid, labid, bundle) "submission";
+  // a remaining key collision (two entries with one fullUrl or one conditional URL) fails the transform, as Python's
+  // 'duplicate resource' does, instead of HAPI merging the entries silently ('Check condition failed')
+  src check (%bundle.entry.fullUrl.isDistinct() and %bundle.entry.request.url.isDistinct()) -> bundle.type = 'transaction' "unique-keys";
 }
 
 group GrzSubmission(source src, source sub, source ck, source ip, source fam, source pid, source subid, source labid,
                     target bundle : Bundle) {
-  // Organizations (donors.py _organization / _lab); the lab and submitter uuids are referenced below
+  // Organizations (builders/submission.submission_organization, shared with KDK; donors.py _lab), keyed by their value
+  // as Python does (ctx.new("Organization", role, value)): an addition from another lab gets its own lab Organization, and the earlier study keeps its performer (the
+  // submitterId is part of ck already); the lab and submitter uuids are referenced below
   sub.submitterId as v where (v != '') -> bundle.entry as e, e.resource = create('Organization') as org, ('org:submitter') as role
-     then DkEntry(ck, role, subid, e, org), GrzOrgSubmitter(sub, org) "org-submitter";
-  sub.labName as v where (v != '') -> bundle.entry as e, e.resource = create('Organization') as org, ('org:lab') as role
+     then DkEntry(ck, role, subid, e, org), DkOrgSubmitter(sub, org) "org-submitter";
+  sub.labName as v where (v != '') -> bundle.entry as e, e.resource = create('Organization') as org, ('org:lab:' & %v) as role
      then DkEntry(ck, role, labid, e, org), GrzOrgLab(sub, org) "org-lab";
   sub.genomicDataCenterId as v where (v != '') -> bundle.entry as e, e.resource = create('Organization') as org, uuid() as fid,
-        ('org:genomic-data-center') as role
-     then DkEntry(ck, role, fid, e, org), GrzOrgGdc(sub, org) "org-gdc";
+        ('org:genomic-data-center:' & %v) as role
+     then DkEntry(ck, role, fid, e, org), DkOrgGdc(sub, org) "org-gdc";
   sub.clinicalDataNodeId as v where (v != '') -> bundle.entry as e, e.resource = create('Organization') as org, uuid() as fid,
-        ('org:clinical-data-node') as role
-     then DkEntry(ck, role, fid, e, org), GrzOrgKdk(sub, org) "org-kdk";
+        ('org:clinical-data-node:' & %v) as role
+     then DkEntry(ck, role, fid, e, org), DkOrgKdk(sub, org) "org-kdk";
   // Coverage of the index donor (DkCoverage: SKT -> KBV payor type, UNK -> v3-NullFlavor)
   sub.coverageType as ct then DkCoverage(ct, ck, pid, bundle) "coverage";
-  // genomic study (submission level); the donor loop runs inside this rule so that every analysis links to it
-  sub -> bundle.entry as e, e.resource = create('Procedure') as st, uuid() as stid, ('genomic-study') as role
+  // genomic study (donors.py _genomic_study): initial + corrections: one study; follow-up / addition: own study by date,
+  // identity.CaseKey.submission_parts. A follow-up / addition lists its own labData analyses. The donor loop runs inside
+  // this rule so that every analysis links to it
+  sub -> bundle.entry as e, e.resource = create('Procedure') as st, uuid() as stid,
+        (iif(%sub.submissionType = 'followup' or %sub.submissionType = 'addition', 'genomic-study:' & %sub.submissionDate, 'genomic-study')) as role
      then DkEntry(ck, role, stid, e, st), GrzStudyBody(sub, pid, labid, st), GrzDonors(src, sub, ck, ip, fam, pid, subid, labid, st, bundle) "study";
-}
-
-group GrzOrgSubmitter(source sub, target org : Organization) {
-  sub.submitterId as v -> org.identifier as id, id.system = 'https://genomde.de/fhir/sid/le-id', id.value = v,
-        org.active = true, org.name = ('Leistungserbringer (submitter) ' & %v) "org";
 }
 
 group GrzOrgLab(source sub, target org : Organization) {
   sub.labName as v -> org.active = true, org.name = v "org";
-}
-
-group GrzOrgGdc(source sub, target org : Organization) {
-  sub.genomicDataCenterId as v -> org.identifier as id, id.system = 'https://genomde.de/fhir/sid/genomic-data-center', id.value = v,
-        org.active = true, org.name = ('Genomrechenzentrum ' & %v) "org";
-}
-
-group GrzOrgKdk(source sub, target org : Organization) {
-  sub.clinicalDataNodeId as v -> org.identifier as id, id.system = 'https://genomde.de/fhir/sid/clinical-data-node', id.value = v,
-        org.active = true, org.name = ('Klinischer Datenknoten ' & %v) "org";
 }
 
 // ================================================================================================================
@@ -137,7 +143,7 @@ group GrzDonors(source src, source sub, source ck, source ip, source fam, source
 group GrzPatientBody(source sub, source d, source subid, target pat : Patient) {
   d -> pat.meta as m, m.profile = 'https://www.medizininformatik-initiative.de/fhir/core/modul-person/StructureDefinition/PatientPseudonymisiert' "profile";
   d.donorPseudonym as p -> pat.identifier as id, id.system = 'https://genomde.de/fhir/sid/donor-pseudonym',
-        id.value = (%sub.submitterId & '|' & %p),
+        id.value = (%sub.submitterId.replace('\\', '\\\\').replace('|', '\\|') & '|' & iif(%sub.localCaseId.exists() and %sub.localCaseId != '', %sub.localCaseId, %sub.tanG).replace('\\', '\\\\').replace('|', '\\|') & iif(%sub.submissionType = 'test', '|test', '') & '|' & %p.replace('\\', '\\\\').replace('|', '\\|')),
         id.type as ty, ty.coding as c, c.system = 'http://terminology.hl7.org/CodeSystem/v3-ObservationValue', c.code = 'PSEUDED' "donor-pseudonym";
   // gender: FHIR codes pass, anything else -> unknown; other needs gender-amtlich-de D (mii-pat-1)
   d.gender as g where (g = 'male' or g = 'female' or g = 'unknown') -> pat.gender = g "gender";
@@ -154,7 +160,7 @@ group GrzIndexIdentifiers(source sub, target pat : Patient) {
   sub.tanG as t where (t != '') -> pat.identifier as id, id.system = 'https://genomde.de/fhir/sid/tan-g', id.value = t,
         id.type as ty, ty.coding as c, c.system = 'http://terminology.hl7.org/CodeSystem/v3-ObservationValue', c.code = 'PSEUDED' "tanG";
   sub.localCaseId as l where (l != '') -> pat.identifier as id, id.system = 'https://genomde.de/fhir/sid/local-case-id',
-        id.value = (%sub.submitterId & '|' & %l),
+        id.value = (%sub.submitterId.replace('\\', '\\\\').replace('|', '\\|') & '|' & iif(%sub.localCaseId.exists() and %sub.localCaseId != '', %sub.localCaseId, %sub.tanG).replace('\\', '\\\\').replace('|', '\\|') & iif(%sub.submissionType = 'test', '|test', '')),
         id.type as ty, ty.coding as c, c.system = 'http://terminology.hl7.org/CodeSystem/v2-0203', c.code = 'MR',
         id.assigner as asg, asg.identifier as aid, aid.system = 'https://genomde.de/fhir/sid/le-id', aid.value = (%sub.submitterId) "localCaseId";
 }
@@ -169,17 +175,38 @@ group GrzDonor(source src, source sub, source d, source ck, source ip, source fa
   d.mvConsent as mvc -> ('mv-consent:' & %d.donorPseudonym) as role then DkMvConsent(mvc, ck, role, did, bundle) "mv-consent";
   // researchConsents[]: an embedded MII Broad Consent (scope) -> mii-pr-consent-einwilligung (research_consent.py _migrate);
   // an entry without scope but with a known noScopeJustification -> mvgs-research-consent-absent (_absent)
-  d.researchConsents as rc -> ('research-consent:' & %d.donorPseudonym & ':' & %d.researchConsents.select(iif($this = %rc, $index.toString(), {})).first()) as role
-     then DkResearchConsent(rc, ck, role, did, bundle) "research-consent";
-  d.researchConsents as rc where (scope.exists().not() and (noScopeJustification = 'patient unable to consent'
+  // array positions come from a counter (Parameters, one parameter per item seen so far): value equality would give
+  // two identical items one key (README 'Array positions')
+  d -> create('Parameters') as cnt then GrzResearchConsents(d, ck, did, cnt, bundle) "research-consents";
+  d -> create('Parameters') as cnt then GrzLabDataAll(sub, d, ck, fam, did, labid, st, cnt, bundle) "labData";
+}
+
+group GrzResearchConsents(source d, source ck, source did, target cnt : Parameters, target bundle : Bundle) {
+  d.researchConsents as rc -> (%cnt.parameter.count()) as i, cnt.parameter as p, p.name = 'i'
+     then GrzResearchConsent(d, rc, i, ck, did, bundle) "item";
+}
+
+group GrzResearchConsent(source d, source rc, source i, source ck, source did, target bundle : Bundle) {
+  rc -> ('research-consent:' & %d.donorPseudonym & ':' & %i.toString()) as role then DkResearchConsent(rc, ck, role, did, bundle) "research-consent";
+  rc where (scope.exists().not() and (noScopeJustification = 'patient unable to consent'
         or noScopeJustification = 'patient refuses to sign consent' or noScopeJustification = 'patient did not return consent documents'
         or noScopeJustification = 'other patient-related reason'
         or noScopeJustification = 'consent information cannot be submitted by LE due to technical reason'
         or noScopeJustification = 'consent is not implemented at LE due to organizational issues'))
      -> bundle.entry as e, e.resource = create('Observation') as obs, uuid() as fid,
-        ('research-consent-absent:' & %d.donorPseudonym & ':' & %d.researchConsents.select(iif($this = %rc, $index.toString(), {})).first()) as role
+        ('research-consent-absent:' & %d.donorPseudonym & ':' & %i.toString()) as role
      then DkEntry(ck, role, fid, e, obs), GrzResearchConsentAbsentBody(rc, did, obs) "research-consent-absent";
-  d.labData as ld then GrzLabData(sub, d, ld, ck, fam, did, labid, st, bundle) "labData";
+}
+
+group GrzLabDataAll(source sub, source d, source ck, source fam, source did, source labid, target st : Procedure,
+                    target cnt : Parameters, target bundle : Bundle) {
+  // the counter keeps each item's final name (value), the set Python's labdata.build checks ('seen'): a name already
+  // produced for this donor, also a generated one ('#<i>', '<name>#<i>'), gets '#<i>' appended
+  d.labData as ld -> (%cnt.parameter.count()) as i,
+        (iif(%ld.labDataName.exists() and %ld.labDataName != '', %ld.labDataName, '#' & %i.toString())) as base,
+        (%base & iif(%cnt.parameter.where(value = %base).exists(), '#' & %i.toString(), '')) as lname,
+        cnt.parameter as p, p.name = 'i', p.value = lname
+     then GrzLabData(sub, d, ld, lname, ck, fam, did, labid, st, bundle) "item";
 }
 
 group GrzFamilyHistoryBody(source d, source pid, source did, target fmh : FamilyMemberHistory) {
@@ -219,32 +246,26 @@ group GrzResearchConsentAbsentBody(source rc, source did, target obs : Observati
 // labData[] (labdata.py): Specimen, Tumorzellgehalt, genomic-study-analysis (+ Devices, QC), link to the study
 // ================================================================================================================
 
-group GrzLabData(source sub, source d, source ld, source ck, source fam, source did, source labid, target st : Procedure,
+// lname = the item's final name (GrzLabDataAll: labDataName, '#<i>' without one, '#<i>' appended when already produced)
+group GrzLabData(source sub, source d, source ld, source lname, source ck, source fam, source did, source labid, target st : Procedure,
                  target bundle : Bundle) {
-  // lk = '<donorPseudonym>:<labDataName>' (labdata.py build(): a missing name is '#<i>', a repeated name of the same
-  // donor gets '#<i>' appended; i = position in labData[], found by value equality)
-  ld -> (%d.labData.select(iif($this = %ld, $index, {})).first()) as i
-     then {
-    ld -> (%d.donorPseudonym & ':' & iif(%ld.labDataName.exists() and %ld.labDataName != '',
-             %ld.labDataName & iif(%d.labData.select(iif(labDataName = %ld.labDataName, $index, {})).first() < %i, '#' & %i.toString(), ''),
-             '#' & %i.toString())) as lk
-       then GrzLabDataKeyed(sub, d, ld, lk, ck, fam, did, labid, st, bundle) "key";
-  } "index";
+  // lk = '<donorPseudonym>:<lname>' (labdata.py build()); ldn = the name, else lname (grz-lab-data-name value,
+  // labdata._specimen: labDataName or ldn)
+  ld -> (%d.donorPseudonym & ':' & %lname) as lk,
+        (iif(%ld.labDataName.exists() and %ld.labDataName != '', %ld.labDataName, %lname)) as ldn
+     then GrzLabDataKeyed(sub, d, ld, lk, ldn, ck, fam, did, labid, st, bundle) "key";
 }
 
-group GrzLabDataKeyed(source sub, source d, source ld, source lk, source ck, source fam, source did, source labid,
+group GrzLabDataKeyed(source sub, source d, source ld, source lk, source ldn, source ck, source fam, source did, source labid,
                       target st : Procedure, target bundle : Bundle) {
   ld -> bundle.entry as e, e.resource = create('Specimen') as spec, uuid() as spid, ('specimen:' & %lk) as role
-     then DkEntry(ck, role, spid, e, spec), GrzSpecimenBody(sub, d, ld, did, spec),
+     then DkEntry(ck, role, spid, e, spec), GrzSpecimenBody(sub, d, ld, ldn, did, spec),
           GrzLabDataResults(sub, d, ld, lk, ck, fam, did, spid, labid, st, bundle) "specimen";
 }
 
 group GrzLabDataResults(source sub, source d, source ld, source lk, source ck, source fam, source did, source spid, source labid,
                         target st : Procedure, target bundle : Bundle) {
-  ld.tumorCellCount as t where (count.exists())
-     -> bundle.entry as e, e.resource = create('Observation') as obs, uuid() as fid,
-        ('tumor-cell-count:' & %lk & ':' & %ld.tumorCellCount.select(iif($this = %t, $index.toString(), {})).first()) as role
-     then DkEntry(ck, role, fid, e, obs), GrzTumorCellCountBody(t, did, spid, obs) "tumor-cell-count";
+  ld -> create('Parameters') as cnt then GrzTumorCellCounts(ld, lk, ck, did, spid, cnt, bundle) "tumor-cell-count";
   // the analysis and its link from the genomic study (genomic-study-analysis-ext) are written in one rule
   ld -> bundle.entry as e, e.resource = create('Procedure') as an, uuid() as aid,
         ('genomic-study-analysis:' & %lk) as role, ('device:' & %lk & ':') as dk,
@@ -254,15 +275,28 @@ group GrzLabDataResults(source sub, source d, source ld, source lk, source ck, s
           GrzDevices(ld, ck, dk, an, bundle), GrzQc(ld, fam, an) "analysis";
 }
 
+group GrzTumorCellCounts(source ld, source lk, source ck, source did, source spid, target cnt : Parameters, target bundle : Bundle) {
+  ld.tumorCellCount as t -> (%cnt.parameter.count()) as j, cnt.parameter as p, p.name = 'j' then GrzTumorCellCount(t, j, lk, ck, did, spid, bundle) "item";
+}
+
+group GrzTumorCellCount(source t, source j, source lk, source ck, source did, source spid, target bundle : Bundle) {
+  t where (count.exists()) -> bundle.entry as e, e.resource = create('Observation') as obs, uuid() as fid,
+        ('tumor-cell-count:' & %lk & ':' & %j.toString()) as role
+     then DkEntry(ck, role, fid, e, obs), GrzTumorCellCountBody(t, did, spid, obs) "tumor-cell-count";
+}
+
 // ---- Specimen (SpecimenCore) -----------------------------------------------------------------------------------
 
-group GrzSpecimenBody(source sub, source d, source ld, source did, target spec : Specimen) {
+// grz-lab-data-name '<submitterId>|<CK>|<donorPseudonym>|<labDataName, else #i>' (case-scoped, escaped);
+// grz-sample-barcode '<submitterId>|<barcode>' (+ '|test' for a test submission; CaseKey.sender_scoped)
+group GrzSpecimenBody(source sub, source d, source ld, source ldn, source did, target spec : Specimen) {
   ld -> spec.meta as m, m.profile = 'https://www.medizininformatik-initiative.de/fhir/ext/modul-biobank/StructureDefinition/SpecimenCore' "profile";
-  ld.labDataName as n -> spec.identifier as id, id.system = 'https://genomde.de/fhir/sid/grz-lab-data-name',
-        id.value = (%sub.submitterId & '|' & %d.donorPseudonym & '|' & %n) "identifier";
+  ld -> spec.identifier as id, id.system = 'https://genomde.de/fhir/sid/grz-lab-data-name',
+        id.value = (%sub.submitterId.replace('\\', '\\\\').replace('|', '\\|') & '|' & iif(%sub.localCaseId.exists() and %sub.localCaseId != '', %sub.localCaseId, %sub.tanG).replace('\\', '\\\\').replace('|', '\\|') & iif(%sub.submissionType = 'test', '|test', '') & '|' & %d.donorPseudonym.replace('\\', '\\\\').replace('|', '\\|') & '|' & %ldn.replace('\\', '\\\\').replace('|', '\\|')) "identifier";
   ld.barcode as bc where (bc.trim() != '' and (bc.trim().lower() = 'na' or bc.trim().lower() = 'n/a' or bc.trim().lower() = 'none'
         or bc.trim().lower() = 'unknown').not()) -> spec.accessionIdentifier as id,
-        id.system = 'https://genomde.de/fhir/sid/grz-sample-barcode', id.value = (%sub.submitterId & '|' & %bc) "barcode";
+        id.system = 'https://genomde.de/fhir/sid/grz-sample-barcode',
+        id.value = (%sub.submitterId.replace('\\', '\\\\').replace('|', '\\|') & '|' & %bc.replace('\\', '\\\\').replace('|', '\\|') & iif(%sub.submissionType = 'test', '|test', '')) "barcode";
   ld -> spec.status = 'available' "status";
   ld -> spec.subject as s then DkReference(did, s) "subject";
   ld.sampleDate as sd -> spec.collection as col, col.collected = create('dateTime') as dt, dt.value = sd "collected";
@@ -282,13 +316,17 @@ group GrzSpecimenBody(source sub, source d, source ld, source did, target spec :
        then {
       ld -> (iif(%pfx != '-', %pfx,
              iif(%claimed = 'http://snomed.info/sct' and %tid.matches('^[0-9]+$'), %claimed,
-             iif(%claimed = 'http://terminology.hl7.org/CodeSystem/icd-o-3' and %tid.matches('^C[0-9]{2}([.][0-9])?$'), %claimed,
+             iif(%claimed = 'http://terminology.hl7.org/CodeSystem/icd-o-3' and %tid.upper().matches('^C[0-9]{2}[.]?[0-9]?$'), %claimed,
              iif(%claimed = 'http://purl.obolibrary.org/obo/uberon.owl' or %claimed = 'http://purl.obolibrary.org/obo/bto.owl', %claimed, '-'))))) as sys
          then {
-        // version of the claimed ontology only when the code is from it; SNOMED CT only with an edition/version URI
+        // version of the claimed ontology only when the code is from it; SNOMED CT only with an edition/version URI;
+        // ICD-O-3: the edition label as MII value-set version 2014 / 2019 (onco.diagnosis.ICDO3_VERSIONS), else none
         ld -> (iif(%claimed = %sys and %ld.tissueOntology.version.exists() and %ld.tissueOntology.version != ''
                    and (%sys != 'http://snomed.info/sct' or %ld.tissueOntology.version.startsWith('http://snomed.info/sct/')),
-                   %ld.tissueOntology.version, '-')) as ver,
+                   iif(%sys = 'http://terminology.hl7.org/CodeSystem/icd-o-3',
+                       iif(%ld.tissueOntology.version.trim().lower() in ('2014' | 'erste revision' | 'rev1' | '3.1' | 'icd-o-3.1'), '2014',
+                       iif(%ld.tissueOntology.version.trim().lower() in ('2019' | 'zweite revision' | 'rev2' | '3.2' | 'icd-o-3.2'), '2019', '-')),
+                       %ld.tissueOntology.version), '-')) as ver,
               (iif(%sys = 'http://purl.obolibrary.org/obo/uberon.owl',
                  iif(%tid = 'UBERON:0000178', 'blood', iif(%tid = 'UBERON:0001836', 'saliva', iif(%tid = 'UBERON:0000479', 'tissue',
                  iif(%tid = 'UBERON:0002048', 'lung', iif(%tid = 'UBERON:0000310', 'breast', iif(%tid = 'UBERON:0002106', 'spleen',
@@ -328,10 +366,12 @@ group GrzSpecimenType(source ld, source tid, source sys, source ver, source labe
   // SNOMED CT code
   ld where (%tid != '-' and %sys = 'http://snomed.info/sct') -> spec.type as cc, cc.coding as c, c.system = (%sys), c.code = (%tid)
      then GrzVersionDisplay(ld, ver, c), GrzTypeText(ld, cc) "snomed";
-  // ICD-O-3 topography = site: collection.bodySite; type stays the root concept
+  // ICD-O-3 topography = site: collection.bodySite, code dotted (C341 -> C34.1); type stays the root concept
   ld where (%tid != '-' and %sys = 'http://terminology.hl7.org/CodeSystem/icd-o-3') -> spec.type as cc, cc.coding as c,
         c.system = 'http://snomed.info/sct', c.code = '123038009', c.display = 'Specimen',
-        spec.collection as col, col.bodySite as bs, bs.coding as bc, bc.system = (%sys), bc.code = (%tid)
+        spec.collection as col, col.bodySite as bs, bs.coding as bc, bc.system = (%sys),
+        bc.code = (iif(%tid.upper().matches('^C[0-9]{2}[.]?[0-9]$'), %tid.upper().replaceMatches('^C([0-9]{2})[.]?([0-9])$', 'C$1.$2'),
+                       %tid.upper().replaceMatches('^C([0-9]{2})[.]?$', 'C$1')))
      then GrzVersionDisplay(ld, ver, bc), GrzTypeText(ld, cc) "icdo3";
   // UBERON / BTO: SNOMED specimen type via mvgs-cm-tissue-sct when the code is mapped and tissueTypeName agrees with
   // its ontology label (token subset either way, stopwords of/the/and), else the root concept; original coding kept
@@ -585,10 +625,18 @@ group GrzSoftware(source sd, source ck, source dk, target an : Procedure, target
     sd.bioinformaticsPipelineVersion as v where (v != '') -> dev.version as dv, dv.value = v "version";
     sd then DkEntry(ck, role, fid, e, dev), DkReference(fid, r) "entry";
   } "pipeline";
-  sd.callerUsed as cu where (name.trim() != '' and (name.trim().lower() = 'na' or name.trim().lower() = 'n/a'
+  sd -> create('Parameters') as cnt then GrzCallers(sd, ck, dk, an, cnt, bundle) "callers";
+}
+
+group GrzCallers(source sd, source ck, source dk, target an : Procedure, target cnt : Parameters, target bundle : Bundle) {
+  sd.callerUsed as cu -> (%cnt.parameter.count()) as i, cnt.parameter as p, p.name = 'i' then GrzCaller(cu, i, ck, dk, an, bundle) "item";
+}
+
+group GrzCaller(source cu, source i, source ck, source dk, target an : Procedure, target bundle : Bundle) {
+  cu where (name.trim() != '' and (name.trim().lower() = 'na' or name.trim().lower() = 'n/a'
         or name.trim().lower() = 'none' or name.trim().lower() = 'unknown').not())
      -> bundle.entry as e, e.resource = create('Device') as dev, uuid() as fid,
-        (%dk & 'caller-' & %sd.callerUsed.select(iif($this = %cu, $index.toString(), {})).first()) as role,
+        (%dk & 'caller-' & %i.toString()) as role,
         an.extension as x, x.url = 'http://hl7.org/fhir/uv/genomics-reporting/StructureDefinition/genomic-study-analysis-device',
         x.extension as xd, xd.url = 'device', xd.value = create('Reference') as r,
         x.extension as xf, xf.url = 'function', xf.value = create('CodeableConcept') as cc, cc.coding as c,

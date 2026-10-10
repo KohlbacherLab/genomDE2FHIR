@@ -6,10 +6,16 @@ Each KDK item is one T, N or M category (SNOMED CT qualifier value per schema; m
   mvgs-cm-tnm-sct-uicc (group 1: inverse of the MII uicc->sct maps, c/p prefix as `product`; group 2: accepted UICC
   strings, warned when they sit in a SNOMED-labelled field); 2027 only: the KDK SNOMED code in `coding:snomed-ct` with the
   MII (FSN) display, which satisfies invariant tnm-sct-uicc-konsistenz ("<prefix><UICC> "); KDK text/display ->
-  value.text. c/p/u prefix -> `code.extension:cpPraefix` and the cT/pT/T observable code; y/r/a -> modifierExtension
-  (2027 only; 2026 has no slot -> warned).
-- `version`: for UICC strings it is the TNM edition ("8th ed.") -> Observation.method mii-cs-onko-tnm-version; for SNOMED
-  items it is the SNOMED release, kept as coding:snomed-ct.version only when it is a SNOMED version URI (else dropped).
+  value.text. c/p/u prefix -> `code.extension:cpPraefix` and the cT/pT/T observable code; y/r/a -> 2027:
+  modifierExtension mii-ex-onko-tnm-{y,r,a}-praefix; 2026 (no such extension): one mii-pr-onko-tnm-{y,r,a}-symbol
+  Observation per prefix letter, member of the grouping (the 2026 grouping lists them as hasMember targets).
+  The coding:uicc display is the display of the mii-cs-onko-tnm-uicc concept (N1mi -> 'N1(mi)', NX -> 'Nx').
+  2026: UICC 9th-edition codes absent from the 2026 value sets (T1b3, M1c1, M1c2) take the weitere-klassifikationen
+  text fallback (warned).
+- `version`: for UICC strings it is the TNM edition -> Observation.method mii-cs-onko-tnm-version; only explicit edition
+  numbers 1-9 are read ('8', '8th ed.', 'UICC 8', 'TNM8', '8. Auflage'); dates, years or SNOMED release labels are
+  dropped (warned). For SNOMED items it is the SNOMED release, kept as coding:snomed-ct.version only when it is a SNOMED
+  version URI (else dropped).
 - grouping Observation mii-pr-onko-tnm-klassifikation with hasMember -> categories; code clinical 399537006 /
   pathological 399588009 when all prefixes agree, else 399390009; no stage value and no date (not in the KDK).
 - items without a UICC equivalent (e.g. AJCC SNOMED codes, codes whose SNOMED concept is no UICC category) ->
@@ -18,7 +24,7 @@ Each KDK item is one T, N or M category (SNOMED CT qualifier value per schema; m
 import re
 
 from ... import terminology
-from ...systems import ONKO, SNOMED, UICC
+from ...systems import LOINC, ONKO, SNOMED, UICC
 from ..common import as_list, cc, coding, ext
 from .diagnosis import weitere_klassifikation
 
@@ -26,6 +32,19 @@ P_GROUP = ONKO + "StructureDefinition/mii-pr-onko-tnm-klassifikation"
 P_CATEGORY = {ax: ONKO + f"StructureDefinition/mii-pr-onko-tnm-{ax.lower()}-kategorie" for ax in "TNM"}
 EXT_CP = ONKO + "StructureDefinition/mii-ex-onko-tnm-cp-praefix"
 EXT_YRA = {p: ONKO + f"StructureDefinition/mii-ex-onko-tnm-{p}-praefix" for p in "yra"}
+P_SYMBOL = {p: ONKO + f"StructureDefinition/mii-pr-onko-tnm-{p}-symbol" for p in "yra"}   # 2026 y/r/a representation
+# code / value patterns of the 2026.0.3 symbol profiles (value displays = MII ConceptMaps uicc-sct)
+SYMBOL_CODE = {
+    "y": ("101658-3", "421755005", "Tumor staging descriptor y (tumor staging)"),
+    "r": ("101659-1", "421188008", "Tumor staging descriptor r (tumor staging)"),
+    "a": ("101660-9", "421426001", "Tumor staging descriptor a (tumor staging)"),
+}
+# mii-cs-onko-tnm-uicc concepts whose display differs from the code (identical in 2026.0.3 and 2027.0.0-ballot.1;
+# every other T/N/M category code has display == code); checked against the package in test_fix_onco_mol
+UICC_DISPLAY = {"NX": "Nx", "N1mi": "N1(mi)"}
+# UICC 9th-edition codes of mvgs-cm-tnm-sct-uicc that onkologie 2026.0.3 lacks (CodeSystem and
+# mii-vs-onko-tnm-{t,n,m}-kategorie-werte, required binding in 2026); 2027.0.0-ballot.1 has them
+UICC_NOT_IN_2026 = {"T1b3", "M1c1", "M1c2"}
 CS_TNM_VERSION = ONKO + "CodeSystem/mii-cs-onko-tnm-version"
 CM = "mvgs-cm-tnm-sct-uicc"
 
@@ -58,9 +77,19 @@ def _maps():
     return sct, uicc
 
 
+EDITION = re.compile(r"(?:(?:UICC|TNM)[\s-]*)?([1-9])\s*(?:\.|st|nd|rd|th)?\s*(?:ed\.?|edition|aufl\.?|auflage)?",
+                     re.I)
+
+
 def _edition(version) -> str | None:
-    m = re.match(r"^\s*(\d)\s*(\.|st|nd|rd|th)?\s*(ed|edition|aufl|auflage)?", str(version or ""), re.I)
-    return m[1] if m and m[1] != "0" else None
+    """Explicit TNM edition number 1-9 (mii-cs-onko-tnm-version) or None: dates, years and release labels are no
+    edition ('2017', '2025-03-01' used to yield '2')."""
+    m = EDITION.fullmatch(str(version or "").strip())
+    return m[1] if m else None
+
+
+def uicc_coding(code: str) -> dict:
+    return coding(UICC, code, UICC_DISPLAY.get(code, code))
 
 
 def build(ctx):
@@ -68,7 +97,7 @@ def build(ctx):
     if not items:
         return
     sct_map, uicc_codes = _maps()
-    members, prefixes, editions = [], [], set()
+    members, prefixes, editions, symbols = [], [], set(), []
     for i, it in enumerate(items):
         code, system = str((it or {}).get("code") or "").strip(), it.get("system")
         if not code:
@@ -90,6 +119,10 @@ def build(ctx):
         else:
             _unmatched(ctx, i, it, notation)
             continue
+        if not ctx.is_2027 and uicc in UICC_NOT_IN_2026:
+            _unmatched(ctx, i, it, notation, f"UICC {uicc} (9th edition) is not in the 2026 TNM value sets "
+                                             f"(required binding); kept as weitere-klassifikationen text", uicc=uicc)
+            continue
         axis = uicc[0]
         o = ctx.new("Observation", "tnm", i, profile=P_CATEGORY[axis])
         paths = [P + "code", P + "system"]
@@ -100,12 +133,12 @@ def build(ctx):
         if yra:
             if ctx.is_2027:
                 o["modifierExtension"] = [ext(EXT_YRA[p], valueCodeableConcept=cc(coding(UICC, p, p))) for p in yra]
-            else:
-                ctx.warn(P + "text", f"prefix {yra!r} of {notation!r}: no y/r/a element in the 2026 profiles; kept in value.text")
+            else:  # 2026: no prefix extension; the grouping gets mii-pr-onko-tnm-{y,r,a}-symbol members (below)
+                symbols += [p for p in yra if p not in symbols]
         o["subject"] = ctx.patient
         if ctx.refs.get("primary"):
             o["focus"] = [ctx.refs["primary"]]
-        value = [coding(UICC, uicc, uicc)]
+        value = [uicc_coding(uicc)]
         version = it.get("version")
         if sct and ctx.is_2027:
             v = version if version and SCT_VERSION.match(str(version)) else None
@@ -123,13 +156,17 @@ def build(ctx):
                 editions.add(ed)
                 paths.append(P + "version")
             else:
-                ctx.drop(P + "version", version, "not a TNM edition")
+                ctx.drop(P + "version", version, "not an explicit TNM edition number (1-9)")
+                ctx.warn(P + "version", f"TNM version {version!r} of {notation or code!r} is no edition number; "
+                                        f"Observation.method omitted")
         o["valueCodeableConcept"] = cc(*value, text=notation or None)
         paths += [P + k for k in ("display", "text") if it.get(k)]
         members.append(ctx.add(o, *paths))
         prefixes.append(cp if cp in "cp" else "")
     if not members:
         return
+    for p in symbols:
+        members.append(_symbol(ctx, p))
     g = ctx.new("Observation", "tnm", "grouping", profile=P_GROUP)
     g["status"] = "final"
     kinds = set(prefixes)
@@ -144,15 +181,37 @@ def build(ctx):
     ctx.add(g, name="tnm")
 
 
-def _unmatched(ctx, i: int, it: dict, notation: str):
+def _symbol(ctx, p: str) -> dict:
+    """2026: mii-pr-onko-tnm-{y,r,a}-symbol (code LOINC, value SNOMED fixed by the profile pattern)."""
+    loinc, sct, display = SYMBOL_CODE[p]
+    o = ctx.new("Observation", "tnm", "symbol", p, profile=P_SYMBOL[p])
+    o["status"] = "final"
+    o["code"] = cc(coding(LOINC, loinc))
+    o["subject"] = ctx.patient
+    if ctx.refs.get("primary"):
+        o["focus"] = [ctx.refs["primary"]]
+    o["valueCodeableConcept"] = cc(coding(SNOMED, sct, display))
+    ctx.rep("tnm-yra-symbol-2026")
+    return ctx.add(o)   # the notation (text/display) is covered by the category Observation that carries it
+
+
+def _unmatched(ctx, i: int, it: dict, notation: str, why: str | None = None, uicc: str | None = None):
+    """weitere-klassifikationen for a TNM item without a category Observation. uicc: a recognised UICC string (also
+    from a SNOMED-labelled field) the active profile set lacks -> value.text only, never a SNOMED coding, and the text
+    always names the code."""
     code, system = it.get("code"), it.get("system")
     c = coding(SNOMED, code, None, it.get("version") if SCT_VERSION.match(str(it.get("version") or "")) else None) \
-        if system == SNOMED else None
-    o = weitere_klassifikation(ctx, ("tnm", i), "TNM", cc(c, text=notation or str(code)))
+        if system == SNOMED and not uicc else None
+    text = notation or str(code)
+    if uicc and uicc not in text:
+        text = f"{uicc} ({text})"
+    o = weitere_klassifikation(ctx, ("tnm", i), "TNM", cc(c, text=text))
     ctx.add(o)
     if it.get("version") and not (c and c.get("version")):
-        ctx.drop(P + "version", it.get("version"), "edition of an unmatched TNM item (not a SNOMED version URI)")
+        ctx.drop(P + "version", it.get("version"), "UICC code kept as text: no coding to carry its version" if uicc
+                 else "edition of an unmatched TNM item (not a SNOMED version URI)")
     for k in ("code", "system", "display", "text") + (("version",) if c and c.get("version") else ()):
         if it.get(k):
             ctx.preserve(P + k, "tnm-unmatched-weitere-klassifikationen")
-    ctx.warn(P + "code", f"TNM {system}|{code} ({notation}) has no UICC equivalent in {CM}; kept as weitere-klassifikationen")
+    ctx.warn(P + "code", f"TNM {system}|{code} ({notation}): "
+                         + (why or f"no UICC equivalent in {CM}; kept as weitere-klassifikationen"))

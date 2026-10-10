@@ -45,7 +45,7 @@ add({"onc"}, "prefix", "molecular.sbsSignatures",      mii_profile=f"{MTB}/mii-p
 add({"onc"}, "prefix", "case.diagnosisOd.mainDiagnosis", mii_profile=f"{MTB}/mii-pr-mtb-diagnose-primaertumor", notes=A)
 add({"onc"}, "prefix", "case.diagnosisOd.histology",
     mii_profile=f"{MTB}/mii-pr-mtb-diagnose-primaertumor",
-    fhir_element=f"Condition.extension(mii-ex-onko-histology-morphology-behavior-icdo3)",
+    fhir_element="Condition.extension(mii-ex-onko-histology-morphology-behavior-icdo3)",
     transform="ICD-O-3 morphology as Condition extension (obds-to-fhir model); no standalone histology Observation; system http://terminology.hl7.org/CodeSystem/icd-o-3", notes=A)
 add({"onc"}, "prefix", "case.diagnosisOd.topography",
     mii_profile=f"{MTB}/mii-pr-mtb-diagnose-primaertumor",

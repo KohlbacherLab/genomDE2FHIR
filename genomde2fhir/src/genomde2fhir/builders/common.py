@@ -55,10 +55,11 @@ def atc_system(ctx, system: str | None, path: str) -> str:
 
 
 def scoped_id(ctx, system: str, value) -> dict | None:
-    """Sender-scoped identifier: value '<submitterId>|<caseKey>|<source id>' (docs/IDENTITY.md); None if no value."""
+    """Sender-scoped identifier: value '<submitterId>|<caseKey>|<source id>' (docs/IDENTITY.md), components escaped
+    (CaseKey.scoped); None if no value."""
     if value in (None, ""):
         return None
-    return {"system": system, "value": f"{ctx.key.submitter_id}|{ctx.key.case_id}|{value}"}
+    return {"system": system, "value": ctx.key.scoped(value)}
 
 def cc(*codings, text: str | None = None) -> dict | None:
     cs = [c for c in codings if c]

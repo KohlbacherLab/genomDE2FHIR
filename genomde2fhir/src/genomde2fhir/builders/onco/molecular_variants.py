@@ -10,8 +10,9 @@ Variant Observation (GR 3.0.0 slices as profiled by MTB 2027, REVIEW-TD A "Varia
   `http://ensembl.org` names no ValueSet, so validators only warn
 - representative-coding-hgvs / representative-protein-hgvs: varnomen coding qualified with the KDK transcript
   accession (c.: "NM_x.v:c.."; n.: "NR_x.v:n.."; p.: "NM_x.v(GENE):p.."), KDK string kept as text (F.6 open; interim);
-  when the transcript is no accession or does not fit the description type (e.g. NR_ with c.), the KDK string is
-  kept as given (reported as representation 'hgvs-unqualified')
+  when the transcript is no accession, an unversioned RefSeq accession (HGVS needs the version; it is taken from
+  transcriptId.version when given) or does not fit the description type (e.g. NR_ with c.), the KDK string is
+  kept as given (reported as representation 'hgvs-unqualified', warned once per file and reason)
 - chromosome-identifier: LOINC LL2938-0 answers (no answer for MT -> component omitted, dropped)
 - exact-start-end: Range low/high; the KDK coordinates are "GRCh38 VCF-style" by schema definition, hence
   reference-sequence-assembly GRCh38 (LA26806-2) and coordinate-system 1-based (LA30102-0)
@@ -94,13 +95,41 @@ def transcript_system(code: str, source_system: str | None) -> str | None:
 
 
 def transcript_accession(tr: dict) -> str | None:
-    """Versioned RefSeq (NM_/NR_/XM_/XR_) or Ensembl (ENST) accession usable as HGVS reference, else None."""
+    """Versioned RefSeq (NM_/NR_/XM_/XR_) or Ensembl (ENST) accession usable as HGVS reference, else None.
+    A RefSeq accession without version (in the code or transcriptId.version) is no valid HGVS reference ('NM_000546:c.'
+    is rejected by the HGVS check, 'NM_000546.6:c.' passes) -> None. An unversioned ENST is kept: the HGVS check on
+    matchbox/tx.fhir.org accepts it (checked 2026-10-09), and the KDK schema example is one."""
     code = str(tr.get("code") or "")
     if not re.fullmatch(r"(N[MR]_|X[MR]_)\d+(\.\d+)?|ENST\d+(\.\d+)?", code):
         return None
     if "." not in code and tr.get("version") and str(tr["version"]).isdigit() and code.startswith(("N", "X")):
         code = f"{code}.{tr['version']}"
+    if code.startswith(("N", "X")) and "." not in code:
+        return None
     return code
+
+
+def unqualified_reason(tr: dict, accession: str | None) -> tuple[str, str]:
+    """(kind, text) why a bare c./p. string could not be qualified."""
+    code = str(tr.get("code") or "")
+    if not code:
+        return "no-transcript", "no transcriptId"
+    if not accession and re.fullmatch(r"(N[MR]_|X[MR]_)\d+", code):
+        return "unversioned", f"RefSeq transcript {code!r} has no version (HGVS needs a versioned reference sequence)"
+    if not accession:
+        return "no-accession", f"transcript id {code!r} is not a RefSeq/Ensembl accession"
+    return "mismatch", f"transcript {accession} does not fit the description type, or no gene symbol for p."
+
+
+def warn_unqualified(ctx, path: str, tr: dict, accession: str | None):
+    """Representation 'hgvs-unqualified' + one warning per file and reason (the variants of a file share the cause)."""
+    ctx.rep("hgvs-unqualified")
+    kind, reason = unqualified_reason(tr, accession)
+    done = ctx.bag["hgvs-unqualified-warned"]
+    if kind not in done:
+        done.append(kind)
+        ctx.warn(path, f"HGVS not qualified: {reason}; bare c./p. strings kept as delivered (fail the hgvs-vs check; "
+                       f"further variants counted in representation 'hgvs-unqualified')")
 
 
 def qualify_hgvs(raw: str, accession: str | None, gene_symbol: str | None = None) -> str:
@@ -207,7 +236,7 @@ def build_variant(ctx, sv: dict, key: str):
             continue
         expr = qualify_hgvs(raw, acc, gene_symbol if kind == "p" else None)
         if expr == raw and ":" not in raw:
-            ctx.rep("hgvs-unqualified")
+            warn_unqualified(ctx, B + field, tr, acc)
         comps.append(component(loinc(loinc_code), valueCodeableConcept=cc(coding(HGVS, expr),
                                                                           text=raw if expr != raw else None)))
         paths.append(B + field)

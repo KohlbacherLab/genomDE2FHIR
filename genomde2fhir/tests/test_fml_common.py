@@ -62,14 +62,17 @@ def common_resource(r: dict, branch: str) -> bool:
 
 def parity(py_bundle: dict, fml_bundle: dict, branch: str):
     """(equal, only-python, only-fml) multisets of canonical resources restricted to the common resources."""
-    canonical = _load("run_corpus", REPO / "scripts" / "run_corpus.py").canonical
+    rc = _load("run_corpus", REPO / "scripts" / "run_corpus.py")
+    # label-only references: the Common probe maps emit placeholder GRZ Patients and Patients without the follow-up
+    # deceased[x], so deep references (the target's content hash) would differ for Consent.patient etc.
+    canonical = lambda b: rc.canonical(b, deep=False)  # noqa: E731
 
     def sub(b):
         out = collections.Counter()
         for k, v in canonical(b).items():
             r = json.loads(k)
             if common_resource(r, branch):
-                if r.get("identifier") == []:    # canonical() leaves [] when the resource-key was the only identifier
+                if r.get("identifier") == []:    # harmless no-op: canonical() omits an emptied identifier list
                     r.pop("identifier")
                 if r["resourceType"] == "Patient":   # set by the branch follow-up builders, not by Common
                     r.pop("deceasedDateTime", None)
@@ -234,7 +237,7 @@ def mb():
 @pytest.mark.parametrize("branch", sorted(FILES))
 def test_common_groups(mb, branch):
     if not (REPO / FILES[branch]).is_file():
-        pytest.skip(f"{FILES[branch]} not in this checkout")
+        pytest.fail(f"{FILES[branch]} not in this checkout")
     r = check_file(FILES[branch], mb)
     assert r["type"] == "Bundle", r
     assert r["content_errors"] == [], r["content_errors"]
@@ -253,7 +256,7 @@ EXPECTED_ERRORS = {  # mii-pr-consent-einwilligung allows 2 provision levels; th
 @pytest.mark.parametrize("mutation", sorted(MUTATIONS))
 def test_common_edge_cases(mb, mutation):
     if not (REPO / FILES["oncology"]).is_file():
-        pytest.skip(f"{FILES['oncology']} not in this checkout")
+        pytest.fail(f"{FILES['oncology']} not in this checkout")
     r = check_file(FILES["oncology"], mb, ingest=False, mutation=mutation)
     assert r["type"] == "Bundle", r
     assert [e for e in r["content_errors"] if EXPECTED_ERRORS.get(mutation, "\0") not in e] == [], r["content_errors"]
@@ -264,7 +267,7 @@ def test_common_datatypes(mb):
     """Dk datatype groups (CommonDatatypesProbe) == genomde2fhir.builders.common helpers."""
     from genomde2fhir.builders.common import coding, identifier, period, src_cc, src_coding
     if not (REPO / FILES["oncology"]).is_file():
-        pytest.skip(f"{FILES['oncology']} not in this checkout")
+        pytest.fail(f"{FILES['oncology']} not in this checkout")
     dk = json.loads((REPO / FILES["oncology"]).read_text(encoding="utf-8"))
     md, dx = dk["metaData"], dk["case"]["diagnosisOd"]["mainDiagnosis"]
     icd = "http://fhir.de/CodeSystem/bfarm/icd-10-gm"

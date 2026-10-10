@@ -1,5 +1,24 @@
 """Transaction Bundle assembly: urn:uuid fullUrls, idempotent PUT requests, structural checks."""
+import re
+
 from fhir.resources.R4B import get_fhir_model_class
+
+LOCAL_ID = re.compile(r"#[A-Za-z0-9\-.]{0,64}")   # '#<id>' of a contained resource; '#' alone is the container
+# string elements that hold prose or codes, never a uri: a '#<id>' value there is not a local reference
+NOT_URI = frozenset({"display", "text", "div", "name", "title", "description", "comment", "valueString",
+                     "valueMarkdown", "code", "value", "version", "unit", "id"})
+
+
+def local_ref(key, value) -> str | None:
+    """The contained id that the element `key` with string `value` points to ('' = the container itself), else None:
+    a Reference.reference '#...', or a canonical / uri / url value '#<id>' (R4 dom-3 counts those too). Without element
+    types every other string element outside NOT_URI is taken as a possible canonical / uri (deliberate
+    simplification: a stray '#<id>' string elsewhere keeps or loses a contained resource like a reference would)."""
+    if not isinstance(value, str) or not value.startswith("#"):
+        return None
+    if key == "reference" or key not in NOT_URI and LOCAL_ID.fullmatch(value):
+        return value[1:]
+    return None
 
 
 def ref(rtype: str, rid: str, display: str | None = None) -> dict:
@@ -60,20 +79,25 @@ def structural_errors(bundle: dict) -> list[str]:
 
 
 def dangling_references(bundle: dict) -> list[str]:
-    """Intra-bundle urn:uuid references that point to no entry."""
+    """Intra-bundle urn:uuid references that point to no entry, and '#id' references (Reference.reference, canonical /
+    uri values; local_ref) that point to no contained resource of the same entry ('#' alone is the container itself)."""
     have = {e["fullUrl"] for e in bundle.get("entry", [])}
     out = []
 
-    def walk(o, where):
+    def walk(o, where, local, key=None):
         if isinstance(o, dict):
             r = o.get("reference")
             if isinstance(r, str) and r.startswith("urn:uuid:") and r not in have:
                 out.append(f"{where}: {r}")
             for k, v in o.items():
-                walk(v, where)
+                walk(v, where, local, k)
         elif isinstance(o, list):
             for v in o:
-                walk(v, where)
+                walk(v, where, local, key)
+        elif local_ref(key, o) not in (None, "", *local):
+            out.append(f"{where}: {o}")
     for e in bundle.get("entry", []):
-        walk(e["resource"], f"{e['resource']['resourceType']}/{e['resource']['id']}")
+        res = e["resource"]
+        local = {c.get("id") for c in res.get("contained", []) if isinstance(c, dict)}
+        walk(res, f"{res['resourceType']}/{res['id']}", local)
     return out

@@ -16,8 +16,9 @@
 //   - recommendations find variants in the Bundle built so far (variante identifier molecular-finding-id '<submitterId>|<caseKey>|<id>',
 //     first occurrence wins, as ctx.ids in the Python builders); follow-up HPO assessments find the baseline
 //     assessment by its resource key. Group order in RdCase therefore matters: case, molecular, plan, followUp.
-// Array positions in resource keys: ($list.select(iif($this = %item, $index, {})).first()) - deep equality, so two
-// identical entries share a key and HAPI merges them (an identical duplicate is one resource instead of two).
+// Array positions in resource keys come from a counter: a Parameters created by the caller and passed down as a target,
+// one parameter appended per item, so (%cnt.parameter.count()) before the append is the item's position. Value
+// equality ($list.select(iif($this = %item, $index, {}))) would give two identical items one key (README).
 //
 // Source paths the logical model does not declare are dropped by matchbox when it parses the input (quirk Q6);
 // rules on them fire zero times. The pre-1.6.5 keys case.priorRd and plan.*.variantReferences, genes[].display and the
@@ -27,6 +28,7 @@
 uses "https://genomde.de/fhir/StructureDefinition/DatenkranzRareDisease" alias Datenkranz as source
 uses "http://hl7.org/fhir/StructureDefinition/Bundle" alias Bundle as target
 uses "http://hl7.org/fhir/StructureDefinition/Patient" alias Patient as target
+uses "http://hl7.org/fhir/StructureDefinition/Organization" alias Organization as target
 uses "http://hl7.org/fhir/StructureDefinition/Observation" alias Observation as target
 uses "http://hl7.org/fhir/StructureDefinition/Condition" alias Condition as target
 uses "http://hl7.org/fhir/StructureDefinition/ServiceRequest" alias ServiceRequest as target
@@ -37,27 +39,51 @@ uses "http://hl7.org/fhir/StructureDefinition/MedicationRequest" alias Medicatio
 uses "http://hl7.org/fhir/StructureDefinition/ResearchStudy" alias ResearchStudy as target
 uses "http://hl7.org/fhir/StructureDefinition/ClinicalImpression" alias ClinicalImpression as target
 uses "http://hl7.org/fhir/StructureDefinition/CodeableConcept" alias CodeableConcept as target
+uses "http://hl7.org/fhir/StructureDefinition/Parameters" alias Parameters as target
 
 imports "https://genomde.de/fhir/StructureMap/DatenkranzCommon"
 
 group main(source src : Datenkranz, target bundle : Bundle) {
   src -> bundle.type = 'transaction' "type";
+  // ck = 'kdk:<submitterId>:<CK>', CK = escaped localCaseId (else tanC) + '|test' for a test submission (README)
+  // meta.source of every resource (DkEntry): 'urn:genomde2fhir:submission:<submitterId>:<caseId>:<date>:<type>'
+  // (identity.CaseKey.source; caseId = localCaseId, else tanC, raw: a test submission differs by its type 'test'). Each
+  // component is percent-encoded like identity.source_component: printable ASCII 0x21-0x7E stays except % : | # ? /,
+  // every other UTF-8 byte becomes '%XX' (upper-case hex; encode('hex') split into byte pairs, kept pairs decoded back)
   src.metaData as md -> ('kdk:' & %md.submission.submitterId & ':' &
-        iif(%md.localCaseId.exists() and %md.localCaseId != '', %md.localCaseId, %md.tanC)) as ck,
+        iif(%md.localCaseId.exists() and %md.localCaseId != '', %md.localCaseId, %md.tanC).replace('\\', '\\\\').replace('|', '\\|')
+        & iif(%md.submission.type = 'test', '|test', '')) as ck,
+        ck.extension as msx, msx.url = 'urn:genomde2fhir:meta-source',
+        msx.value = ('urn:genomde2fhir:submission:' & (%md.submission.submitterId).encode('hex').upper().replaceMatches('(..)', '$1 ').trim().split(' ').select(iif($this.matches('^(2[1246-9A-E]|3[0-9B-E]|[4-6][0-9A-F]|7[0-9ABDE])$'), $this.decode('hex'), '%' & $this)).join('') & ':' & (iif(%md.localCaseId.exists() and %md.localCaseId != '', %md.localCaseId, %md.tanC)).encode('hex').upper().replaceMatches('(..)', '$1 ').trim().split(' ').select(iif($this.matches('^(2[1246-9A-E]|3[0-9B-E]|[4-6][0-9A-F]|7[0-9ABDE])$'), $this.decode('hex'), '%' & $this)).join('') & ':' & (%md.submission.date).encode('hex').upper().replaceMatches('(..)', '$1 ').trim().split(' ').select(iif($this.matches('^(2[1246-9A-E]|3[0-9B-E]|[4-6][0-9A-F]|7[0-9ABDE])$'), $this.decode('hex'), '%' & $this)).join('') & ':' & (%md.submission.type).encode('hex').upper().replaceMatches('(..)', '$1 ').trim().split(' ').select(iif($this.matches('^(2[1246-9A-E]|3[0-9B-E]|[4-6][0-9A-F]|7[0-9ABDE])$'), $this.decode('hex'), '%' & $this)).join('')),
         uuid() as pid, uuid() as dxid, uuid() as repid, uuid() as fdid
      then RdCase(src, md, ck, pid, dxid, repid, fdid, bundle) "metaData";
+  // a remaining key collision (two entries with one fullUrl or one conditional URL) fails the transform, as Python's
+  // 'duplicate resource' does, instead of HAPI merging the entries silently ('Check condition failed')
+  src check (%bundle.entry.fullUrl.isDistinct() and %bundle.entry.request.url.isDistinct()) -> bundle.type = 'transaction' "unique-keys";
 }
 
 group RdCase(source src, source md, source ck, source pid, source dxid, source repid, source fdid, target bundle : Bundle) {
   // Patient (patient.py) + Patient.deceased[x] from the follow-ups (rd/followup.py)
   md -> bundle.entry as e, e.resource = create('Patient') as pat, ('patient') as role
      then DkEntry(ck, role, pid, e, pat), DkKdkPatientBody(md, pat), RdPatientDeath(src, pat) "patient";
+  // submission Organizations (builders/submission.submission_organization, shared with GRZ: DkOrg*); ck is the
+  // 'kdk:<submitterId>:<CK>' key, so the keys stay stream-scoped as in Python (key.id('Organization', role, value), stream
+  // kdk). No Provenance in FML, so no agent references are needed
+  md.submission as sub then {
+    sub.submitterId as v where (v != '') -> bundle.entry as e, e.resource = create('Organization') as org, uuid() as fid,
+          ('org:submitter') as role
+       then DkEntry(ck, role, fid, e, org), DkOrgSubmitter(sub, org) "org-submitter";
+    sub.genomicDataCenterId as v where (v != '') -> bundle.entry as e, e.resource = create('Organization') as org, uuid() as fid,
+          ('org:genomic-data-center:' & %v) as role
+       then DkEntry(ck, role, fid, e, org), DkOrgGdc(sub, org) "org-gdc";
+    sub.clinicalDataNodeId as v where (v != '') -> bundle.entry as e, e.resource = create('Organization') as org, uuid() as fid,
+          ('org:clinical-data-node:' & %v) as role
+       then DkEntry(ck, role, fid, e, org), DkOrgKdk(sub, org) "org-kdk";
+  } "submission-orgs";
   md.coverageType as ct then DkCoverage(ct, ck, pid, bundle) "coverage";
   md.mvConsent as mvc -> ('mv-consent') as role then DkMvConsent(mvc, ck, role, pid, bundle) "mv-consent";
   // research_consent.py: embedded MII Broad Consent (scope) -> mii-pr-consent-einwilligung, else the absence Observation
-  md.researchConsents as rc -> (%md.researchConsents.select(iif($this = %rc, $index, {})).first().toString()) as i,
-        ('research-consent:' & %i) as role
-     then DkResearchConsent(rc, ck, role, pid, bundle), RdResearchConsentAbsent(rc, i, ck, pid, bundle) "research-consent";
+  md -> create('Parameters') as cnt then RdResearchConsents(md, ck, pid, cnt, bundle) "research-consent";
   md then DkKdkIndicationBoard(md, ck, pid, bundle) "indication-board";
   src.case as c then RdCaseBlock(src, c, ck, pid, dxid, repid, fdid, bundle) "case";
   src.molecular as mol then RdMolecular(src, mol, ck, pid, repid, bundle) "molecular";
@@ -77,6 +103,11 @@ group RdPatientDeath(source src, target pat : Patient) {
 // ================================================================================================================
 // metaData.researchConsents[] without scope -> Observation mvgs-research-consent-absent (research_consent._absent)
 // ================================================================================================================
+
+group RdResearchConsents(source md, source ck, source pid, target cnt : Parameters, target bundle : Bundle) {
+  md.researchConsents as rc -> (%cnt.parameter.count().toString()) as i, cnt.parameter as p, p.name = 'i', ('research-consent:' & %i) as role
+     then DkResearchConsent(rc, ck, role, pid, bundle), RdResearchConsentAbsent(rc, i, ck, pid, bundle) "item";
+}
 
 group RdResearchConsentAbsent(source rc, source i, source ck, source pid, target bundle : Bundle) {
   rc where (scope.exists().not() and (noScopeJustification = 'patient unable to consent' or noScopeJustification = 'patient refuses to sign consent'
@@ -110,15 +141,20 @@ group RdResearchConsentAbsentBody(source rc, source pid, target obs : Observatio
 
 group RdCaseBlock(source src, source c, source ck, source pid, source dxid, source repid, source fdid, target bundle : Bundle) {
   c.diagnosisRd as d then RdDiagnosis(src, d, ck, pid, dxid, repid, fdid, bundle) "diagnosisRd";
-  c.priorRds as pr -> (%c.priorRds.select(iif($this = %pr, $index, {})).first().toString()) as i
-     then RdPrior(src, pr, i, ck, pid, dxid, bundle) "priorRds";
-  // pre-1.6.5 key (an object, read as a one-element priorRds, or an array; a logical-model extra, max *)
-  c.priorRd as pr where (%c.priorRds.exists().not()) -> (%c.priorRd.select(iif($this = %pr, $index, {})).first().toString()) as i
-     then RdPrior(src, pr, i, ck, pid, dxid, bundle) "priorRd-legacy";
+  c -> create('Parameters') as cnt then RdPriors(src, c, ck, pid, dxid, cnt, bundle) "priorRds";
   // one ZSE EpisodeOfCare, period.start = earliest zseContactDate
   c where (priorRds.zseContactDate.where($this != '').exists() or (priorRds.exists().not() and priorRd.zseContactDate.where($this != '').exists()))
      -> bundle.entry as e, e.resource = create('EpisodeOfCare') as ep, uuid() as fid, ('zse-episode') as role
      then DkEntry(ck, role, fid, e, ep), RdZseEpisode(c, pid, ep) "zse-episode";
+}
+
+// priorRds[]; without it the pre-1.6.5 key (an object, read as a one-element priorRds, or an array; a logical-model extra,
+// max *). matchbox parses 'priorRds: []' as absent, so then the legacy key is read too (Python treats [] as absent too (rd/prior.py entries))
+group RdPriors(source src, source c, source ck, source pid, source dxid, target cnt : Parameters, target bundle : Bundle) {
+  c.priorRds as pr -> (%cnt.parameter.count().toString()) as i, cnt.parameter as p, p.name = 'i'
+     then RdPrior(src, pr, i, ck, pid, dxid, bundle) "priorRds";
+  c.priorRd as pr where (%c.priorRds.exists().not()) -> (%cnt.parameter.count().toString()) as i, cnt.parameter as p, p.name = 'i'
+     then RdPrior(src, pr, i, ck, pid, dxid, bundle) "priorRd-legacy";
 }
 
 group RdZseEpisode(source c, source pid, target ep : EpisodeOfCare) {
@@ -202,18 +238,22 @@ group RdVerificationReconciled(source d, source est, target cond : Condition) {
         c.code = 'unconfirmed' "not-established";
 }
 
-// diagnoses[] -> code.coding; ICD-10-GM, ORPHA and Alpha-ID-SE are 0..1 slices (first occurrence), other systems as delivered
+// diagnoses[] -> code.coding; ICD-10-GM, ORPHA and Alpha-ID-SE are 0..1 slices (first occurrence; the former DIMDI
+// namespace counts as BfArM), other systems as delivered
 group RdDiagnosisCodings(source d, target cc : CodeableConcept) {
-  d.diagnoses first as dx where (code.exists() and code != '' and system.lower().replaceMatches('/+$', '') = 'http://fhir.de/codesystem/bfarm/icd-10-gm')
+  d.diagnoses first as dx where (code.exists() and code != '' and (system.lower().replaceMatches('/+$', '') = 'http://fhir.de/codesystem/bfarm/icd-10-gm'
+        or system.lower().replaceMatches('/+$', '') = 'http://fhir.de/codesystem/dimdi/icd-10-gm'))
      -> cc.coding as c then RdIcd10gm(dx, c) "icd10gm";
   d.diagnoses first as dx where (code.exists() and code != '' and (system.lower().replaceMatches('/+$', '') = 'https://www.orpha.net' or system.lower().replaceMatches('/+$', '') = 'http://www.orpha.net'))
      -> cc.coding as c, c.system = 'http://www.orpha.net',
         c.code = (iif(%dx.code.upper().startsWith('ORPHA:'), %dx.code.substring(6), %dx.code)) then RdDxDisplayVersion(dx, c) "orpha";
   d.diagnoses first as dx where (code.exists() and code != '' and (system.lower().replaceMatches('/+$', '') = 'https://www.bfarm.de/de/kodiersysteme/terminologien/alpha-id-se'
-        or system.lower().replaceMatches('/+$', '') = 'http://fhir.de/codesystem/bfarm/alpha-id'))
+        or system.lower().replaceMatches('/+$', '') = 'http://fhir.de/codesystem/bfarm/alpha-id'
+        or system.lower().replaceMatches('/+$', '') = 'http://fhir.de/codesystem/dimdi/alpha-id'))
      -> cc.coding as c, c.system = 'http://fhir.de/CodeSystem/bfarm/alpha-id', c.code = (%dx.code) then RdDxDisplayVersion(dx, c) "alpha-id";
   d.diagnoses as dx where (code.exists() and code != '' and system.where($this.lower().replaceMatches('/+$', '') in ('http://fhir.de/codesystem/bfarm/icd-10-gm' | 'https://www.orpha.net'
-        | 'http://www.orpha.net' | 'https://www.bfarm.de/de/kodiersysteme/terminologien/alpha-id-se' | 'http://fhir.de/codesystem/bfarm/alpha-id')).exists().not())
+        | 'http://www.orpha.net' | 'https://www.bfarm.de/de/kodiersysteme/terminologien/alpha-id-se' | 'http://fhir.de/codesystem/bfarm/alpha-id'
+        | 'http://fhir.de/codesystem/dimdi/icd-10-gm' | 'http://fhir.de/codesystem/dimdi/alpha-id')).exists().not())
      -> cc.coding as c, c.code = (%dx.code) then RdDxSystemDisplayVersion(dx, c) "other";
 }
 
@@ -242,7 +282,16 @@ group RdDxSystemDisplayVersion(source dx, target c) {
 
 // phenotypes[] -> mii-pr-seltene-hpo-assessment (one per distinct code) + Condition.evidence (code = HPO term, detail = assessment)
 group RdPhenotypes(source d, source ck, source pid, target cond : Condition, target bundle : Bundle) {
-  d.phenotypes as ph where (code.exists() and code != '' and %d.phenotypes.where(code = %ph.code).first() = %ph)
+  d -> create('Parameters') as cnt then RdPhenotypeItems(d, ck, pid, cond, cnt, bundle) "phenotypes";
+}
+
+group RdPhenotypeItems(source d, source ck, source pid, target cond : Condition, target cnt : Parameters, target bundle : Bundle) {
+  d.phenotypes as ph -> (%cnt.parameter.count()) as i, cnt.parameter as p, p.name = 'i' then RdPhenotype(d, ph, i, ck, pid, cond, bundle) "item";
+}
+
+// the first item with a code (rd.diagnosis: a repeated code is emitted once)
+group RdPhenotype(source d, source ph, source i, source ck, source pid, target cond : Condition, target bundle : Bundle) {
+  ph where (code.exists() and code != '' and %d.phenotypes.take(%i).where(code = %ph.code).exists().not())
      -> bundle.entry as e, e.resource = create('Observation') as obs, uuid() as fid, ('phenotype:' & %ph.code) as role
      then DkEntry(ck, role, fid, e, obs), RdHpoAssessment(ph, pid, obs), RdPhenotypeEvidence(ph, fid, cond) "phenotype";
 }
@@ -413,20 +462,38 @@ group RdReportBody(source mol, source pid, target rep : DiagnosticReport) {
   mol -> rep.subject as s then DkReference(pid, s) "subject";
 }
 
-// role = 'variant:<kind>:<identifier | #index>'; a repeated identifier (same kind) gets ':<index>' appended
+// role = 'variant:<kind>:<base>', base = the identifier, else '#<index>'; an item whose base an earlier item of the same
+// kind already has (a repeated identifier, or an identifier '#<k>' equal to the base of an identifier-less item k) is a
+// further finding with role 'variant-dup:<kind>:<base>:<index>' (rd.variants._variant appends the index as an id part
+// of its own when bundle.has() the base id), a namespace no identifier can produce
 group RdVariants(source src, source mol, source ck, source pid, target rep : DiagnosticReport, target bundle : Bundle) {
-  mol.smallVariants as v -> ('small') as kind, (%mol.smallVariants.select(iif($this = %v, $index, {})).first().toString()) as i,
-        ('variant:small:' & iif(%v.identifier.exists() and %v.identifier != '', %v.identifier, '#' & %i)
-         & iif(%v.identifier.exists() and %mol.smallVariants.where(identifier = %v.identifier).count() > 1, ':' & %i, '')) as role
-     then RdVariant(src, v, kind, role, ck, pid, rep, bundle) "small";
-  mol.copyNumberVariants as v -> ('cnv') as kind, (%mol.copyNumberVariants.select(iif($this = %v, $index, {})).first().toString()) as i,
-        ('variant:cnv:' & iif(%v.identifier.exists() and %v.identifier != '', %v.identifier, '#' & %i)
-         & iif(%v.identifier.exists() and %mol.copyNumberVariants.where(identifier = %v.identifier).count() > 1, ':' & %i, '')) as role
-     then RdVariant(src, v, kind, role, ck, pid, rep, bundle) "cnv";
-  mol.structuralVariants as v -> ('sv') as kind, (%mol.structuralVariants.select(iif($this = %v, $index, {})).first().toString()) as i,
-        ('variant:sv:' & iif(%v.identifier.exists() and %v.identifier != '', %v.identifier, '#' & %i)
-         & iif(%v.identifier.exists() and %mol.structuralVariants.where(identifier = %v.identifier).count() > 1, ':' & %i, '')) as role
-     then RdVariant(src, v, kind, role, ck, pid, rep, bundle) "sv";
+  mol -> ('small') as kind, create('Parameters') as cnt then RdVariantsSmall(src, mol, kind, ck, pid, rep, cnt, bundle) "small";
+  mol -> ('cnv') as kind, create('Parameters') as cnt then RdVariantsCnv(src, mol, kind, ck, pid, rep, cnt, bundle) "cnv";
+  mol -> ('sv') as kind, create('Parameters') as cnt then RdVariantsSv(src, mol, kind, ck, pid, rep, cnt, bundle) "sv";
+}
+
+group RdVariantsSmall(source src, source mol, source kind, source ck, source pid, target rep : DiagnosticReport, target cnt : Parameters, target bundle : Bundle) {
+  mol.smallVariants as v -> (%cnt.parameter.count()) as i, cnt.parameter as p, p.name = 'i',
+        (iif(%v.identifier.exists() and %v.identifier != '', %v.identifier, '#' & %i.toString())) as base,
+        (iif(%mol.smallVariants.take(%i).select(iif($this.identifier.exists() and $this.identifier != '', $this.identifier, '#' & $index.toString())).where($this = %base).exists(),
+             'variant-dup:small:' & %base & ':' & %i.toString(), 'variant:small:' & %base)) as role
+     then RdVariant(src, v, kind, role, ck, pid, rep, bundle) "item";
+}
+
+group RdVariantsCnv(source src, source mol, source kind, source ck, source pid, target rep : DiagnosticReport, target cnt : Parameters, target bundle : Bundle) {
+  mol.copyNumberVariants as v -> (%cnt.parameter.count()) as i, cnt.parameter as p, p.name = 'i',
+        (iif(%v.identifier.exists() and %v.identifier != '', %v.identifier, '#' & %i.toString())) as base,
+        (iif(%mol.copyNumberVariants.take(%i).select(iif($this.identifier.exists() and $this.identifier != '', $this.identifier, '#' & $index.toString())).where($this = %base).exists(),
+             'variant-dup:cnv:' & %base & ':' & %i.toString(), 'variant:cnv:' & %base)) as role
+     then RdVariant(src, v, kind, role, ck, pid, rep, bundle) "item";
+}
+
+group RdVariantsSv(source src, source mol, source kind, source ck, source pid, target rep : DiagnosticReport, target cnt : Parameters, target bundle : Bundle) {
+  mol.structuralVariants as v -> (%cnt.parameter.count()) as i, cnt.parameter as p, p.name = 'i',
+        (iif(%v.identifier.exists() and %v.identifier != '', %v.identifier, '#' & %i.toString())) as base,
+        (iif(%mol.structuralVariants.take(%i).select(iif($this.identifier.exists() and $this.identifier != '', $this.identifier, '#' & $index.toString())).where($this = %base).exists(),
+             'variant-dup:sv:' & %base & ':' & %i.toString(), 'variant:sv:' & %base)) as role
+     then RdVariant(src, v, kind, role, ck, pid, rep, bundle) "item";
 }
 
 group RdVariant(source src, source v, source kind, source role, source ck, source pid, target rep : DiagnosticReport, target bundle : Bundle) {
@@ -453,7 +520,7 @@ group RdVariante(source src, source v, source kind, source pid, target obs : Obs
   v -> obs.value = create('CodeableConcept') as cv, cv.coding as c, c.system = 'http://loinc.org', c.code = 'LA9633-4', c.display = 'Present' "value";
   // identifier molecular-finding-id '<submitterId>|<caseKey>|<id>' (recommendations look the variant up by it), externalId (ClinVar)
   v.identifier as id where (id != '') -> obs.identifier as oid, oid.use = 'usual', oid.system = 'https://genomde.de/fhir/sid/molecular-finding-id',
-        oid.value = (%src.metaData.submission.submitterId & '|' & iif(%src.metaData.localCaseId.exists() and %src.metaData.localCaseId != '', %src.metaData.localCaseId, %src.metaData.tanC) & '|' & %id), oid.assigner as asg, asg.identifier as aid,
+        oid.value = (%src.metaData.submission.submitterId.replace('\\', '\\\\').replace('|', '\\|') & '|' & iif(%src.metaData.localCaseId.exists() and %src.metaData.localCaseId != '', %src.metaData.localCaseId, %src.metaData.tanC).replace('\\', '\\\\').replace('|', '\\|') & iif(%src.metaData.submission.type = 'test', '|test', '') & '|' & %id.replace('\\', '\\\\').replace('|', '\\|')), oid.assigner as asg, asg.identifier as aid,
         aid.system = 'https://genomde.de/fhir/sid/le-id', aid.value = (%src.metaData.submission.submitterId) "identifier";
   v.externalId as x where (x.matches('^([0-9]+|[VRS]CV[0-9]+([.][0-9]+)?)$'))
      -> obs.identifier as oid, oid.use = 'secondary', oid.system = 'http://www.ncbi.nlm.nih.gov/clinvar', oid.value = x,
@@ -497,14 +564,14 @@ group RdVariante(source src, source v, source kind, source pid, target obs : Obs
         vc.code = (iif(%t = 'gain', 'SO:0001742', 'SO:0001743')), vc.display = (iif(%t = 'gain', 'copy_number_gain', 'copy_number_loss')) "cnv-type";
   v.description as dsc where (%kind = 'sv' and dsc != '') -> obs.component as comp, comp.code as cc, cc.coding as c, c.system = 'http://loinc.org', c.code = '81291-7',
         comp.value = create('CodeableConcept') as cv, cv.text = dsc "sv-description";
-  // zygosity: LOINC LL381-5
+  // zygosity: LOINC LL381-5; compHet has no LL381-5 answer: LA6706-1 Heterozygous + LA26217-2 Compound heterozygous
   v.zygosity as z where (z in ('heterozygous' | 'homozygous' | 'hemi' | 'compHet' | 'homoplasmic' | 'heteroplasmic'))
      -> obs.component as comp, comp.code as cc, cc.coding as c, c.system = 'http://loinc.org', c.code = '53034-5',
         comp.value = create('CodeableConcept') as cv, cv.coding as vc, vc.system = 'http://loinc.org',
-        vc.code = (iif(%z = 'heterozygous', 'LA6706-1', iif(%z = 'homozygous', 'LA6705-3', iif(%z = 'hemi', 'LA6707-9',
-                   iif(%z = 'compHet', 'LA26217-2', iif(%z = 'homoplasmic', 'LA6704-6', 'LA6703-8')))))),
-        vc.display = (iif(%z = 'heterozygous', 'Heterozygous', iif(%z = 'homozygous', 'Homozygous', iif(%z = 'hemi', 'Hemizygous',
-                      iif(%z = 'compHet', 'Compound heterozygous', iif(%z = 'homoplasmic', 'Homoplasmic', 'Heteroplasmic')))))) "zygosity";
+        vc.code = (iif(%z = 'heterozygous' or %z = 'compHet', 'LA6706-1', iif(%z = 'homozygous', 'LA6705-3', iif(%z = 'hemi', 'LA6707-9',
+                   iif(%z = 'homoplasmic', 'LA6704-6', 'LA6703-8'))))),
+        vc.display = (iif(%z = 'heterozygous' or %z = 'compHet', 'Heterozygous', iif(%z = 'homozygous', 'Homozygous', iif(%z = 'hemi', 'Hemizygous',
+                      iif(%z = 'homoplasmic', 'Homoplasmic', 'Heteroplasmic'))))) then RdCompHet(z, cv) "zygosity";
   // segregation: LOINC LL5489-1; fromMotherAndFather -> local biparental; notPerformed -> nothing (value[x] 1..1)
   v.segregationAnalysis as sg where (sg = 'deNovo' or sg = 'fromFather' or sg = 'fromMother')
      -> obs.component as comp, comp.code as cc, cc.coding as c, c.system = 'http://loinc.org', c.code = '94186-4',
@@ -515,6 +582,10 @@ group RdVariante(source src, source v, source kind, source pid, target obs : Obs
      -> obs.component as comp, comp.code as cc, cc.coding as c, c.system = 'http://loinc.org', c.code = '94186-4',
         comp.value = create('CodeableConcept') as cv, cv.coding as vc, vc.system = 'https://genomde.de/fhir/CodeSystem/mvgs-cs-segregation',
         vc.code = 'biparental', vc.display = 'Inherited from mother and father' "segregation-biparental";
+}
+
+group RdCompHet(source z, target cv : CodeableConcept) {
+  z where (%z = 'compHet') -> cv.coding as c, c.system = 'http://loinc.org', c.code = 'LA26217-2', c.display = 'Compound heterozygous' "comphet";
 }
 
 group RdPositions(source v, target rng) {
@@ -530,10 +601,11 @@ group RdHgvs(source h, source f, source lc, source rx, target obs : Observation)
      -> obs.note as n, n.text = (%f & ': ' & %h.trim()) "note";
 }
 
-// localization[] -> one molekulare-konsequenz (mvgs-cm-rd-localization-so; the guard lists the ConceptMap's source codes)
+// localization[] -> one molekulare-konsequenz (mvgs-cm-rd-localization-so; the guard lists the ConceptMap's source codes);
+// each feature-consequence keeps the KDK code as text
 group RdConsequence(source v, source role, source ck, source pid, source vid, target rep : DiagnosticReport, target bundle : Bundle) {
   v where (localization.code.where($this in ('codingRegion' | 'splicingRegion' | 'regulatoryRegion' | 'intronic' | 'intergenic')).exists())
-     -> bundle.entry as e, e.resource = create('Observation') as kon, uuid() as fid, ('consequence:' & %role.substring(8)) as krole
+     -> bundle.entry as e, e.resource = create('Observation') as kon, uuid() as fid, ('consequence:' & iif(%role.startsWith('variant-dup:'), 'dup:' & %role.substring(12), %role.substring(8))) as krole
      then DkEntry(ck, krole, fid, e, kon), RdConsequenceBody(v, pid, vid, kon), RdResult(fid, rep) "consequence";
 }
 
@@ -546,8 +618,10 @@ group RdConsequenceBody(source v, source pid, source vid, target kon : Observati
   v.localization as loc then {
     loc.code as lc where (lc in ('codingRegion' | 'splicingRegion' | 'regulatoryRegion' | 'intronic' | 'intergenic'))
        -> kon.component as comp, comp.code as cc, cc.coding as c, c.system = 'http://hl7.org/fhir/uv/genomics-reporting/CodeSystem/tbd-codes-cs',
-          c.code = 'feature-consequence',
-          comp.value = translate(lc, 'https://genomde.de/fhir/ConceptMap/mvgs-cm-rd-localization-so', 'CodeableConcept') "feature-consequence";
+          c.code = 'feature-consequence', comp.value = create('CodeableConcept') as cv, cv.coding as vc,
+          vc.system = translate(lc, 'https://genomde.de/fhir/ConceptMap/mvgs-cm-rd-localization-so', 'system'),
+          vc.code = translate(lc, 'https://genomde.de/fhir/ConceptMap/mvgs-cm-rd-localization-so', 'code'),
+          vc.display = translate(lc, 'https://genomde.de/fhir/ConceptMap/mvgs-cm-rd-localization-so', 'display'), cv.text = lc "feature-consequence";
   } "localization";
 }
 
@@ -556,7 +630,7 @@ group RdImplication(source v, source role, source ck, source pid, source vid, ta
   v where (acmgClass in ('1' | '2' | '3' | '4' | '5') or modeOfInheritance.where($this != '').exists()
         or diagnosticSignificance in ('primary' | 'incidental' | 'candidate') or acmgCriteria.value.where($this != '').exists()
         or publications.where($this != '').exists())
-     -> bundle.entry as e, e.resource = create('Observation') as imp, uuid() as fid, ('implication:' & %role.substring(8)) as irole
+     -> bundle.entry as e, e.resource = create('Observation') as imp, uuid() as fid, ('implication:' & iif(%role.startsWith('variant-dup:'), 'dup:' & %role.substring(12), %role.substring(8))) as irole
      then DkEntry(ck, irole, fid, e, imp), RdImplicationBody(v, pid, vid, imp), RdResult(fid, rep) "implication";
 }
 
@@ -624,6 +698,9 @@ group RdCarePlanBody(source src, source pl, source ck, source pid, source dxid, 
   pl -> cp.meta as m, m.profile = 'https://www.medizininformatik-initiative.de/fhir/ext/modul-seltene/StructureDefinition/mii-pr-seltene-therapieplan' "profile";
   pl -> cp.status = 'active', cp.intent = 'proposal' "status";
   pl -> cp.subject as s then DkReference(pid, s) "subject";
+  // basedOn = the indication-board CarePlan (mvgs-inclusion-decision of DkKdkIndicationBoard, only with a
+  // molecularBoardDecisionDate; rd/careplan.py ctx.refs['indication_board']). RdCase runs it before the plan
+  pl then RdIndicationBoardRef(bundle, ck, cp) "basedOn";
   pl.carePlanRd as c then {
     c.molecularBoardDecisionDate as d where (d != '') -> cp.created = d "created";
     // recommendation flags (true -> activity; false -> none), clinical management settings
@@ -654,6 +731,12 @@ group RdPriorReportRefs(source b, source ck, target cp : CarePlan) {
      -> cp.supportingInfo as si, si.reference = (%pe.fullUrl) "prior-report";
 }
 
+group RdIndicationBoardRef(source b, source ck, target cp : CarePlan) {
+  b.entry as be where (resource.identifier.where(system = 'https://genomde.de/fhir/sid/resource-key'
+        and value.decode('urlbase64') = (%ck & ':indication-board')).exists())
+     -> cp.basedOn as bo, bo.reference = (%be.fullUrl) "indication-board";
+}
+
 group RdFlagActivity(source code, source display, target cp : CarePlan) {
   code -> cp.activity as act, act.detail as det, det.kind = 'ServiceRequest', det.code as cc, cc.coding as c,
         c.system = 'https://genomde.de/fhir/CodeSystem/mvgs-cs-rd-plan-recommendation', c.code = code, c.display = display,
@@ -667,19 +750,36 @@ group RdFlagActivityDescribed(source code, source display, target cp : CarePlan)
 }
 
 group RdRecommendations(source src, source pl, source ck, source pid, source dxid, target cp : CarePlan, target bundle : Bundle) {
-  // therapy recommendations: role 'therapy:<identifier | therapy-<i>>', a repeated identifier gets '#therapy-<i>'
-  pl.recommendedTherapies as rt where (strategy in ('systemicMedication' | 'targetedMedication' | 'preventionMedication' | 'genetic' | 'combination'
+  pl -> create('Parameters') as cnt, create('Parameters') as rids then RdTherapies(src, pl, ck, pid, dxid, cp, cnt, rids, bundle) "therapies";
+  pl -> create('Parameters') as cnt, create('Parameters') as rids then RdStudies(src, pl, ck, pid, dxid, cp, cnt, rids, bundle) "studies";
+}
+
+// recommendation id parts (rd.careplan._rid): the identifier, else 'therapy-<i>' / 'study-<i>' (i = position); an id part
+// already produced (rids holds every produced one, also a suffixed '<id>#therapy-<k>') gets '#therapy-<i>' /
+// '#study-<i>' appended, so an identifier equal to a generated suffix cannot collide. Only a therapy with a known
+// strategy produces an id (Python drops the others before _rid); every study does.
+group RdTherapies(source src, source pl, source ck, source pid, source dxid, target cp : CarePlan, target cnt : Parameters, target rids : Parameters, target bundle : Bundle) {
+  pl.recommendedTherapies as rt -> (%cnt.parameter.count()) as i, cnt.parameter as p, p.name = 'i'
+     then RdTherapyItem(src, pl, rt, i, ck, pid, dxid, cp, rids, bundle) "item";
+}
+
+group RdTherapyItem(source src, source pl, source rt, source i, source ck, source pid, source dxid, target cp : CarePlan, target rids : Parameters, target bundle : Bundle) {
+  rt where (strategy in ('systemicMedication' | 'targetedMedication' | 'preventionMedication' | 'genetic' | 'combination'
         | 'prophylactic' | 'earlyDetection' | 'nutrition' | 'other'))
-     -> (%pl.recommendedTherapies.select(iif($this = %rt, $index, {})).first().toString()) as i,
-        ('therapy:' & iif(%rt.identifier.exists() and %rt.identifier != '', %rt.identifier, 'therapy-' & %i)
-         & iif(%rt.identifier.exists() and %pl.recommendedTherapies.where(identifier = %rt.identifier).count() > 1, '#therapy-' & %i, '')) as role
+     -> (iif(%rt.identifier.exists() and %rt.identifier != '', %rt.identifier, 'therapy-' & %i.toString())) as base,
+        (%base & iif(%rids.parameter.where(value = %base).exists(), '#therapy-' & %i.toString(), '')) as rid,
+        rids.parameter as q, q.name = 'rid', q.value = rid, ('therapy:' & %rid) as role
      then RdTherapy(src, rt, role, ck, pid, dxid, cp, bundle) "therapy";
-  // study recommendations: the ResearchStudy first (once per register + id/title), then the request
-  pl.recommendedStudies as rs -> (%pl.recommendedStudies.select(iif($this = %rs, $index, {})).first().toString()) as i,
-        ('study:' & iif(%rs.identifier.exists() and %rs.identifier != '', %rs.identifier, 'study-' & %i)
-         & iif(%rs.identifier.exists() and %pl.recommendedStudies.where(identifier = %rs.identifier).count() > 1, '#study-' & %i, '')) as role,
+}
+
+// study recommendations: the ResearchStudy first (once per register + id/title), then the request
+group RdStudies(source src, source pl, source ck, source pid, source dxid, target cp : CarePlan, target cnt : Parameters, target rids : Parameters, target bundle : Bundle) {
+  pl.recommendedStudies as rs -> (%cnt.parameter.count()) as i, cnt.parameter as p, p.name = 'i',
+        (iif(%rs.identifier.exists() and %rs.identifier != '', %rs.identifier, 'study-' & %i.toString())) as base,
+        (%base & iif(%rids.parameter.where(value = %base).exists(), '#study-' & %i.toString(), '')) as rid,
+        rids.parameter as q, q.name = 'rid', q.value = rid, ('study:' & %rid) as role,
         ('research-study:' & iif(%rs.register.exists(), %rs.register, '') & ':' & iif(%rs.id.exists() and %rs.id != '', %rs.id, %rs.name)) as srole
-     then RdStudy(src, pl, rs, role, srole, ck, pid, dxid, cp, bundle) "study";
+     then RdStudy(src, pl, rs, role, srole, ck, pid, dxid, cp, bundle) "item";
 }
 
 group RdTherapy(source src, source rt, source role, source ck, source pid, source dxid, target cp : CarePlan, target bundle : Bundle) {
@@ -717,7 +817,7 @@ group RdTherapyNonMed(source src, source rt, source pid, source dxid, target r :
 // identifier, status/intent, category (strategy + type), subject, authoredOn, reasonReference (variants + diagnosis), notes
 group RdTherapyCommon(source src, source rt, source pid, source dxid, target r, target bundle : Bundle) {
   rt.identifier as id where (id != '') -> r.identifier as ri, ri.system = 'https://genomde.de/fhir/sid/kdk-object-id',
-        ri.value = (%src.metaData.submission.submitterId & '|' & iif(%src.metaData.localCaseId.exists() and %src.metaData.localCaseId != '', %src.metaData.localCaseId, %src.metaData.tanC) & '|' & %id) "identifier";
+        ri.value = (%src.metaData.submission.submitterId.replace('\\', '\\\\').replace('|', '\\|') & '|' & iif(%src.metaData.localCaseId.exists() and %src.metaData.localCaseId != '', %src.metaData.localCaseId, %src.metaData.tanC).replace('\\', '\\\\').replace('|', '\\|') & iif(%src.metaData.submission.type = 'test', '|test', '') & '|' & %id.replace('\\', '\\\\').replace('|', '\\|')) "identifier";
   rt -> r.status = 'active', r.intent = 'proposal' "status";
   rt.strategy as s -> r.category as cat, cat.coding as c,
         c.system = 'https://www.medizininformatik-initiative.de/fhir/ext/modul-seltene/CodeSystem/mii-cs-seltene-therapieempfehlung-strategie',
@@ -742,13 +842,14 @@ group RdTherapyCommon(source src, source rt, source pid, source dxid, target r, 
   rt.strategyCombination as sc where (sc != '') -> r.note as n, n.text = ('Kombinationstherapie: ' & %sc) "strategyCombination";
 }
 
-// variants[] (pre-1.6.5 'variantReferences', a logical-model extra) -> reasonReference to the variante with that
+// variants[] (pre-1.6.5 'variantReferences', a logical-model extra, read when variants is absent or [] on both paths:
+// matchbox parses [] as absent, rd/careplan.py _variant_refs treats it so) -> reasonReference to the variante with that
 // identifier (molecular-finding-id); iterating the Bundle built so far links each variant once, the first occurrence
 // of a duplicated id
 group RdVariantReasons(source b, source rec, source src, target r) {
   b.entry as ve where (resource.meta.profile contains 'https://www.medizininformatik-initiative.de/fhir/ext/modul-molgen/StructureDefinition/variante'
         and resource.identifier.where(system = 'https://genomde.de/fhir/sid/molecular-finding-id'
-            and value in iif(%rec.variants.exists(), %rec.variants, %rec.variantReferences).select(%src.metaData.submission.submitterId & '|' & iif(%src.metaData.localCaseId.exists() and %src.metaData.localCaseId != '', %src.metaData.localCaseId, %src.metaData.tanC) & '|' & $this)).exists()
+            and value in iif(%rec.variants.exists(), %rec.variants, %rec.variantReferences).select(%src.metaData.submission.submitterId.replace('\\', '\\\\').replace('|', '\\|') & '|' & iif(%src.metaData.localCaseId.exists() and %src.metaData.localCaseId != '', %src.metaData.localCaseId, %src.metaData.tanC).replace('\\', '\\\\').replace('|', '\\|') & iif(%src.metaData.submission.type = 'test', '|test', '') & '|' & $this.replace('\\', '\\\\').replace('|', '\\|'))).exists()
         and %b.entry.where(resource.meta.profile contains 'https://www.medizininformatik-initiative.de/fhir/ext/modul-molgen/StructureDefinition/variante'
             and resource.identifier.where(system = 'https://genomde.de/fhir/sid/molecular-finding-id').value = %ve.resource.identifier.where(system = 'https://genomde.de/fhir/sid/molecular-finding-id').value)
             .first().fullUrl = %ve.fullUrl)
@@ -757,7 +858,7 @@ group RdVariantReasons(source b, source rec, source src, target r) {
 
 group RdStudy(source src, source pl, source rs, source role, source srole, source ck, source pid, source dxid, target cp : CarePlan, target bundle : Bundle) {
   // ResearchStudy: not for yesButStudyIsUnknown, only with an id or a real (non-placeholder) name, once per register + id/title
-  rs where (register.where($this = 'yesButStudyIsUnknown').exists().not() and (id.where($this != '').exists() or name.where($this.trim().lower().matches('^(|n/a|na|unknown|-)$').not()).exists())
+  rs where (register.where($this = 'yesButStudyIsUnknown').exists().not() and (id.where($this != '').exists() or name.where($this.replaceMatches('^[\\t\\n\\x0B\\f\\r\\x1C-\\x20\\x85\\xA0\\u1680\\u2000-\\u200A\\u2028\\u2029\\u202F\\u205F\\u3000]+|[\\t\\n\\x0B\\f\\r\\x1C-\\x20\\x85\\xA0\\u1680\\u2000-\\u200A\\u2028\\u2029\\u202F\\u205F\\u3000]+$', '').lower().matches('^(|n/a|na|unknown|-|unbekannt|k[.]a[.]|k[.] a[.]|keine angabe|n[.]a[.])$').not()).exists())
         and %bundle.entry.where(resource.identifier.where(system = 'https://genomde.de/fhir/sid/resource-key' and value = (%ck & ':' & %srole).encode('urlbase64')).exists()).exists().not())
      -> bundle.entry as e, e.resource = create('ResearchStudy') as st, uuid() as fid
      then DkEntry(ck, srole, fid, e, st), RdResearchStudy(rs, st) "research-study";
@@ -774,7 +875,7 @@ group RdResearchStudy(source rs, target st : ResearchStudy) {
   // register 'other' (or none): identifier without system, register named in type.text
   rs.id as sid where (sid != '' and %rs.register.where($this in ('NCT' | 'DRKS' | 'Eudra-CT/CTIS')).exists().not())
      -> st.identifier as i, i.type as t, t.text = ('Studienregister: ' & iif(%rs.register.exists() and %rs.register != '', %rs.register, 'unbekannt')), i.value = sid "identifier-other";
-  rs.name as n where (n.trim().lower().matches('^(|n/a|na|unknown|-)$').not()) -> st.title = n "title";
+  rs.name as n where (n.replaceMatches('^[\\t\\n\\x0B\\f\\r\\x1C-\\x20\\x85\\xA0\\u1680\\u2000-\\u200A\\u2028\\u2029\\u202F\\u205F\\u3000]+|[\\t\\n\\x0B\\f\\r\\x1C-\\x20\\x85\\xA0\\u1680\\u2000-\\u200A\\u2028\\u2029\\u202F\\u205F\\u3000]+$', '').lower().matches('^(|n/a|na|unknown|-|unbekannt|k[.]a[.]|k[.] a[.]|keine angabe|n[.]a[.])$').not()) -> st.title = n "title";
   // status 1..1 without an 'unknown' code: a study recommended for inclusion is taken to be open for accrual
   rs -> st.status = 'active' "status";
 }
@@ -782,7 +883,7 @@ group RdResearchStudy(source rs, target st : ResearchStudy) {
 group RdStudyRequest(source src, source rs, source srole, source ck, source pid, source dxid, target req : ServiceRequest, target bundle : Bundle) {
   rs -> req.meta as m, m.profile = 'https://www.medizininformatik-initiative.de/fhir/ext/modul-seltene/StructureDefinition/mii-pr-seltene-studieneinschluss-anfrage' "profile";
   rs.identifier as id where (id != '') -> req.identifier as ri, ri.system = 'https://genomde.de/fhir/sid/kdk-object-id',
-        ri.value = (%src.metaData.submission.submitterId & '|' & iif(%src.metaData.localCaseId.exists() and %src.metaData.localCaseId != '', %src.metaData.localCaseId, %src.metaData.tanC) & '|' & %id) "identifier";
+        ri.value = (%src.metaData.submission.submitterId.replace('\\', '\\\\').replace('|', '\\|') & '|' & iif(%src.metaData.localCaseId.exists() and %src.metaData.localCaseId != '', %src.metaData.localCaseId, %src.metaData.tanC).replace('\\', '\\\\').replace('|', '\\|') & iif(%src.metaData.submission.type = 'test', '|test', '') & '|' & %id.replace('\\', '\\\\').replace('|', '\\|')) "identifier";
   rs -> req.status = 'active', req.intent = 'proposal' "status";
   rs -> req.category as cat, cat.coding as c, c.system = 'http://snomed.info/sct', c.code = '110465008', c.display = 'Clinical trial (procedure)' "category";
   rs -> req.code as cc, cc.coding as c, c.system = 'http://snomed.info/sct', c.code = '702475000', c.display = 'Referral to clinical trial (procedure)' "code";
@@ -798,32 +899,37 @@ group RdStudyRequest(source src, source rs, source srole, source ck, source pid,
   rs where (%bundle.entry.where(resource.identifier.where(system = 'https://genomde.de/fhir/sid/resource-key' and value = (%ck & ':' & %srole).encode('urlbase64')).exists()).exists())
      -> req.supportingInfo as si, si.reference = (%bundle.entry.where(resource.identifier.where(system = 'https://genomde.de/fhir/sid/resource-key'
         and value = (%ck & ':' & %srole).encode('urlbase64')).exists()).first().fullUrl) "supportingInfo";
-  // yesButStudyIsUnknown: a non-placeholder name / id goes to the note
-  rs where (register = 'yesButStudyIsUnknown' and (name.where($this.trim().lower().matches('^(|n/a|na|unknown|-)$').not()).exists()
-        or id.where($this.trim().lower().matches('^(|n/a|na|unknown|-)$').not()).exists()))
-     -> req.note as n, n.text = ('Empfohlene Studie (nicht identifiziert): ' & (%rs.name.where($this.trim().lower().matches('^(|n/a|na|unknown|-)$').not())
-        | %rs.id.where($this.trim().lower().matches('^(|n/a|na|unknown|-)$').not())).join(' ')) "study-unknown-note";
+  // yesButStudyIsUnknown: a non-placeholder name / id goes to the note, name first (rd/careplan._real: '', 'n/a', 'na',
+  // 'unknown', '-', 'unbekannt', 'k.a.', 'k. a.', 'keine angabe', 'n.a.'; stripped of str.strip() whitespace, any case); combine, not '|': a name
+  // equal to the id is written twice, as Python joins both
+  rs where (register = 'yesButStudyIsUnknown' and (name.where($this.replaceMatches('^[\\t\\n\\x0B\\f\\r\\x1C-\\x20\\x85\\xA0\\u1680\\u2000-\\u200A\\u2028\\u2029\\u202F\\u205F\\u3000]+|[\\t\\n\\x0B\\f\\r\\x1C-\\x20\\x85\\xA0\\u1680\\u2000-\\u200A\\u2028\\u2029\\u202F\\u205F\\u3000]+$', '').lower().matches('^(|n/a|na|unknown|-|unbekannt|k[.]a[.]|k[.] a[.]|keine angabe|n[.]a[.])$').not()).exists()
+        or id.where($this.replaceMatches('^[\\t\\n\\x0B\\f\\r\\x1C-\\x20\\x85\\xA0\\u1680\\u2000-\\u200A\\u2028\\u2029\\u202F\\u205F\\u3000]+|[\\t\\n\\x0B\\f\\r\\x1C-\\x20\\x85\\xA0\\u1680\\u2000-\\u200A\\u2028\\u2029\\u202F\\u205F\\u3000]+$', '').lower().matches('^(|n/a|na|unknown|-|unbekannt|k[.]a[.]|k[.] a[.]|keine angabe|n[.]a[.])$').not()).exists()))
+     -> req.note as n, n.text = ('Empfohlene Studie (nicht identifiziert): ' & (%rs.name.where($this.replaceMatches('^[\\t\\n\\x0B\\f\\r\\x1C-\\x20\\x85\\xA0\\u1680\\u2000-\\u200A\\u2028\\u2029\\u202F\\u205F\\u3000]+|[\\t\\n\\x0B\\f\\r\\x1C-\\x20\\x85\\xA0\\u1680\\u2000-\\u200A\\u2028\\u2029\\u202F\\u205F\\u3000]+$', '').lower().matches('^(|n/a|na|unknown|-|unbekannt|k[.]a[.]|k[.] a[.]|keine angabe|n[.]a[.])$').not())
+        .combine(%rs.id.where($this.replaceMatches('^[\\t\\n\\x0B\\f\\r\\x1C-\\x20\\x85\\xA0\\u1680\\u2000-\\u200A\\u2028\\u2029\\u202F\\u205F\\u3000]+|[\\t\\n\\x0B\\f\\r\\x1C-\\x20\\x85\\xA0\\u1680\\u2000-\\u200A\\u2028\\u2029\\u202F\\u205F\\u3000]+$', '').lower().matches('^(|n/a|na|unknown|-|unbekannt|k[.]a[.]|k[.] a[.]|keine angabe|n[.]a[.])$').not()))).join(' ')) "study-unknown-note";
 }
 
 // ================================================================================================================
-// followUp.followUpRds[] (rd/followup.py); role 'followup:<followUpDate>' (+ ':<index>' when two share the date)
+// followUp.followUpRds[] (rd/followup.py); role 'followup:<followUpDate>'; a repeated date keys the first follow-up by
+// the date and the later ones by '<date>#<index>' (also without a date), as onco.followup
 // ================================================================================================================
 
 group RdFollowUps(source src, source fu, source ck, source pid, source dxid, target bundle : Bundle) {
-  fu.followUpRds as f -> ('followup:' & iif(%f.followUpDate.exists(), %f.followUpDate, '')
-        & iif(%fu.followUpRds.where(followUpDate = %f.followUpDate).count() > 1 or %f.followUpDate.exists().not(),
-              ':' & %fu.followUpRds.select(iif($this = %f, $index, {})).first().toString(), '')) as fk
-     then RdFollowUp(src, f, fk, ck, pid, dxid, bundle) "followup";
+  fu -> create('Parameters') as cnt then RdFollowUpItems(src, fu, ck, pid, dxid, cnt, bundle) "followups";
 }
 
-group RdFollowUp(source src, source f, source fk, source ck, source pid, source dxid, target bundle : Bundle) {
+group RdFollowUpItems(source src, source fu, source ck, source pid, source dxid, target cnt : Parameters, target bundle : Bundle) {
+  fu.followUpRds as f -> (%cnt.parameter.count()) as i, cnt.parameter as p, p.name = 'i',
+        ('followup:' & iif(%f.followUpDate.exists() and %fu.followUpRds.take(%i).where(followUpDate = %f.followUpDate).exists().not(),
+              %f.followUpDate, iif(%f.followUpDate.exists(), %f.followUpDate, '') & '#' & %i.toString())) as fk,
+        create('Parameters') as hcnt
+     then RdFollowUp(src, f, fk, ck, pid, dxid, hcnt, bundle) "followup";
+}
+
+group RdFollowUp(source src, source f, source fk, source ck, source pid, source dxid, target hcnt : Parameters, target bundle : Bundle) {
   f where (diagnosisEstablished.exists() or diseaseProgression.where($this != '').exists())
      -> bundle.entry as e, e.resource = create('ClinicalImpression') as ci, uuid() as fid, (%fk & ':impression') as role
      then DkEntry(ck, role, fid, e, ci), RdImpression(src, f, pid, dxid, ci) "impression";
-  f.phenotypes as ph where (code.exists() and code != '')
-     -> bundle.entry as e, e.resource = create('Observation') as obs, uuid() as fid,
-        (%fk & ':hpo:' & %f.phenotypes.select(iif($this = %ph, $index, {})).first().toString()) as role
-     then DkEntry(ck, role, fid, e, obs), RdFollowUpHpo(f, ph, ck, pid, obs, bundle) "hpo";
+  f.phenotypes as ph -> (%hcnt.parameter.count()) as j, hcnt.parameter as p, p.name = 'j' then RdFollowUpHpoItem(f, ph, j, fk, ck, pid, bundle) "hpo";
   f.gmfcs as g where (g = 'I' or g = 'II' or g = 'III' or g = 'IV' or g = 'V')
      -> bundle.entry as e, e.resource = create('Observation') as obs, uuid() as fid, (%fk & ':gmfcs') as role,
         (iif(%f.followUpDate.exists(), %f.followUpDate, '')) as date
@@ -831,6 +937,13 @@ group RdFollowUp(source src, source f, source fk, source ck, source pid, source 
   f.vitalStatus as vs where (vs = 'living' or vs = 'deceased')
      -> bundle.entry as e, e.resource = create('Observation') as obs, uuid() as fid, (%fk & ':vitalstatus') as role
      then DkEntry(ck, role, fid, e, obs), RdVitalStatus(f, vs, pid, obs) "vitalstatus";
+}
+
+// j = position in phenotypes[]
+group RdFollowUpHpoItem(source f, source ph, source j, source fk, source ck, source pid, target bundle : Bundle) {
+  ph where (code.exists() and code != '')
+     -> bundle.entry as e, e.resource = create('Observation') as obs, uuid() as fid, (%fk & ':hpo:' & %j.toString()) as role
+     then DkEntry(ck, role, fid, e, obs), RdFollowUpHpo(f, ph, ck, pid, obs, bundle) "hpo";
 }
 
 // summary = diseaseProgression; diagnosisEstablished true -> finding = the diagnosis; otherwise the flag as note

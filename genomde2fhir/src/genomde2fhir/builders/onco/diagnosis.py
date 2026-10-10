@@ -6,7 +6,9 @@ Rows (mapping_kdk_oncology.csv, case.diagnosisOd.*):
          Feststellungsdatum (condition-assertedDate) + recordedDate = date, ICD-O-3 morphology extension and
          bodySite.coding:icd-o-3 (HL7 URI fixed by the profile, version 2014/2019 = the MII VS editions); each
          ICD-O-3 field is placed by the axis of its code (M/T codes swapped by the sender are accepted with a
-         warning), anything else is kept as Condition.note (preserved),
+         warning), anything else is kept as Condition.note (preserved), except the placeholder 'T' (root of the
+         ICD-O-3 topography axis = topography not specified, outside mii-vs-onko-icdo3-topographie), which is
+         dropped with that reason,
          category:onkologie SNOMED 55342001 (mandatory in 2027, harmless in 2026; REPRESENTATIONS #8).
          clinicalStatus / verificationStatus are not in the source and are not emitted.
 - additionalDiagnoses[] -> one MII Diagnose Condition per item (ICD-10-GM / Orphanet / Alpha-ID by source system).
@@ -19,8 +21,12 @@ Rows (mapping_kdk_oncology.csv, case.diagnosisOd.*):
 - libraryType -> ServiceRequest MolGen anforderung-genetischer-test (sequencing indicated), code from
          mii-cs-mtb-genomic-analysis-method-type;
          `none` -> no request (dropped: no sequencing indicated). Registered as ctx.refs['sequencing_request'].
-- additionalClassification[] -> mii-pr-onko-weitere-klassifikationen (code.text = system, value.text = key; DNPM
-         kds-tumor-spread keys also get the SNOMED coding of mii-vs-mtb-tumorausbreitung, preferred binding).
+- additionalClassification[] -> mii-pr-onko-weitere-klassifikationen (code.text = system, value.text = key), except the
+         DNPM tumour spread (system dnpm-dip/mtb/diagnosis/kds-tumor-spread, a key of TUMOR_SPREAD): the dedicated
+         mii-pr-mtb-tumorausbreitung (code SNOMED 371508000, category ErstdiagnoseZeitpunkt 473302008 = state at
+         diagnosis as the DNPM model defines the list; value coding:Tumorausbreitung, key as text; effective[x] 1..1 =
+         mainDiagnosis.date, data-absent-reason without it), linked from the primary tumour as
+         Condition.stage:ErstdiagnoseZeitpunkt (type NCIt C19251, 0..1: further items stay unlinked, warned).
 - diagnosticAssessment -> Observation with mvgs-cs-genetic-diagnostic-assessment (REPRESENTATIONS #5, preserved).
 TNM and ECOG are separate modules (onco.tnm, onco.ecog) that run after this one.
 """
@@ -36,6 +42,7 @@ P_GRADING = ONKO + "StructureDefinition/mii-pr-onko-grading"
 P_HPO = SELTENE + "StructureDefinition/mii-pr-seltene-hpo-assessment"
 P_WEITERE = ONKO + "StructureDefinition/mii-pr-onko-weitere-klassifikationen"
 P_REQUEST = MOLGEN + "StructureDefinition/anforderung-genetischer-test"
+P_TUMOR_SPREAD = MTB + "StructureDefinition/mii-pr-mtb-tumorausbreitung"
 
 EXT_ASSERTED = FHIR_EXT + "condition-assertedDate"
 EXT_MORPHOLOGY = ONKO + "StructureDefinition/mii-ex-onko-histology-morphology-behavior-icdo3"
@@ -68,6 +75,11 @@ LIBRARY_TYPE = {  # KDK libraryType -> mii-cs-mtb-genomic-analysis-method-type
     "wgs_lr": ("whole-genom-sequencing", "Whole Genom Sequencing (WGS)", "Whole genome sequencing, long read"),
 }
 TUMOR_SPREAD_SYSTEM = "dnpm-dip/mtb/diagnosis/kds-tumor-spread"
+TUMOR_SPREAD_CODE = {"coding": [{"system": SNOMED, "code": "371508000", "display": "Tumor stage"}]}
+CAT_AT_DIAGNOSIS = {"coding": [{"system": SNOMED, "code": "473302008", "display": "Aware of diagnosis"}]}
+# Condition.stage:ErstdiagnoseZeitpunkt.type pattern (NCIt as fixed by the MTB profile, see molecular_biomarkers.NCIT_MTB)
+STAGE_AT_DIAGNOSIS = {"coding": [{"system": "https://nih-ncpi.github.io/ncpi-fhir-ig/CodeSystem-ncit.html",
+                                  "code": "C19251", "display": "Stage at Diagnosis"}]}
 TUMOR_SPREAD = {  # DNPM kds-tumor-spread -> mii-vs-mtb-tumorausbreitung (SNOMED)
     "tumor-free": ("58899004", "No evidence of tumor"),
     "local": ("255127006", "Local tumor spread"),
@@ -159,6 +171,12 @@ def icdo3_slots(ctx, d: dict) -> tuple[dict, list]:
         if not item.get("code") or field in done:
             continue
         p, code, got = D + field + ".", item["code"], icdo3_axis(item["code"])
+        if str(code).strip().upper() == "T":   # topography-axis root ('Topographie'): no site information
+            for k in ICDO3_KEYS:
+                if item.get(k) not in (None, ""):
+                    ctx.drop(p + k, item[k], "placeholder 'T' = ICD-O-3 topography-axis root (topography not "
+                                             "specified); outside mii-vs-onko-icdo3-topographie (descendent-of T)")
+            continue
         c = icdo3_coding(ctx, item, got, p + "code")[0] if got else None
         if got and got not in slots:
             slots[got] = c
@@ -264,6 +282,7 @@ def germline_diagnoses(ctx, d: dict):
             cond["verificationStatus"] = cc(coding(COND_VER, vs[0], vs[1]))
             paths.append(D + "germlineDiagnosisConfirmed")
         ctx.add(cond, *paths)
+        ctx.cover_undeclared(*_paths(p, item, "date"))   # not in the KDK schema, converted by _diagnose
 
 
 # ---- grading --------------------------------------------------------------------------------------------------------
@@ -347,12 +366,43 @@ def additional_classifications(ctx, d: dict):
             if key:
                 ctx.drop(p + "key", key, "classification without system (Observation.code.text 1..1)")
             continue
-        value = None
-        if key:
-            sct = TUMOR_SPREAD.get(key) if system == TUMOR_SPREAD_SYSTEM else None
-            value = cc(coding(SNOMED, sct[0], sct[1]) if sct else None, text=key)
+        if system == TUMOR_SPREAD_SYSTEM and key in TUMOR_SPREAD:
+            tumor_spread(ctx, d, i, key)
+            ctx.cover(p + "system", p + "key")
+            continue
+        value = cc(text=key) if key else None   # an unknown tumour-spread key has no mii-vs-mtb-tumorausbreitung code
         o = weitere_klassifikation(ctx, ("additional-classification", i), system, value)
         ctx.add(o, *_paths(p, item, "system", "key"))
+
+
+def tumor_spread(ctx, d: dict, i: int, key: str):
+    """DNPM kds-tumor-spread -> mii-pr-mtb-tumorausbreitung + Condition.stage:ErstdiagnoseZeitpunkt of the primary."""
+    o = ctx.new("Observation", "additional-classification", i, profile=P_TUMOR_SPREAD)
+    o["status"] = "final"
+    o["category"] = [CAT_AT_DIAGNOSIS]
+    o["code"] = TUMOR_SPREAD_CODE
+    o["subject"] = ctx.patient
+    primary_ref = ctx.refs.get("primary")
+    if primary_ref:
+        o["focus"] = [primary_ref]
+    date = (d.get("mainDiagnosis") or {}).get("date")
+    if date:   # the list is the state at diagnosis (category ErstdiagnoseZeitpunkt) -> date of the main diagnosis
+        o["effectiveDateTime"] = date
+    else:      # effective[x] 1..1; only reached with --no-check input (the schema requires the diagnosis date)
+        o["_effectiveDateTime"] = {"extension": [dar_ext("unknown")]}
+    sct, display = TUMOR_SPREAD[key]
+    o["valueCodeableConcept"] = cc(coding(SNOMED, sct, display), text=key)
+    ref = ctx.add(o)
+    ctx.rep("tumor-spread-mtb-tumorausbreitung")
+    cond = ctx.resource(primary_ref)
+    if cond is None:
+        return
+    if any(st.get("type") == STAGE_AT_DIAGNOSIS for st in cond.get("stage", [])):   # slice 0..1
+        ctx.warn(D + "additionalClassification[].key",
+                 f"second tumour-spread item {key!r}: Condition.stage:ErstdiagnoseZeitpunkt is 0..1; "
+                 f"Observation emitted without stage link")
+        return
+    cond.setdefault("stage", []).append({"type": STAGE_AT_DIAGNOSIS, "assessment": [ref]})
 
 
 # ---- genetic diagnostic assessment (hereditary tumour cases) -------------------------------------------------------------

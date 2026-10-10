@@ -32,10 +32,11 @@ MB = os.environ.get("MB2027")
 HAPI = os.environ.get("HAPI2027", "http://localhost:8092/fhir")
 MAP = "https://genomde.de/fhir/StructureMap/DatenkranzOncologyToMii"
 SID_FINDING = "https://genomde.de/fhir/sid/molecular-finding-id"
-FILES = [  # NCT (small + RNA fusion + biomarkers incl. ploidy + SBS), DNPM (108 findings, CNV-heavy), ukdd (small variant + DNA fusion + CNV)
-    "example-data/synthData-v1/nct/case_036.json",
-    "example-data/synthData-v1/dnpm/OncologySubmission_B2A88F25BF17D1913417EFC81DE39E22CF2047AED143BEA183C33BBB000AFD68.json",
-    "example-data/synthData-v1/ukdd/synth_json_501.json",
+FILES = [  # small variants + RNA fusion + biomarkers incl. ploidy + SBS + expression, DNPM (108 findings, CNV-heavy),
+           # every CNV / SV enum incl. DNA and RNA fusions (all tracked in git)
+    "genomde2fhir/tests/fixtures/onco_biomarkers/synthetic_biomarkers.json",
+    "example-data/oncology/OncologySubmission_B2A88F25BF17D1913417EFC81DE39E22CF2047AED143BEA183C33BBB000AFD68.json",
+    "genomde2fhir/tests/fixtures/onco_cnv_sv/cnv_sv_enums.json",
 ]
 
 
@@ -170,11 +171,12 @@ def check_file(f: str, mb: Matchbox, ingest: bool = True, dk: dict | None = None
     res["content_errors_all"] = sum(1 for r in v["resources"] for i in r["issues"] if i["class"] == "content")
     res["content_errors"] = _content(v, fml["entry"], mine | {ep})
     if res["content_errors"]:
+        # the Python bundle validated the same way as the FML one (whole bundle, bundle level), so that issues raised
+        # in bundle context (result slices of the NGS report) are classified alike on both sides
         py_mine, py_ep = molecular_urls(py)
-        sub = {"entry": [e for e in py["entry"] if e["fullUrl"] in py_mine | {py_ep}]}
-        vp = validate_bundle(sub, mb, bundle_level=False, source=dk)
+        vp = validate_bundle(py, mb, source=dk)
         strip = lambda s: s.split(" :: ", 1)[0].split(":")[0] + " :: " + s.split(" :: ", 1)[1]  # noqa: E731
-        py_errs = collections.Counter(strip(x) for x in _content(vp, sub["entry"], py_mine | {py_ep}))
+        py_errs = collections.Counter(strip(x) for x in _content(vp, py["entry"], py_mine | {py_ep}))
         fml_errs = collections.Counter(strip(x) for x in res["content_errors"])
         res["python_content_errors"] = sorted(py_errs.elements())
         res["content_errors_not_in_python"] = sorted((fml_errs - py_errs).elements())
@@ -203,7 +205,7 @@ def _set(d, **kw):
 
 
 GENE = {"code": "HGNC:1100", "display": "BRCA1", "system": "https://www.genenames.org/"}
-# Edge cases the corpus lacks, applied to FILES[0] (NCT; Python converts them with check_input=False)
+# Edge cases the corpus lacks, applied to FILES[0] (synthetic biomarkers; Python converts them with check_input=False)
 MUTATIONS = {
     "expression": lambda dk: _set(_mol(dk), expressionVariants=[
         {"identifier": "ev-1", "gene": GENE, "expressionType": "highExpression", "reference": "TCGA cohort"},
@@ -275,7 +277,7 @@ def _assert_clean(r):
 @pytest.mark.parametrize("f", FILES)
 def test_onco_molecular(mb, f):
     if not (REPO / f).is_file():
-        pytest.skip(f"{f} not in this checkout")
+        pytest.fail(f"{f} not in this checkout")
     r = check_file(f, mb)
     _assert_clean(r)
     assert r["equal"] >= 5
@@ -288,7 +290,7 @@ def test_onco_molecular(mb, f):
 def test_onco_molecular_edge_cases(mb, mutation):
     f = FILES[0]
     if not (REPO / f).is_file():
-        pytest.skip(f"{f} not in this checkout")
+        pytest.fail(f"{f} not in this checkout")
     dk = json.loads((REPO / f).read_text(encoding="utf-8"))
     MUTATIONS[mutation](dk)
     r = check_file(f, mb, ingest=mutation == "duplicate-ids", dk=dk, label=f"{f} [{mutation}]")

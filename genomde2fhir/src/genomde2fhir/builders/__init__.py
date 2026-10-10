@@ -8,11 +8,14 @@ Shared reference names (ctx.refs, set by `ctx.add(..., name=)`):
   GRZ: genomic_study, lab, org_<role> (genomic data center / clinical data node).
 Source-id lookups (ctx.ids, first occurrence wins for duplicated source ids):
   ("variant", id), ("therapy_recommendation", id), ("therapy_recommendation_group", id),
-  ("study_recommendation", id), ("preventive_measure", id), ("prior_procedure", index),
-  ("rd_phenotype", hpo code), ("donor", pseudonym), ("specimen", pseudonym, labDataName),
-  ("genomic_study_analysis", pseudonym, labDataName).
-Collections (ctx.bag): ngs_results, rd_report_results, rd_prior_reports, episode_supporting,
-  careplan_activities, research_consents.
+  ("therapy_recommendation_member", recommendation id, ATC code) (per-substance MedicationRequest of a
+  recommendation: set by onco.careplan, read by onco.followup), ("study_recommendation", id),
+  ("preventive_measure", id), ("prior_procedure", index), ("rd_phenotype", hpo code), ("donor", pseudonym),
+  ("specimen", pseudonym, labDataName), ("genomic_study_analysis", pseudonym, labDataName).
+Collections (ctx.bag): ngs_results, ngs_biomarker_sets (onco.molecular_biomarkers -> onco.molecular_report:
+  (entry key, [refs]) per complexBiomarkers entry), rd_report_results, rd_prior_reports, episode_supporting,
+  careplan_activities, research_consents; per-file warn-once state: hgvs-unqualified-warned,
+  plan_split_variant_ids.
 
 Order matters: later builders reference resources registered in `ctx.refs` / `ctx.ids` by earlier ones
 (Patient first, then diagnoses, then molecular findings, then plans that cite them, then follow-ups).

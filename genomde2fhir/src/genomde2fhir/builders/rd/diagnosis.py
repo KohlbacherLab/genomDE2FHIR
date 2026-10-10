@@ -12,8 +12,9 @@ Resources
   partial -> differential, suspected -> provisional, no / further -> unconfirmed; the KDK literal's display goes to
   verificationStatus.text (keeps "partial" readable). furtherGeneticDiagnosticRecommended additionally yields a
   ServiceRequest (below). No clinicalStatus: the KDK does not state it.
-  code.coding from diagnoses[]: ICD-10-GM (slice icd10-gm, version 1..1), ORPHA (`https://www.orpha.net` ->
-  `http://www.orpha.net`, prefix `ORPHA:` stripped), Alpha-ID-SE (BfArM page URL -> `http://fhir.de/CodeSystem/bfarm/alpha-id`).
+  code.coding from diagnoses[]: ICD-10-GM (slice icd10-gm, version 1..1; DIMDI namespace -> BfArM), ORPHA
+  (`https://www.orpha.net` -> `http://www.orpha.net`, prefix `ORPHA:` stripped), Alpha-ID-SE (BfArM page URL / DIMDI
+  namespace -> `http://fhir.de/CodeSystem/bfarm/alpha-id`).
   onsetDateTime = symptomOnsetDate (YYYY-MM; 2027 closed onset to dateTime/Age, onsetPeriod removed);
   recordedDate (1..1) = molecularBoardDecisionDate.
   evidence: one entry `geneticEvidence` (SCT 106221001) -> the RD Befundbericht (built later by rd.report under the
@@ -60,9 +61,12 @@ ASSESSMENT = {
     "furtherGeneticDiagnosticRecommended": (P_CLINICAL, "unconfirmed", "Further genetic diagnostics recommended"),
 }
 
-# source system (lower-cased, trailing slash stripped) -> FHIR system
+# source system (lower-cased, trailing slash stripped) -> FHIR system; the former DIMDI namespace is normalised to
+# BfArM as in onco.diagnosis (SYSTEM_ALIASES), so the coding reaches the icd10-gm / alpha-id slice
 DX_SYSTEMS = {
     "http://fhir.de/codesystem/bfarm/icd-10-gm": ICD10GM,
+    "http://fhir.de/codesystem/dimdi/icd-10-gm": ICD10GM,
+    "http://fhir.de/codesystem/dimdi/alpha-id": ALPHA_ID,
     "https://www.orpha.net": ORPHA,
     "http://www.orpha.net": ORPHA,
     "https://www.bfarm.de/de/kodiersysteme/terminologien/alpha-id-se": ALPHA_ID,
@@ -103,7 +107,10 @@ def _dx_coding(ctx, dx: dict) -> dict | None:
         ctx.warn(PFX + "diagnoses[].system", f"unexpected diagnosis code system {system!r}; coding kept as delivered")
         target = system or None
     if target == ICD10GM:
-        return icd10gm(code, dx.get("display"), dx.get("version"))
+        c = icd10gm(code, dx.get("display"), dx.get("version"))
+        if c and c["code"] != str(code).strip().upper():
+            ctx.warn(PFX + "diagnoses[].code", f"ICD-10-GM code {code!r} normalised to {c['code']!r}")
+        return c
     return coding(target, code, dx.get("display"), dx.get("version"))
 
 

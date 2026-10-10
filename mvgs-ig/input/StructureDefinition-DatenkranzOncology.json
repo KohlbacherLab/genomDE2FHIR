@@ -234,7 +234,7 @@
     "id": "DatenkranzOncology.metaData.researchConsents.schemaVersion",
     "path": "DatenkranzOncology.metaData.researchConsents.schemaVersion",
     "short": "Schema version of de.medizininformatikinitiative.kerndatensatz.consent",
-    "definition": "Schema version of de.medizininformatikinitiative.kerndatensatz.consent Allowed values: '2025.0.1'.",
+    "definition": "Schema version of de.medizininformatikinitiative.kerndatensatz.consent Allowed values: '2025.0.1', '2025.0.2', '2025.0.3', '2025.0.4', '2026.0.0', '2026.0.1'.",
     "min": 0,
     "max": "1",
     "type": [
@@ -591,6 +591,19 @@
     "type": [
      {
       "code": "string"
+     }
+    ]
+   },
+   {
+    "id": "DatenkranzOncology.metaData.researchConsents.scope.contained",
+    "path": "DatenkranzOncology.metaData.researchConsents.scope.contained",
+    "short": "EXTRA: Consent.contained of the embedded MII Broad Consent (FHIR R4 Consent), migrated by research_consent.py; carrie",
+    "definition": "EXTRA (legacy/non-schema property accepted by genomde2fhir): Consent.contained of the embedded MII Broad Consent (FHIR R4 Consent), migrated by research_consent.py; carried over or used by the migration.",
+    "min": 0,
+    "max": "*",
+    "type": [
+     {
+      "code": "Resource"
      }
     ]
    },

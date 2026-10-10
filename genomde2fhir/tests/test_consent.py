@@ -62,7 +62,8 @@ def check_mv_consent(bundle, md):
 
 
 def check_broad(con, bundle, rc):
-    assert con["meta"] == {"profile": [BROAD]}
+    assert con["meta"]["profile"] == [BROAD]     # test submissions also carry meta.security HTEST
+    assert set(con["meta"]) <= {"profile", "security", "source"}   # meta.source: the submission (R43, IDENTITY.md)
     assert con["patient"] == {"reference": patient_ref(bundle)}
     assert con["dateTime"] == rc["presentationDate"]
     assert con["scope"]["coding"][0]["code"] == "research"

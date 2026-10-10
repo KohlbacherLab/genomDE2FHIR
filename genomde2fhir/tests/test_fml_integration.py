@@ -48,10 +48,12 @@ MAPS = {"oncology": "https://genomde.de/fhir/StructureMap/DatenkranzOncologyToMi
         "rare-disease": "https://genomde.de/fhir/StructureMap/DatenkranzRareDiseaseToMii",
         "grz": "https://genomde.de/fhir/StructureMap/DatenkranzGrzToMii"}
 MODELS = {"oncology": "DatenkranzOncology", "rare-disease": "DatenkranzRareDisease", "grz": "DatenkranzGrz"}
-FILES = {  # one per branch, each with non-schema properties (legacy keys / extras, exercises declared_shape)
-    "oncology": "example-data/oncology/OncologySubmission_2980C67615BFCCAC783BAB12CC54041D6D2EAE014112425D565A4F74E2860F05.json",
-    "rare-disease": "example-data/rarediseases/RareDiseasesSubmission_06B1EE824EDF30E43FAA6FF4DCFC5E00FD9A772ACCE0E4AD0BC593F6834F6566.json",
-    "grz": "example-data/synthData-v1/grz/submission/synth_submission_005.json",
+FILES = {  # one per branch, each with non-schema properties (legacy keys / extras, exercises declared_shape); the
+           # 2026-08-09 example files no longer carry the legacy keys, so KDK uses tracked fixtures that do
+           # (oncology: case.priorDiagnostic; rare disease: case.priorRd, plan.recommended*[].variantReferences)
+    "oncology": "genomde2fhir/tests/fixtures/onco_followup/followup_edge_cases.json",
+    "rare-disease": "genomde2fhir/tests/fixtures/consent/rd_rejected.json",
+    "grz": "genomde2fhir/tests/fixtures/grz_labdata/grz-labdata-rd-duo.json",
 }
 
 
@@ -131,7 +133,7 @@ def undeclared_paths(dk: dict, branch: str) -> list[str]:
 
 
 def _strip_empty(o):
-    """canonical() leaves 'identifier': [] when the resource key was the only identifier."""
+    """Drops empty lists (a no-op for identifier: canonical() omits the key when the resource key was the only one)."""
     if isinstance(o, dict):
         return {k: _strip_empty(v) for k, v in o.items() if v != []}
     if isinstance(o, list):
@@ -185,6 +187,8 @@ def ingest_twice(bundle: dict) -> dict:
         statuses = collections.Counter(str((e.get("response") or {}).get("status", "")).split(" ")[0]
                                        for e in resp.get("entry", []))
         out[run] = {"ok": ok, "statuses": dict(statuses), "new": sum(after[t] - before[t] for t in types),
+                    # HAPI merges entries with one conditional URL silently: one response per request entry (R26)
+                    "responses": len(resp.get("entry", [])), "requests": len(bundle["entry"]),
                     "error": None if ok else json.dumps(resp)[:300]}
     return out
 
@@ -200,6 +204,9 @@ def check(f: str, branch: str, mb: Matchbox, ingest: bool = False, validate: boo
         res["error"] = json.dumps(fml)[:600] if fml.get("resourceType") != "Bundle" else rep.error
         return res
     res["entries"], res["python_entries"] = len(fml["entry"]), len(py["entry"])
+    # two entries with one fullUrl or one conditional request.url collide in the transaction (R26)
+    res["duplicate_urls"] = sorted(u for u, n in collections.Counter(
+        [e["fullUrl"] for e in fml["entry"]] + [e["request"]["url"] for e in fml["entry"]]).items() if n > 1)
     fe, pe = (content_errors(fml, mb, raw), content_errors(py, mb, raw)) if validate else ({}, {})
     fe, pe = collections.Counter(fe), collections.Counter(pe)
     res["content_errors"] = sorted(fe.elements())
@@ -239,15 +246,17 @@ def mb():
 def test_integration(mb, branch):
     f = FILES[branch]
     if not (REPO / f).is_file():
-        pytest.skip(f"{f} not in this checkout")
+        pytest.fail(f"{f} not in this checkout")
     r = check(f, branch, mb, ingest=True)
     assert r["type"] == "Bundle", r
     assert r["content_errors_not_in_python"] == [], r["content_errors_not_in_python"]
     assert r["only_python"] == [] and r["only_fml"] == [], (r["only_python"], r["only_fml"])
     assert r["raw_only_python"] == [] and r["raw_only_fml"] == [], (r["raw_only_python"], r["raw_only_fml"])
     assert r["equal"] >= 10
+    assert r["duplicate_urls"] == [], r["duplicate_urls"]
     first, second = r["ingest"][1], r["ingest"][2]
     assert first["ok"] and second["ok"], r["ingest"]
+    assert first["responses"] == first["requests"] and second["responses"] == second["requests"], r["ingest"]
     assert second["new"] == 0 and set(second["statuses"]) == {"200"}, r["ingest"]
 
 
@@ -305,9 +314,11 @@ if __name__ == "__main__":
             if "ingest" in r:
                 tot["ingested"] += 1
                 i1, i2 = r["ingest"][1], r["ingest"][2]
-                tot["ingest_ok"] += i1["ok"] and i2["ok"] and i2["new"] == 0 and set(i2["statuses"]) == {"200"}
+                tot["ingest_ok"] += i1["ok"] and i2["ok"] and i2["new"] == 0 and set(i2["statuses"]) == {"200"} \
+                    and i2["responses"] == i2["requests"]
+            tot["duplicate_url_files"] += bool(r.get("duplicate_urls"))
             if r.get("error") or r.get("content_errors_not_in_python") or r.get("only_python") or r.get("only_fml") \
-                    or ("ingest" in r and r["ingest"][2]["new"]):
+                    or r.get("duplicate_urls") or ("ingest" in r and r["ingest"][2]["new"]):
                 print(json.dumps({k: v for k, v in r.items() if k not in ("raw_only_python", "raw_only_fml")},
                                  indent=1)[:4000])
         print(f"== {br}: {dict(tot)}")

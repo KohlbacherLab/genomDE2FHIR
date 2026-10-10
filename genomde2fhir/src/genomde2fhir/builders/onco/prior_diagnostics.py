@@ -20,12 +20,15 @@ Per prior test:
   hgvs-vs check = source data quality), representative-transcript-ref-seq (Ensembl/RefSeq system by prefix,
   REPRESENTATIONS #10), coding-change-type (all SO variantTypes as codings of one CodeableConcept, REPRESENTATIONS #11).
 
-The legacy single-object key `case.priorDiagnostic` (pre-1.6.5 synthetic data, same fields) is treated as one more entry.
+The legacy single-object key `case.priorDiagnostic` (pre-1.6.5 synthetic data, same fields) is treated as one more entry
+with the next array index as id part (0 without priorDiagnostics[], like rd.prior), so its resource ids equal those of
+the same test resent as priorDiagnostics[0] (docs/IDENTITY.md: prior diagnostics keep their array index).
 """
 from ...systems import GR, HGVS, LOINC, MTB, REFSEQ, SO
 from ... import terminology
 from ..common import cc, coding
-from .molecular_variants import hgnc_coding, qualify_hgvs, so_system, transcript_accession, transcript_system
+from .molecular_variants import (hgnc_coding, qualify_hgvs, so_system, transcript_accession, transcript_system,
+                                 warn_unqualified)
 from .prior_procedures import episode_add, ensure_episode
 
 P_REPORT = MTB + "StructureDefinition/mii-pr-mtb-ngs-bericht"
@@ -90,15 +93,15 @@ def _variant(ctx, key, j: int, v: dict, date: str | None) -> dict:
         if not raw:
             continue
         expr = qualify_hgvs(raw, acc, g.get("display") if kind == "p" else None)
-        if expr == raw and ":" not in raw:
-            ctx.rep("hgvs-unqualified")      # no usable reference sequence in the source (residual hgvs-vs error)
+        if expr == raw and ":" not in raw:   # no usable reference sequence in the source (residual hgvs-vs error)
+            warn_unqualified(ctx, SV + field, t, acc)
         comps.append(_component(loinc, display, cc(coding(HGVS, expr), text=raw if expr != raw else None)))
         paths.append(SV + field)
 
     if t.get("code"):
         system = transcript_system(str(t["code"]), t.get("system"))
         if system == REFSEQ:
-            ctx.rep("transcript-refseq-vs-ensembl-binding")   # MTB binds required to http://ensembl.org (DISCUSS-TD #10)
+            ctx.rep("transcript-refseq-vs-mtb-ensembl-binding")   # MTB binds required to http://ensembl.org (DISCUSS-TD #10)
         if not system:
             ctx.warn(SV + "transcript.system", f"transcript {t['code']!r} without a recognisable system")
         comps.append(_component("51958-7", "Transcript reference sequence [ID]",
@@ -157,16 +160,18 @@ def build(ctx):
     legacy = case.get("priorDiagnostic")
     if isinstance(legacy, dict) and legacy:
         ctx.warn("case.priorDiagnostic", "legacy single-object key (pre-KDK 1.6.5) treated as a priorDiagnostics entry")
-        items.append(("legacy", legacy))
+        items.append((len(items), legacy))
     if not items:
         return
     ensure_episode(ctx)
     valid_types = {c["code"] for c in terminology.code_system(CS_TEST_TYPE)["concept"]}
     for key, pd in items:
-        _report(ctx, key, pd, valid_types)
+        if _report(ctx, key, pd, valid_types) and pd is legacy:
+            ctx.cover_undeclared("case.priorDiagnostic")   # converted as a priorDiagnostics entry
 
 
 def _report(ctx, key, pd: dict, valid_types: set):
+    """The NGS report of one prior test; returns its reference, None when nothing is emitted (type 'none')."""
     ptype, date = pd.get("type"), pd.get("date")
     svs = pd.get("simpleVariants") or []
     cvs = [c for c in pd.get("complexVariants") or [] if c]
@@ -198,3 +203,4 @@ def _report(ctx, key, pd: dict, valid_types: set):
         ctx.rep("prior-complex-variants-conclusion")
     ref = ctx.add(rep, *paths)
     episode_add(ctx, ref)
+    return ref

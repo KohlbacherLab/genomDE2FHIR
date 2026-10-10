@@ -15,6 +15,7 @@
 
 uses "http://hl7.org/fhir/StructureDefinition/Bundle" alias Bundle as target
 uses "http://hl7.org/fhir/StructureDefinition/Patient" alias Patient as target
+uses "http://hl7.org/fhir/StructureDefinition/Organization" alias Organization as target
 uses "http://hl7.org/fhir/StructureDefinition/Coverage" alias Coverage as target
 uses "http://hl7.org/fhir/StructureDefinition/Consent" alias Consent as target
 uses "http://hl7.org/fhir/StructureDefinition/CarePlan" alias CarePlan as target
@@ -32,17 +33,34 @@ uses "http://hl7.org/fhir/StructureDefinition/Extension" alias Extension as targ
 // One transaction entry for a resource created by the caller in the same rule:
 //   x -> bundle.entry as e, e.resource = create('Type') as res, uuid() as fid, ('role') as role
 //     then DkEntry(ck, role, fid, e, res), Body(...) "rule";
-// ck   = case key 'kdk:<submitterId>:<localCaseId|tanC>' or 'grz:<submitterId>:<localCaseId|tanG>' (README)
+// ck   = 'kdk:<submitterId>:<CK>' or 'grz:<submitterId>:<CK>', CK = the escaped case id ('\\' -> '\\\\', '|' -> '\\|';
+//        localCaseId, else tanC / tanG) + '|test' for a test submission (identity.CaseKey.case_id, README)
 // role = semantic role (+ ':' + local id / index), unique per resource type within a case
 // fid  = uuid() of the entry; references to the resource are 'urn:uuid:' + fid (DkReference)
 // The resource key ck:role is stored base64url-encoded (FHIRPath encode('urlbase64')) in the identifier
 // https://genomde.de/fhir/sid/resource-key and used in the conditional PUT, so re-submissions update in place.
+// meta.source = the submission marker 'urn:genomde2fhir:submission:<submitterId>:<caseId>:<date>:<type>', the raw
+// components percent-encoded (identity.CaseKey.source / source_component, convert._label_source; docs/IDENTITY.md). The
+// main group computes it once next to ck and attaches it to the ck string as an extension (url
+// urn:genomde2fhir:meta-source), so it reaches every DkEntry call without a new parameter and without changing ck's
+// value (every resource key stays as it is). A ck read back from a Parameters loses the extension: OncoMolecular /
+// OncoPlanFollowUp re-attach it from the ctx parameter 'metaSource'. Without it (engine probes) no meta.source is written.
 group DkEntry(source ck, source role, source fid, target e, target res) {
   ck -> e.fullUrl = ('urn:uuid:' + %fid) "fullUrl";
-  ck -> res.identifier as id, id.system = 'https://genomde.de/fhir/sid/resource-key',
+  ck where (extension.where(url = 'urn:genomde2fhir:meta-source').exists()) -> res.meta as m,
+        m.source = (%ck.extension.where(url = 'urn:genomde2fhir:meta-source').value.first()) "meta-source";
+  ck where (%res.type().name != 'Patient') -> res.identifier as id, id.system = 'https://genomde.de/fhir/sid/resource-key',
         id.value = ((%ck & ':' & %role).encode('urlbase64')) "key";
+  // a Patient is the target of Consent.patient (mii-pr-consent-einwilligung -> ConsentManagement Patient, identifier.type
+  // 1..1): its resource key carries the type v2-0203 RI 'Resource identifier'
+  ck where (%res.type().name = 'Patient') -> res.identifier as id, id.system = 'https://genomde.de/fhir/sid/resource-key',
+        id.value = ((%ck & ':' & %role).encode('urlbase64')), id.type as ty, ty.coding as c,
+        c.system = 'http://terminology.hl7.org/CodeSystem/v2-0203', c.code = 'RI', c.display = 'Resource identifier' "key-patient";
   ck -> e.request as rq, rq.method = 'PUT',
         rq.url = (%res.type().name & '?identifier=https://genomde.de/fhir/sid/resource-key|' & (%ck & ':' & %role).encode('urlbase64')) "request";
+  // test submission (case key ending in an unescaped '|test'): every resource is labelled HTEST (docs/IDENTITY.md)
+  ck where (%ck.matches('(^|[^\\\\])(\\\\\\\\)*[|]test$')) -> res.meta as m, m.security as sc,
+        sc.system = 'http://terminology.hl7.org/CodeSystem/v3-ActReason', sc.code = 'HTEST', sc.display = 'test health data' "htest";
 }
 
 // Reference to a resource of this Bundle by its entry uuid (Patient reference passing: callers hand the Patient's
@@ -115,6 +133,26 @@ group DkPeriodEnd(source end, target p : Period) {
 }
 
 // ================================================================================================================
+// Submission Organizations (builders/submission.submission_organization), shared by GRZ submission.* and KDK
+// metaData.submission.* (same field names): core Organization, identifier <system>|<value>, name '<label> <value>'
+// ================================================================================================================
+
+group DkOrgSubmitter(source sub, target org : Organization) {
+  sub.submitterId as v -> org.identifier as id, id.system = 'https://genomde.de/fhir/sid/le-id', id.value = v,
+        org.active = true, org.name = ('Leistungserbringer (submitter) ' & %v) "org";
+}
+
+group DkOrgGdc(source sub, target org : Organization) {
+  sub.genomicDataCenterId as v -> org.identifier as id, id.system = 'https://genomde.de/fhir/sid/genomic-data-center', id.value = v,
+        org.active = true, org.name = ('Genomrechenzentrum ' & %v) "org";
+}
+
+group DkOrgKdk(source sub, target org : Organization) {
+  sub.clinicalDataNodeId as v -> org.identifier as id, id.system = 'https://genomde.de/fhir/sid/clinical-data-node', id.value = v,
+        org.active = true, org.name = ('Klinischer Datenknoten ' & %v) "org";
+}
+
+// ================================================================================================================
 // KDK Patient (builders/patient.py), shared by the oncology and rare-disease maps; md = metaData, pid = Patient fid
 // ================================================================================================================
 
@@ -125,11 +163,13 @@ group DkKdkPatient(source md, source ck, source pid, target bundle : Bundle) {
 
 group DkKdkPatientBody(source md, target pat : Patient) {
   md -> pat.meta as m, m.profile = 'https://www.medizininformatik-initiative.de/fhir/core/modul-person/StructureDefinition/PatientPseudonymisiert' "profile";
-  md.tanC as t -> pat.identifier as id, id.system = 'https://genomde.de/fhir/sid/tan-c', id.value = t,
+  md.tanC as t where (t != '') -> pat.identifier as id, id.system = 'https://genomde.de/fhir/sid/tan-c', id.value = t,
         id.type as ty, ty.coding as c, c.system = 'http://terminology.hl7.org/CodeSystem/v3-ObservationValue', c.code = 'PSEUDED' "tanC";
-  // local-case-id = '<submitterId>|<localCaseId>' (MR, assigner = LE id); only when the case key is the local case id
+  // local-case-id = '<submitterId>|<CK>' (escaped, '|test' for a test submission; MR, assigner = LE id); only when the
+  // case key is the local case id (CaseKey.scoped)
   md.localCaseId as l where (l != '') -> pat.identifier as id, id.system = 'https://genomde.de/fhir/sid/local-case-id',
-        id.value = (%md.submission.submitterId & '|' & %l),
+        id.value = (%md.submission.submitterId.replace('\\', '\\\\').replace('|', '\\|') & '|' & %l.replace('\\', '\\\\').replace('|', '\\|')
+                    & iif(%md.submission.type = 'test', '|test', '')),
         id.type as ty, ty.coding as c, c.system = 'http://terminology.hl7.org/CodeSystem/v2-0203', c.code = 'MR'
      then DkLocalCaseAssigner(md, id) "localCaseId";
   // gender: FHIR codes pass, anything else -> unknown; other needs gender-amtlich-de D (mii-pat-1)
@@ -206,7 +246,7 @@ group DkMvConsentBody(source mvc, source pid, target con : Consent) {
   mvc.presentationDate as d -> con.dateTime = d "dateTime";
   mvc where (presentationDate.exists().not()) -> con.dateTime = (%mvc.scope.where((domain = 'mvSequencing' or domain = 'reIdentification'
         or domain = 'caseIdentification') and (type = 'permit' or type = 'deny') and date.exists()).date.aggregate(iif($total.empty() or $this < $total, $this, $total))) "dateTime-scope";
-  mvc.version as v -> con.policyRule as pr, pr.text = v "policyRule";
+  mvc.version as v where (v != '') -> con.policyRule as pr, pr.text = v "policyRule";
   mvc.scope as sc where ((domain = 'mvSequencing' or domain = 'reIdentification' or domain = 'caseIdentification')
         and (type = 'permit' or type = 'deny') and date.exists())
      -> con.provision as top, top.provision as p, p.type = (%sc.type), p.period as per, per.start = (%sc.date),
@@ -220,20 +260,27 @@ group DkMvConsentBody(source mvc, source pid, target con : Consent) {
 // rc = metaData.researchConsents[] (KDK) or donors[].researchConsents[] (GRZ); role = 'research-consent:<i>' (KDK) or
 // 'research-consent:<donorPseudonym>:<i>' (GRZ), i = position in researchConsents[]; pid = Patient fid.
 // The logical models declare the Consent elements under researchConsents[].scope as extras (scripts/schema_to_logical.py
-// EXTRAS, FHIR datatypes at the leaves), so they are copied whole where the migration keeps them unchanged.
+// EXTRAS, FHIR datatypes at the leaves); the migration copies them datatype by datatype (DkRc* groups).
 // Migrated only when scope is a FHIR Consent with a status; otherwise Python emits nothing for the entry (an empty scope
 // with a noScopeJustification is the absence Observation of the branch maps).
-//   - id, meta, text, contained, implicitRules and the sender's patient are dropped; patient = our Patient,
-//     meta.profile = mii-pr-consent-einwilligung (versionless)
+//   - id, meta, text, implicitRules and the sender's patient are dropped; patient = our Patient,
+//     meta.profile = mii-pr-consent-einwilligung (versionless); contained: only the referenced resources, see below
 //   - scope = consentscope#research; category: mii-cs-consent-consent_category -> mii-cs-consent-version-modules,
 //     LOINC 57016-8 and the MII Broad Consent category (...2.184) added when missing
 //   - policy.uri / policy.authority: a bare OID -> 'urn:oid:<OID>'
 //   - dateTime = researchConsents[].presentationDate, else the embedded dateTime
-//   - references into the sender's system (not urn:uuid:/#) are removed (DkRcReference); a DomainReference extension
-//     is kept only when its domain still has a display, an identifier or an internal reference; sourceReference only
-//     with an internal reference (source[x].reference 1..1)
+//   - references into the sender's system (anything but '#'; a urn:uuid names an entry of the sender's Bundle) are
+//     removed (DkRcReference, research_consent._external); a DomainReference extension is kept only when its domain
+//     still has a display, an identifier or a '#' reference; sourceReference only with a resolvable '#' reference
+//     (source[x].reference 1..1)
+//   - policy.uri / policy.authority '#<id>' without a contained resource of that id is removed; a policy left without
+//     content does not count as a policy (no meta.profile, data-absent-reason policyRule), as after Python's prune()
+//   - empty strings are not copied (Python prune()): every carried-over element is copied by a typed group that leaves
+//     out '' (CodeableConcept, Coding, Period, Attachment, Identifier, Reference, primitive extension values)
 // Deliberate simplifications: references are stripped in Reference-typed elements, extension values (any depth) and
-// Identifier.assigner, not inside other datatypes (e.g. an Annotation author); Consent.provision is declared to depth 3.
+// Identifier.assigner, not inside other datatypes (e.g. an Annotation author); extension values of other complex types
+// (Quantity, Annotation, ...) are copied whole; Consent.provision is declared to depth 3; a kept contained resource is
+// copied element by element only for six types (DkRcContained), others whole.
 // ================================================================================================================
 
 group DkResearchConsent(source rc, source ck, source role, source pid, target bundle : Bundle) {
@@ -243,17 +290,22 @@ group DkResearchConsent(source rc, source ck, source role, source pid, target bu
 }
 
 group DkResearchConsentBody(source rc, source s, source pid, target con : Consent) {
-  s -> con.meta as m, m.profile = 'https://www.medizininformatik-initiative.de/fhir/modul-consent/StructureDefinition/mii-pr-consent-einwilligung' "profile";
-  s.identifier as x -> con.identifier as t then DkRcIdentifier(x, t) "identifier";
-  s.language as x -> con.language = x "language";
+  // policy 1..* in mii-pr-consent-einwilligung: without policy the content is kept as a core Consent (no meta.profile)
+  // a policy entry counts when something of it is copied (DkRcPolicy): an extension, or an authority / uri that is neither
+  // '' nor a '#<id>' without a contained resource of that id
+  s where (policy.where(extension.exists() or modifierExtension.exists() or (authority | uri).where($this != ''
+        and (matches('^#[A-Za-z0-9.-]{1,64}$') and (%s.contained.id contains substring(1)).not()).not()).exists()).exists())
+     -> con.meta as m, m.profile = 'https://www.medizininformatik-initiative.de/fhir/modul-consent/StructureDefinition/mii-pr-consent-einwilligung' "profile";
+  s.identifier as x -> con.identifier as t then DkRcIdentifier(s, x, t) "identifier";
+  s.language as x where (x != '') -> con.language = x "language";
   s.extension as x where (url != 'http://fhir.de/ConsentManagement/StructureDefinition/DomainReference')
-     -> con.extension as t then DkRcExtension(x, t) "extension";
+     -> con.extension as t then DkRcExtension(s, x, t) "extension";
   s.extension as x where (url = 'http://fhir.de/ConsentManagement/StructureDefinition/DomainReference'
-        and extension.where(url = 'domain').first().value.where(($this is Reference) and (reference.where($this.startsWith('urn:uuid:')
-            or $this.startsWith('#')).exists() or identifier.exists() or display.exists())).exists())
-     -> con.extension as t then DkRcExtension(x, t) "domain-reference";
-  s.modifierExtension as x -> con.modifierExtension as t then DkRcExtension(x, t) "modifierExtension";
-  s.status as x -> con.status = x "status";
+        and extension.where(url = 'domain').first().value.where(($this is Reference) and (reference.where($this.startsWith('#')).exists()
+            or identifier.exists() or display.exists())).exists())
+     -> con.extension as t then DkRcExtension(s, x, t) "domain-reference";
+  s.modifierExtension as x -> con.modifierExtension as t then DkRcExtension(s, x, t) "modifierExtension";
+  s.status as x where (x != '') -> con.status = x "status";
   s -> con.scope as sc, sc.coding as c, c.system = 'http://terminology.hl7.org/CodeSystem/consentscope', c.code = 'research' "scope";
   // categories in Python order: [LOINC if missing], [MII if both missing], first category, [MII if only it is missing], rest
   s where (category.coding.where(system = 'http://loinc.org' and code = '57016-8').exists().not())
@@ -264,119 +316,382 @@ group DkResearchConsentBody(source rc, source s, source pid, target con : Consen
             and code = '2.16.840.1.113883.3.1937.777.24.2.184').exists().not())
      -> con.category as cat, cat.coding as c, c.system = 'https://www.medizininformatik-initiative.de/fhir/modul-consent/CodeSystem/mii-cs-consent-version-modules',
         c.code = '2.16.840.1.113883.3.1937.777.24.2.184' "category-mii-second";
-  s.category as k where (%s.category.select(iif($this = %k, $index, {})).first() = 0) -> con.category as t then DkRcCategory(k, t) "category-first";
+  s.category first as k -> con.category as t then DkRcCategory(s, k, t) "category-first";
   s where (category.coding.where(system = 'http://loinc.org' and code = '57016-8').exists()
         and category.coding.where((system = 'https://www.medizininformatik-initiative.de/fhir/modul-consent/CodeSystem/mii-cs-consent-version-modules'
             or system = 'https://www.medizininformatik-initiative.de/fhir/modul-consent/CodeSystem/mii-cs-consent-consent_category')
             and code = '2.16.840.1.113883.3.1937.777.24.2.184').exists().not())
      -> con.category as cat, cat.coding as c, c.system = 'https://www.medizininformatik-initiative.de/fhir/modul-consent/CodeSystem/mii-cs-consent-version-modules',
         c.code = '2.16.840.1.113883.3.1937.777.24.2.184' "category-mii";
-  s.category as k where (%s.category.select(iif($this = %k, $index, {})).first() != 0) -> con.category as t then DkRcCategory(k, t) "category";
+  s.category not_first as k -> con.category as t then DkRcCategory(s, k, t) "category";
   s -> con.patient as p then DkReference(pid, p) "patient";
   rc.presentationDate as d where (d != '') -> con.dateTime = d "dateTime";
   rc where (presentationDate.where($this != '').exists().not()) then DkRcDateTime(s, con) "dateTime-embedded";
-  s.performer as x -> con.performer as t then DkRcReference(x, t) "performer";
-  s.organization as x -> con.organization as t then DkRcReference(x, t) "organization";
-  s.sourceAttachment as x -> con.source = x "sourceAttachment";
-  s.sourceReference as x where (reference.where($this.startsWith('urn:uuid:') or $this.startsWith('#')).exists())
-     -> con.source = create('Reference') as t then DkRcReference(x, t) "sourceReference";
-  s.policy as x -> con.policy as t then DkRcPolicy(x, t) "policy";
-  s.policyRule as x -> con.policyRule = x "policyRule";
-  s.verification as x -> con.verification as t then DkRcVerification(x, t) "verification";
-  s.provision as x -> con.provision as t then DkRcProvision(x, t) "provision";
+  s.performer as x -> con.performer as t then DkRcReference(s, x, t) "performer";
+  s.organization as x -> con.organization as t then DkRcReference(s, x, t) "organization";
+  s.sourceAttachment as x -> con.source = create('Attachment') as t then DkRcAttachment(s, x, t) "sourceAttachment";
+  s.sourceReference as x where (reference.where($this = '#'
+        or ($this.startsWith('#') and %s.contained.where(id = %x.reference.substring(1)).exists())).exists())
+     -> con.source = create('Reference') as t then DkRcReference(s, x, t) "sourceReference";
+  s.policy as x where (extension.exists() or modifierExtension.exists() or (authority | uri).where($this != ''
+        and (matches('^#[A-Za-z0-9.-]{1,64}$') and (%s.contained.id contains substring(1)).not()).not()).exists())
+     -> con.policy as t then DkRcPolicy(s, x, t) "policy";
+  // policyRule only with content (an all-'' policyRule would be an empty element)
+  s.policyRule as x where (%s.policyRule.where(extension.exists() or coding.where(extension.exists()
+        or (system | version | code | display).where($this != '').exists() or userSelected.exists()).exists() or text.where($this != '').exists()).exists())
+     -> con.policyRule as t then DkRcCodeableConcept(s, x, t) "policyRule";
+  // neither policy (with content, as above) nor policyRule (core ppc-1): data-absent-reason policyRule
+  s where (policy.where(extension.exists() or modifierExtension.exists() or (authority | uri).where($this != ''
+        and (matches('^#[A-Za-z0-9.-]{1,64}$') and (%s.contained.id contains substring(1)).not()).not()).exists()).exists().not()
+        and policyRule.where(extension.exists() or coding.where(extension.exists() or (system | version | code | display).where($this != '').exists()
+            or userSelected.exists()).exists() or text.where($this != '').exists()).exists().not())
+     -> con.policyRule as pr, pr.extension as dx,
+        dx.url = 'http://hl7.org/fhir/StructureDefinition/data-absent-reason', dx.value = create('code') as cv, cv.value = 'unknown' "policyRule-absent";
+  s.verification as x -> con.verification as t then DkRcVerification(s, x, t) "verification";
+  s.provision as x -> con.provision as t then DkRcProvision(s, x, t) "provision";
+  // contained resources are kept when referenced as '#<id>' (Reference.reference, a canonical / uri / url value, or
+  // policy.uri / authority, string-typed in the logical model) from the carried-over elements (research_consent.KEEP:
+  // not patient, meta, text, a dropped DomainReference) or from a kept contained resource, transitively, or when they
+  // refer to the Consent ('#'); the others are dropped (dom-3, research_consent._contained), the kept ones copied by
+  // DkRcContained. FHIRPath has no fixpoint, so the chain is followed to depth 3 (root -> L0 -> L1 -> L2 -> x; Python:
+  // unbounded, README 'Accepted simplifications'). Evaluated level by level (r0 = '#' values of the carried-over
+  // elements, k0 = contained resources they name or that refer to '#', r1 = '#' values inside k0, ...), so the cost per
+  // contained resource is linear in the consent size (the earlier nested form re-scanned the root per candidate: n^4)
+  s.contained as x where (%s
+        .defineVariable('r0', (%s.identifier.combine(%s.extension.where(url != 'http://fhir.de/ConsentManagement/StructureDefinition/DomainReference' or extension.where(url = 'domain').first().value.where(($this is Reference) and (reference.where($this.startsWith('#')).exists() or identifier.exists() or display.exists())).exists())).combine(%s.modifierExtension).combine(%s.category).combine(%s.performer).combine(%s.organization).combine(%s.sourceAttachment).combine(%s.sourceReference).combine(%s.policy).combine(%s.policyRule).combine(%s.verification).combine(%s.provision)).combine((%s.identifier.combine(%s.extension.where(url != 'http://fhir.de/ConsentManagement/StructureDefinition/DomainReference' or extension.where(url = 'domain').first().value.where(($this is Reference) and (reference.where($this.startsWith('#')).exists() or identifier.exists() or display.exists())).exists())).combine(%s.modifierExtension).combine(%s.category).combine(%s.performer).combine(%s.organization).combine(%s.sourceAttachment).combine(%s.sourceReference).combine(%s.policy).combine(%s.policyRule).combine(%s.verification).combine(%s.provision)).descendants()).where(($this is Reference and reference.exists()) or $this is canonical or $this is uri or $this is url).select(iif($this is Reference, reference, $this)).combine(%s.policy.uri).combine(%s.policy.authority))
+        .defineVariable('k0', %s.contained.where((%r0 contains ('#' & id)) or descendants().where(($this is Reference and reference = '#') or (($this is canonical or $this is uri or $this is url) and $this = '#')).exists()))
+        .defineVariable('r1', %k0.descendants().where(($this is Reference and reference.exists()) or $this is canonical or $this is uri or $this is url).select(iif($this is Reference, reference, $this)))
+        .defineVariable('k1', %s.contained.where(%r1 contains ('#' & id)))
+        .defineVariable('r2', %k1.descendants().where(($this is Reference and reference.exists()) or $this is canonical or $this is uri or $this is url).select(iif($this is Reference, reference, $this)))
+        .defineVariable('k2', %s.contained.where(%r2 contains ('#' & id)))
+        .defineVariable('r3', %k2.descendants().where(($this is Reference and reference.exists()) or $this is canonical or $this is uri or $this is url).select(iif($this is Reference, reference, $this)))
+        .select((%r0 contains ('#' & %x.id)) or %x.descendants().where(($this is Reference and reference = '#') or (($this is canonical or $this is uri or $this is url) and $this = '#')).exists()
+            or (%r1 contains ('#' & %x.id)) or (%r2 contains ('#' & %x.id)) or (%r3 contains ('#' & %x.id))))
+     then DkRcContained(s, x, con) "contained";
+}
+
+// ---- kept contained resources (research_consent._contained: _strip_external_refs, _unresolved_local_refs, prune) ----
+// Practitioner, PractitionerRole, Organization, RelatedPerson, QuestionnaireResponse and Provenance are copied element by
+// element: every Reference through DkRcReference (a sender-system reference - anything but '#', a urn:uuid included - is
+// removed, the target kept as display '<reference> (sender system)' when nothing else identifies it; '#<id>' stays when
+// scope.contained has that id), Identifier / CodeableConcept / Coding / Period / Attachment / extensions by the typed
+// DkRc* groups ('' left out), a canonical / uri '#<id>' without a contained resource of that id (questionnaire,
+// Provenance.policy) removed. Copied whole (simplification): HumanName, ContactPoint, Address, meta, text, nested
+// contained, the backbone elements without references (availableTime, notAvailable, contact, communication) and every
+// resource of another type (its sender-system references stay).
+group DkRcContained(source s, source x, target con : Consent) {
+  x where ($this is Practitioner) -> con.contained = create('Practitioner') as t then DkRcResourceBase(s, x, t), DkRcPractitioner(s, x, t) "practitioner";
+  x where ($this is PractitionerRole) -> con.contained = create('PractitionerRole') as t then DkRcResourceBase(s, x, t), DkRcPractitionerRole(s, x, t) "practitioner-role";
+  x where ($this is Organization) -> con.contained = create('Organization') as t then DkRcResourceBase(s, x, t), DkRcOrganization(s, x, t) "organization";
+  x where ($this is RelatedPerson) -> con.contained = create('RelatedPerson') as t then DkRcResourceBase(s, x, t), DkRcRelatedPerson(s, x, t) "related-person";
+  x where ($this is QuestionnaireResponse) -> con.contained = create('QuestionnaireResponse') as t then DkRcResourceBase(s, x, t), DkRcQuestionnaireResponse(s, x, t) "questionnaire-response";
+  x where ($this is Provenance) -> con.contained = create('Provenance') as t then DkRcResourceBase(s, x, t), DkRcProvenance(s, x, t) "provenance";
+  x where (($this is Practitioner or $this is PractitionerRole or $this is Organization or $this is RelatedPerson
+        or $this is QuestionnaireResponse or $this is Provenance).not()) -> con.contained = x "other";
+}
+
+group DkRcResourceBase(source s, source x, target t) {
+  x.id as v where (v != '') -> t.id = v "id";
+  x.meta as v -> t.meta = v "meta";
+  x.implicitRules as v where (v != '') -> t.implicitRules = v "implicitRules";
+  x.language as v where (v != '') -> t.language = v "language";
+  x.text as v -> t.text = v "text";
+  x.contained as v -> t.contained = v "contained";
+  x.extension as e -> t.extension as te then DkRcExtension(s, e, te) "extension";
+  x.modifierExtension as e -> t.modifierExtension as te then DkRcExtension(s, e, te) "modifierExtension";
+}
+
+group DkRcBackboneBase(source s, source x, target t) {
+  x.extension as e -> t.extension as te then DkRcExtension(s, e, te) "extension";
+  x.modifierExtension as e -> t.modifierExtension as te then DkRcExtension(s, e, te) "modifierExtension";
+}
+
+group DkRcPractitioner(source s, source x, target t) {
+  x.identifier as v -> t.identifier as tv then DkRcIdentifier(s, v, tv) "identifier";
+  x.active as v -> t.active = v "active";
+  x.name as v -> t.name = v "name";
+  x.telecom as v -> t.telecom = v "telecom";
+  x.address as v -> t.address = v "address";
+  x.gender as v where (v != '') -> t.gender = v "gender";
+  x.birthDate as v where (v.toString() != '') -> t.birthDate = v "birthDate";
+  x.photo as v -> t.photo = create('Attachment') as tv then DkRcAttachment(s, v, tv) "photo";
+  x.qualification as q -> t.qualification as tq then DkRcBackboneBase(s, q, tq), DkRcQualification(s, q, tq) "qualification";
+  x.communication as v -> t.communication as tv then DkRcCodeableConcept(s, v, tv) "communication";
+}
+
+group DkRcQualification(source s, source q, target t) {
+  q.identifier as v -> t.identifier as tv then DkRcIdentifier(s, v, tv) "identifier";
+  q.code as v -> t.code as tv then DkRcCodeableConcept(s, v, tv) "code";
+  q.period as v -> t.period as tv then DkRcPeriod(s, v, tv) "period";
+  q.issuer as v -> t.issuer as tv then DkRcReference(s, v, tv) "issuer";
+}
+
+group DkRcPractitionerRole(source s, source x, target t) {
+  x.identifier as v -> t.identifier as tv then DkRcIdentifier(s, v, tv) "identifier";
+  x.active as v -> t.active = v "active";
+  x.period as v -> t.period as tv then DkRcPeriod(s, v, tv) "period";
+  x.practitioner as v -> t.practitioner as tv then DkRcReference(s, v, tv) "practitioner";
+  x.organization as v -> t.organization as tv then DkRcReference(s, v, tv) "organization";
+  x.code as v -> t.code as tv then DkRcCodeableConcept(s, v, tv) "code";
+  x.specialty as v -> t.specialty as tv then DkRcCodeableConcept(s, v, tv) "specialty";
+  x.location as v -> t.location as tv then DkRcReference(s, v, tv) "location";
+  x.healthcareService as v -> t.healthcareService as tv then DkRcReference(s, v, tv) "healthcareService";
+  x.telecom as v -> t.telecom = v "telecom";
+  x.availableTime as v -> t.availableTime = v "availableTime";
+  x.notAvailable as v -> t.notAvailable = v "notAvailable";
+  x.availabilityExceptions as v where (v != '') -> t.availabilityExceptions = v "availabilityExceptions";
+  x.endpoint as v -> t.endpoint as tv then DkRcReference(s, v, tv) "endpoint";
+}
+
+group DkRcOrganization(source s, source x, target t) {
+  x.identifier as v -> t.identifier as tv then DkRcIdentifier(s, v, tv) "identifier";
+  x.active as v -> t.active = v "active";
+  x.type as v -> t.type as tv then DkRcCodeableConcept(s, v, tv) "type";
+  x.name as v where (v != '') -> t.name = v "name";
+  x.alias as v where (v != '') -> t.alias = v "alias";
+  x.telecom as v -> t.telecom = v "telecom";
+  x.address as v -> t.address = v "address";
+  x.partOf as v -> t.partOf as tv then DkRcReference(s, v, tv) "partOf";
+  x.contact as v -> t.contact = v "contact";
+  x.endpoint as v -> t.endpoint as tv then DkRcReference(s, v, tv) "endpoint";
+}
+
+group DkRcRelatedPerson(source s, source x, target t) {
+  x.identifier as v -> t.identifier as tv then DkRcIdentifier(s, v, tv) "identifier";
+  x.active as v -> t.active = v "active";
+  x.patient as v -> t.patient as tv then DkRcReference(s, v, tv) "patient";
+  x.relationship as v -> t.relationship as tv then DkRcCodeableConcept(s, v, tv) "relationship";
+  x.name as v -> t.name = v "name";
+  x.telecom as v -> t.telecom = v "telecom";
+  x.gender as v where (v != '') -> t.gender = v "gender";
+  x.birthDate as v where (v.toString() != '') -> t.birthDate = v "birthDate";
+  x.address as v -> t.address = v "address";
+  x.photo as v -> t.photo = create('Attachment') as tv then DkRcAttachment(s, v, tv) "photo";
+  x.period as v -> t.period as tv then DkRcPeriod(s, v, tv) "period";
+  x.communication as v -> t.communication = v "communication";
+}
+
+group DkRcQuestionnaireResponse(source s, source x, target t) {
+  x.identifier as v -> t.identifier as tv then DkRcIdentifier(s, v, tv) "identifier";
+  x.basedOn as v -> t.basedOn as tv then DkRcReference(s, v, tv) "basedOn";
+  x.partOf as v -> t.partOf as tv then DkRcReference(s, v, tv) "partOf";
+  x.questionnaire as v where (v != '' and (v.matches('^#[A-Za-z0-9.-]{1,64}$') and (%s.contained.id contains %v.substring(1)).not()).not())
+     -> t.questionnaire = v "questionnaire";
+  x.status as v where (v != '') -> t.status = v "status";
+  x.subject as v -> t.subject as tv then DkRcReference(s, v, tv) "subject";
+  x.encounter as v -> t.encounter as tv then DkRcReference(s, v, tv) "encounter";
+  x.authored as v where (v.toString() != '') -> t.authored = v "authored";
+  x.author as v -> t.author as tv then DkRcReference(s, v, tv) "author";
+  x.source as v -> t.source as tv then DkRcReference(s, v, tv) "source";
+  x.item as v -> t.item as tv then DkRcQrItem(s, v, tv) "item";
+}
+
+group DkRcQrItem(source s, source x, target t) {
+  x then DkRcBackboneBase(s, x, t) "base";
+  x.linkId as v where (v != '') -> t.linkId = v "linkId";
+  x.definition as v where (v != '' and (v.matches('^#[A-Za-z0-9.-]{1,64}$') and (%s.contained.id contains v.substring(1)).not()).not()) -> t.definition = v "definition";
+  x.text as v where (v != '') -> t.text = v "text";
+  x.answer as v -> t.answer as tv then DkRcQrAnswer(s, v, tv) "answer";
+  x.item as v -> t.item as tv then DkRcQrItem(s, v, tv) "item";
+}
+
+group DkRcQrAnswer(source s, source x, target t) {
+  x then DkRcBackboneBase(s, x, t) "base";
+  x.value : Reference as v -> t.value = create('Reference') as r then DkRcReference(s, v, r) "value-reference";
+  x.value : Coding as v -> t.value = create('Coding') as c then DkRcCoding(s, v, c) "value-coding";
+  x.value : Attachment as v -> t.value = create('Attachment') as c then DkRcAttachment(s, v, c) "value-attachment";
+  x.value as v where ((v is Reference or v is Coding or v is Attachment).not() and v.toString() != ''
+        and ((v is string and (v is code or v is id).not()) or (v.toString().matches('^#[A-Za-z0-9.-]{1,64}$') and (%s.contained.id contains v.toString().substring(1)).not()).not())) -> t.value = v "value";
+  x.item as v -> t.item as tv then DkRcQrItem(s, v, tv) "item";
+}
+
+group DkRcProvenance(source s, source x, target t) {
+  x.target as v -> t.target as tv then DkRcReference(s, v, tv) "target";
+  x.occurred as v where (v.toString() != '') -> t.occurred = v "occurred";
+  x.recorded as v where (v.toString() != '') -> t.recorded = v "recorded";
+  x.policy as v where (v != '' and (v.matches('^#[A-Za-z0-9.-]{1,64}$') and (%s.contained.id contains %v.substring(1)).not()).not())
+     -> t.policy = v "policy";
+  x.location as v -> t.location as tv then DkRcReference(s, v, tv) "location";
+  x.reason as v -> t.reason as tv then DkRcCodeableConcept(s, v, tv) "reason";
+  x.activity as v -> t.activity as tv then DkRcCodeableConcept(s, v, tv) "activity";
+  x.agent as v -> t.agent as tv then DkRcProvAgent(s, v, tv) "agent";
+  x.entity as v -> t.entity as tv then DkRcProvEntity(s, v, tv) "entity";
+  x.signature as v -> t.signature as tv then DkRcSignature(s, v, tv) "signature";
+}
+
+group DkRcProvAgent(source s, source x, target t) {
+  x then DkRcBackboneBase(s, x, t) "base";
+  x.type as v -> t.type as tv then DkRcCodeableConcept(s, v, tv) "type";
+  x.role as v -> t.role as tv then DkRcCodeableConcept(s, v, tv) "role";
+  x.who as v -> t.who as tv then DkRcReference(s, v, tv) "who";
+  x.onBehalfOf as v -> t.onBehalfOf as tv then DkRcReference(s, v, tv) "onBehalfOf";
+}
+
+group DkRcProvEntity(source s, source x, target t) {
+  x then DkRcBackboneBase(s, x, t) "base";
+  x.role as v where (v != '') -> t.role = v "role";
+  x.what as v -> t.what as tv then DkRcReference(s, v, tv) "what";
+  x.agent as v -> t.agent as tv then DkRcProvAgent(s, v, tv) "agent";
+}
+
+group DkRcSignature(source s, source x, target t) {
+  x.extension as e -> t.extension as te then DkRcExtension(s, e, te) "extension";
+  x.type as v -> t.type as tv then DkRcCoding(s, v, tv) "type";
+  x.when as v where (v.toString() != '') -> t.when = v "when";
+  x.who as v -> t.who as tv then DkRcReference(s, v, tv) "who";
+  x.onBehalfOf as v -> t.onBehalfOf as tv then DkRcReference(s, v, tv) "onBehalfOf";
+  x.targetFormat as v where (v != '') -> t.targetFormat = v "targetFormat";
+  x.sigFormat as v where (v != '') -> t.sigFormat = v "sigFormat";
+  x.data as v where (v.toString() != '') -> t.data = v "data";
 }
 
 group DkRcDateTime(source s, target con : Consent) {
-  s.dateTime as d -> con.dateTime = d "dateTime";
+  s.dateTime as d where (d != '') -> con.dateTime = d "dateTime";
 }
 
-group DkRcCategory(source k, target t : CodeableConcept) {
-  k.extension as x -> t.extension as tx then DkRcExtension(x, tx) "extension";
-  k.coding as c -> t.coding as tc then DkRcCategoryCoding(c, tc) "coding";
-  k.text as x -> t.text = x "text";
+group DkRcCategory(source s, source k, target t : CodeableConcept) {
+  k.extension as x -> t.extension as tx then DkRcExtension(s, x, tx) "extension";
+  k.coding as c -> t.coding as tc then DkRcCategoryCoding(s, c, tc) "coding";
+  k.text as x where (x != '') -> t.text = x "text";
 }
 
-group DkRcCategoryCoding(source c, target t : Coding) {
-  c.extension as x -> t.extension as tx then DkRcExtension(x, tx) "extension";
-  c.system as x -> t.system = (iif(%x = 'https://www.medizininformatik-initiative.de/fhir/modul-consent/CodeSystem/mii-cs-consent-consent_category',
+group DkRcCategoryCoding(source s, source c, target t : Coding) {
+  c.extension as x -> t.extension as tx then DkRcExtension(s, x, tx) "extension";
+  c.system as x where (x != '' and (x.matches('^#[A-Za-z0-9.-]{1,64}$') and (%s.contained.id contains x.substring(1)).not()).not()) -> t.system = (iif(%x = 'https://www.medizininformatik-initiative.de/fhir/modul-consent/CodeSystem/mii-cs-consent-consent_category',
         'https://www.medizininformatik-initiative.de/fhir/modul-consent/CodeSystem/mii-cs-consent-version-modules', %x)) "system";
-  c.version as x -> t.version = x "version";
-  c.code as x -> t.code = x "code";
-  c.display as x -> t.display = x "display";
+  c.version as x where (x != '') -> t.version = x "version";
+  c.code as x where (x != '') -> t.code = x "code";
+  c.display as x where (x != '') -> t.display = x "display";
   c.userSelected as x -> t.userSelected = x "userSelected";
 }
 
-// a literal reference outside the transaction (not urn:uuid:/#) is removed; without display and identifier the target
-// is kept as display '<reference> (sender system)' (otherwise e.g. provision.actor would lose its 1..1 reference)
-group DkRcReference(source r, target t : Reference) {
-  r.extension as x -> t.extension as tx then DkRcExtension(x, tx) "extension";
-  r.reference as x where (x.startsWith('urn:uuid:') or x.startsWith('#')) -> t.reference = x "reference";
-  r.type as x -> t.type = x "type";
-  r.identifier as x -> t.identifier as ti then DkRcIdentifier(x, ti) "identifier";
-  r.display as x -> t.display = x "display";
-  r.reference as x where ((x.startsWith('urn:uuid:') or x.startsWith('#')).not() and %r.display.exists().not() and %r.identifier.exists().not())
+// CodeableConcept / Coding / Period / Attachment of the embedded consent without '' values (Python prune(); unlike the
+// category groups no system is rewritten)
+group DkRcCodeableConcept(source s, source k, target t : CodeableConcept) {
+  k.extension as x -> t.extension as tx then DkRcExtension(s, x, tx) "extension";
+  k.coding as c -> t.coding as tc then DkRcCoding(s, c, tc) "coding";
+  k.text as x where (x != '') -> t.text = x "text";
+}
+
+group DkRcCoding(source s, source c, target t : Coding) {
+  c.extension as x -> t.extension as tx then DkRcExtension(s, x, tx) "extension";
+  c.system as x where (x != '' and (x.matches('^#[A-Za-z0-9.-]{1,64}$') and (%s.contained.id contains x.substring(1)).not()).not()) -> t.system = x "system";
+  c.version as x where (x != '') -> t.version = x "version";
+  c.code as x where (x != '') -> t.code = x "code";
+  c.display as x where (x != '') -> t.display = x "display";
+  c.userSelected as x -> t.userSelected = x "userSelected";
+}
+
+group DkRcPeriod(source s, source x, target t : Period) {
+  x.extension as e -> t.extension as te then DkRcExtension(s, e, te) "extension";
+  x.start as v where (v.toString() != '') -> t.start = v "start";
+  x.end as v where (v.toString() != '') -> t.end = v "end";
+}
+
+group DkRcAttachment(source s, source x, target t) {
+  x.extension as e -> t.extension as te then DkRcExtension(s, e, te) "extension";
+  x.contentType as v where (v != '') -> t.contentType = v "contentType";
+  x.language as v where (v != '') -> t.language = v "language";
+  x.data as v where (v.toString() != '') -> t.data = v "data";
+  x.url as v where (v != '' and (v.matches('^#[A-Za-z0-9.-]{1,64}$') and (%s.contained.id contains v.substring(1)).not()).not()) -> t.url = v "url";
+  x.size as v -> t.size = v "size";
+  x.hash as v where (v.toString() != '') -> t.hash = v "hash";
+  x.title as v where (v != '') -> t.title = v "title";
+  x.creation as v where (v.toString() != '') -> t.creation = v "creation";
+}
+
+// a literal reference outside the embedded consent (anything but '#'; a urn:uuid names an entry of the sender's Bundle)
+// is removed; without display and identifier the target is kept as display '<reference> (sender system)' (otherwise
+// e.g. provision.actor would lose its 1..1 reference);
+// '#<id>' stays when scope.contained has that id ('#' alone = the container), else it is removed the same way with
+// display '<reference> (missing contained resource)'
+group DkRcReference(source s, source r, target t : Reference) {
+  r.extension as x -> t.extension as tx then DkRcExtension(s, x, tx) "extension";
+  r.reference as x where (x = '#' or (x.startsWith('#') and %s.contained.where(id = %x.substring(1)).exists()))
+     -> t.reference = x "reference";
+  r.type as x where (x != '') -> t.type = x "type";
+  r.identifier as x -> t.identifier as ti then DkRcIdentifier(s, x, ti) "identifier";
+  r.display as x where (x != '') -> t.display = x "display";
+  r.reference as x where (x.startsWith('#').not() and %r.display.where($this != '').exists().not()
+        and %r.identifier.exists().not())
      -> t.display = (%x & ' (sender system)') "sender-system";
+  r.reference as x where (x.startsWith('#') and x != '#' and %s.contained.where(id = %x.substring(1)).exists().not()
+        and %r.display.where($this != '').exists().not() and %r.identifier.exists().not())
+     -> t.display = (%x & ' (missing contained resource)') "missing-contained";
 }
 
-group DkRcIdentifier(source i, target t : Identifier) {
-  i.extension as x -> t.extension as tx then DkRcExtension(x, tx) "extension";
-  i.use as x -> t.use = x "use";
-  i.type as x -> t.type = x "type";
-  i.system as x -> t.system = x "system";
-  i.value as x -> t.value = x "value";
-  i.period as x -> t.period = x "period";
-  i.assigner as x -> t.assigner as ta then DkRcReference(x, ta) "assigner";
+group DkRcIdentifier(source s, source i, target t : Identifier) {
+  i.extension as x -> t.extension as tx then DkRcExtension(s, x, tx) "extension";
+  i.use as x where (x != '') -> t.use = x "use";
+  i.type as x -> t.type as tt then DkRcCodeableConcept(s, x, tt) "type";
+  i.system as x where (x != '' and (x.matches('^#[A-Za-z0-9.-]{1,64}$') and (%s.contained.id contains x.substring(1)).not()).not()) -> t.system = x "system";
+  i.value as x where (x != '') -> t.value = x "value";
+  i.period as x -> t.period as tp then DkRcPeriod(s, x, tp) "period";
+  i.assigner as x -> t.assigner as ta then DkRcReference(s, x, ta) "assigner";
 }
 
-group DkRcExtension(source x, target t : Extension) {
+group DkRcExtension(source s, source x, target t : Extension) {
   x.url as u -> t.url = u "url";
-  x.value : Reference as v -> t.value = create('Reference') as r then DkRcReference(v, r) "value-reference";
-  x.value as v where ((v is Reference).not()) -> t.value = v "value";
-  x.extension as sx -> t.extension as tx then DkRcExtension(sx, tx) "extension";
+  x.value : Reference as v -> t.value = create('Reference') as r then DkRcReference(s, v, r) "value-reference";
+  x.value : CodeableConcept as v -> t.value = create('CodeableConcept') as c then DkRcCodeableConcept(s, v, c) "value-cc";
+  x.value : Coding as v -> t.value = create('Coding') as c then DkRcCoding(s, v, c) "value-coding";
+  x.value : Period as v -> t.value = create('Period') as c then DkRcPeriod(s, v, c) "value-period";
+  x.value : Identifier as v -> t.value = create('Identifier') as c then DkRcIdentifier(s, v, c) "value-identifier";
+  // any other value, once: a primitive only when not '' (toString() of '' is empty); a complex value of another type
+  // (Quantity, Annotation, ...) is copied whole (simplification). The five types above are excluded with 'is' (hasValue()
+  // is true for complex values on matchbox), so no value is written twice (a duplicate JSON key) and an all-'' typed
+  // value stays empty and is left out, as after Python's prune()
+  x.value as v where ((v is Reference or v is CodeableConcept or v is Coding or v is Period or v is Identifier).not()
+        and v.toString() != '' and ((v is string and (v is code or v is id).not()) or (v.toString().matches('^#[A-Za-z0-9.-]{1,64}$') and (%s.contained.id contains v.toString().substring(1)).not()).not())) -> t.value = v "value";
+  x.extension as sx -> t.extension as tx then DkRcExtension(s, sx, tx) "extension";
 }
 
-group DkRcPolicy(source x, target t) {
-  x.extension as e -> t.extension as te then DkRcExtension(e, te) "extension";
-  x.modifierExtension as e -> t.modifierExtension as te then DkRcExtension(e, te) "modifierExtension";
-  x.authority as a -> t.authority = (iif(%a.matches('^[0-2](\\.(0|[1-9][0-9]*))+$'), 'urn:oid:' & %a, %a)) "authority";
-  x.uri as u -> t.uri = (iif(%u.matches('^[0-2](\\.(0|[1-9][0-9]*))+$'), 'urn:oid:' & %u, %u)) "uri";
+// a '#<id>' authority / uri without a contained resource of that id is not copied (research_consent.
+// _unresolved_local_refs; Python warns)
+group DkRcPolicy(source s, source x, target t) {
+  x.extension as e -> t.extension as te then DkRcExtension(s, e, te) "extension";
+  x.modifierExtension as e -> t.modifierExtension as te then DkRcExtension(s, e, te) "modifierExtension";
+  x.authority as a where (a != '' and (a.matches('^#[A-Za-z0-9.-]{1,64}$') and (%s.contained.id contains %a.substring(1)).not()).not())
+     -> t.authority = (iif(%a.matches('^[0-2](\\.(0|[1-9][0-9]*))+$'), 'urn:oid:' & %a, %a)) "authority";
+  x.uri as u where (u != '' and (u.matches('^#[A-Za-z0-9.-]{1,64}$') and (%s.contained.id contains %u.substring(1)).not()).not())
+     -> t.uri = (iif(%u.matches('^[0-2](\\.(0|[1-9][0-9]*))+$'), 'urn:oid:' & %u, %u)) "uri";
 }
 
-group DkRcVerification(source x, target t) {
-  x.extension as e -> t.extension as te then DkRcExtension(e, te) "extension";
-  x.modifierExtension as e -> t.modifierExtension as te then DkRcExtension(e, te) "modifierExtension";
+group DkRcVerification(source s, source x, target t) {
+  x.extension as e -> t.extension as te then DkRcExtension(s, e, te) "extension";
+  x.modifierExtension as e -> t.modifierExtension as te then DkRcExtension(s, e, te) "modifierExtension";
   x.verified as v -> t.verified = v "verified";
-  x.verifiedWith as r -> t.verifiedWith as tr then DkRcReference(r, tr) "verifiedWith";
-  x.verificationDate as d -> t.verificationDate = d "verificationDate";
+  x.verifiedWith as r -> t.verifiedWith as tr then DkRcReference(s, r, tr) "verifiedWith";
+  x.verificationDate as d where (d != '') -> t.verificationDate = d "verificationDate";
 }
 
 // Consent.provision, recursive (the logical model declares 3 levels)
-group DkRcProvision(source x, target t) {
-  x.extension as e -> t.extension as te then DkRcExtension(e, te) "extension";
-  x.modifierExtension as e -> t.modifierExtension as te then DkRcExtension(e, te) "modifierExtension";
-  x.type as v -> t.type = v "type";
-  x.period as v -> t.period = v "period";
-  x.actor as a -> t.actor as ta then DkRcActor(a, ta) "actor";
-  x.action as v -> t.action = v "action";
-  x.securityLabel as v -> t.securityLabel = v "securityLabel";
-  x.purpose as v -> t.purpose = v "purpose";
-  x.class as v -> t.class = v "class";
-  x.code as v -> t.code = v "code";
-  x.dataPeriod as v -> t.dataPeriod = v "dataPeriod";
-  x.data as d -> t.data as td then DkRcData(d, td) "data";
-  x.provision as sub -> t.provision as ts then DkRcProvision(sub, ts) "provision";
+group DkRcProvision(source s, source x, target t) {
+  x.extension as e -> t.extension as te then DkRcExtension(s, e, te) "extension";
+  x.modifierExtension as e -> t.modifierExtension as te then DkRcExtension(s, e, te) "modifierExtension";
+  x.type as v where (v != '') -> t.type = v "type";
+  x.period as v -> t.period as tp then DkRcPeriod(s, v, tp) "period";
+  x.actor as a -> t.actor as ta then DkRcActor(s, a, ta) "actor";
+  x.action as v -> t.action as tv then DkRcCodeableConcept(s, v, tv) "action";
+  x.securityLabel as v -> t.securityLabel as tv then DkRcCoding(s, v, tv) "securityLabel";
+  x.purpose as v -> t.purpose as tv then DkRcCoding(s, v, tv) "purpose";
+  x.class as v -> t.class as tv then DkRcCoding(s, v, tv) "class";
+  x.code as v -> t.code as tv then DkRcCodeableConcept(s, v, tv) "code";
+  x.dataPeriod as v -> t.dataPeriod as tv then DkRcPeriod(s, v, tv) "dataPeriod";
+  x.data as d -> t.data as td then DkRcData(s, d, td) "data";
+  x.provision as sub -> t.provision as ts then DkRcProvision(s, sub, ts) "provision";
 }
 
-group DkRcActor(source a, target t) {
-  a.extension as e -> t.extension as te then DkRcExtension(e, te) "extension";
-  a.role as v -> t.role = v "role";
-  a.reference as r -> t.reference as tr then DkRcReference(r, tr) "reference";
+group DkRcActor(source s, source a, target t) {
+  a.extension as e -> t.extension as te then DkRcExtension(s, e, te) "extension";
+  a.role as v -> t.role as tv then DkRcCodeableConcept(s, v, tv) "role";
+  a.reference as r -> t.reference as tr then DkRcReference(s, r, tr) "reference";
 }
 
-group DkRcData(source d, target t) {
-  d.extension as e -> t.extension as te then DkRcExtension(e, te) "extension";
-  d.meaning as v -> t.meaning = v "meaning";
-  d.reference as r -> t.reference as tr then DkRcReference(r, tr) "reference";
+group DkRcData(source s, source d, target t) {
+  d.extension as e -> t.extension as te then DkRcExtension(s, e, te) "extension";
+  d.meaning as v where (v != '') -> t.meaning = v "meaning";
+  d.reference as r -> t.reference as tr then DkRcReference(s, r, tr) "reference";
 }
 
 // ================================================================================================================

@@ -82,6 +82,12 @@ class Ctx:
             self._check_path(p)
             self.report.covered.add(p)
 
+    def cover_undeclared(self, *paths):
+        """Covered paths of input fields the schema does not declare but a builder converts (legacy keys,
+        germlineDiagnoses[].date): no mapping-table row is required (no strict check), so the CLI reports the
+        validator's 'unknown field' finding as converted instead of 'not converted' (cli._undeclared)."""
+        self.report.covered.update(paths)
+
     def preserve(self, path: str, note: str = ""):
         """Value kept, but not in a conformant MII element (local profile/extension, text fallback)."""
         self._check_path(path)

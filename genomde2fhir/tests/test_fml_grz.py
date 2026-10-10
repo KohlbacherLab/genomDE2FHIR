@@ -1,7 +1,7 @@
 """FML stage 'grz': mappers/fml/DatenkranzGrzToMii.map (imports DatenkranzCommon) against the Python GRZ builders.
 
 Skipped unless MB2027 (matchbox-2027 base URL) is set; HAPI2027 defaults to http://localhost:8092/fhir.
-For 3 GRZ files: push the maps, $transform -> Bundle, zero content errors (except those the Python output has as
+For 4 GRZ files (FILES): push the maps, $transform -> Bundle, zero content errors (except those the Python output has as
 well), graph-aware parity with the Python converter on the whole Bundle (canonical() from scripts/run_corpus.py:
 ids, resource-key identifiers and Provenance ignored) and an idempotent double ingest into HAPI.
 
@@ -30,8 +30,9 @@ HAPI = os.environ.get("HAPI2027", "http://localhost:8092/fhir")
 MAP_URL = "https://genomde.de/fhir/StructureMap/DatenkranzGrzToMii"
 MAPS = ["DatenkranzCommon.map", "DatenkranzGrzToMii.map"]
 FILES = ["example-data/grz/grz-edge-correction-multi-donor.json",                  # MTB, 2 donors, relation other
-         "example-data/synthData-v1/grz/submission/synth_submission_000.json",     # floats, ICD-O-3 claimed for UBERON
-         "example-data/synthData-v1/grz/submission/synth_submission_005.json"]     # MolGen, trio (FamilyMemberHistory)
+         "genomde2fhir/tests/fixtures/grz_labdata/grz-labdata-onco-edge.json",     # floats, four tissue ontologies, tumour cells
+         "genomde2fhir/tests/fixtures/grz_labdata/grz-labdata-rd-duo.json",        # MolGen, duo (FamilyMemberHistory)
+         "genomde2fhir/tests/fixtures/grz_donors/all_relations.json"]              # trio + every relation (all tracked in git)
 BASE = FILES[0]
 
 
@@ -43,7 +44,7 @@ def _load(name, path):
 
 
 def _strip_empty(o):
-    """canonical() leaves 'identifier': [] when the resource key was the only identifier."""
+    """Drops empty lists (a no-op for identifier: canonical() omits the key when the resource key was the only one)."""
     if isinstance(o, dict):
         return {k: _strip_empty(v) for k, v in o.items() if v != []}
     if isinstance(o, list):
@@ -142,6 +143,8 @@ MUTATIONS = {
     "no-lab-name": lambda dk: _pop(dk["submission"], "labName"),
     "coverage-skt": lambda dk: _set(dk["submission"], coverageType="SKT"),
     "no-local-case-id": lambda dk: _pop(dk["submission"], "localCaseId"),
+    "icdo3-claimed-for-uberon": lambda dk: _set(_ld(dk), tissueOntology={"name": "ICD-O-3", "version": "2019"},
+                                                tissueTypeId="UBERON:0000479", tissueTypeName="tissue"),
     "icdo3-site": lambda dk: _set(_ld(dk), tissueOntology={"name": "ICD-O-3", "version": "2019"}, tissueTypeId="C34.1",
                                   tissueTypeName="Oberlappen der Lunge"),
     "snomed-code": lambda dk: _set(_ld(dk), tissueOntology={"name": "SNOMED CT", "version": "http://snomed.info/sct/900000000000207008"},
@@ -208,7 +211,8 @@ def check_file(f: str, mb: Matchbox, ingest: bool = True, mutation: str | None =
     dk = json.loads((REPO / f).read_text(encoding="utf-8"))
     if mutation:
         MUTATIONS[mutation](dk)
-    py, rep = convert(dk, f, check_input=not mutation and "/fixtures/" not in f)
+    # the input gate for unmutated corpus / FILES inputs (the other edge fixtures are schema-invalid on purpose)
+    py, rep = convert(dk, f, check_input=not mutation and (f in FILES or "/fixtures/" not in f))
     st, fml = mb.transform(dk, MAP_URL)
     res = {"file": f + (f" [{mutation}]" if mutation else ""), "python": rep.status, "http": st,
            "type": fml.get("resourceType")}
@@ -241,7 +245,7 @@ def mb():
 @pytest.mark.parametrize("f", FILES)
 def test_grz_file(mb, f):
     if not (REPO / f).is_file():
-        pytest.skip(f"{f} not in this checkout")
+        pytest.fail(f"{f} not in this checkout")
     r = check_file(f, mb)
     assert r["type"] == "Bundle", r
     assert r["content_errors"] == [], r["content_errors"]
@@ -255,7 +259,7 @@ def test_grz_file(mb, f):
 def test_grz_research_consent_migrated(mb):
     """The GRZ corpus carries only empty scopes; an embedded MII Broad Consent per donor (DkResearchConsent)."""
     if not (REPO / BASE).is_file() or not (REPO / BROAD_CONSENT_FILE).is_file():
-        pytest.skip("example files not in this checkout")
+        pytest.fail("example files not in this checkout")
     r = check_file(BASE, mb, ingest=True, mutation="research-consent-migrated", py_errors=True)
     assert r["type"] == "Bundle", r
     assert r["content_errors"] == [], r["content_errors"]

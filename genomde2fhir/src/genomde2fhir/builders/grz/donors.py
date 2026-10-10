@@ -1,15 +1,21 @@
-"""GRZ donors[] (without labData) and submission.* -> Patients, family history, consents, Coverage, genomic study,
-lab / submitter / GRZ / KDK Organizations and a submission Provenance.
+"""GRZ donors[] (without labData) and submission.* -> Patients, family history, consents, Coverage, genomic study and
+lab / submitter / GRZ / KDK Organizations (the submission Provenance is built by convert._provenance, one per
+submission for both streams, with these Organizations as agents).
 
 Rows: donors[].donorPseudonym, .gender, .relation, .mvConsent.*, .researchConsents[].* (via the consent builders),
 submission.tanG, .localCaseId, .coverageType (MAPPED) and the transport rows submission.submitterId,
 .genomicDataCenterId, .clinicalDataNodeId, .submissionDate, .submissionType, .diseaseType, .genomicStudyType,
-.genomicStudySubtype, .labName (NOMAP in the table: 'Provenance at most'; kept here as Organizations, a
-Provenance and the genomic study, recorded as preserved).
+.genomicStudySubtype, .labName (DRAFT in the table: kept in core resources without an MII profile, i.e. the
+Organizations, the submission Provenance / meta.source and the genomic study, recorded as preserved). The submitter /
+GRZ / KDK Organizations are built by submission.submission_organization, identically for KDK metaData.submission.*.
 
-Identity (docs/IDENTITY.md): one GRZ-stream Patient per donor, id parts ('donor', donorPseudonym); the index
-donor additionally carries tan-g and the sender-scoped local-case-id (same value as the KDK Patient, so both
-streams meet on that identifier without sharing a resource). Relatives are linked to the index Patient by an
+Identity (docs/IDENTITY.md): one GRZ-stream Patient per donor, id parts ('donor', donorPseudonym), identifier
+donor-pseudonym '<submitterId>|<caseKey>|<donorPseudonym>' (case-scoped: the schema's literal 'index' pseudonym
+recurs in every case); the index donor additionally carries tan-g and the sender-scoped local-case-id (same value
+as the KDK Patient, so both streams meet on that identifier without sharing a resource). The genomic study is keyed
+by CaseKey.submission_parts (id parts 'submission', 'genomic-study' [, submissionDate]): the initial submission and
+its corrections share one study, which a correction rewrites in place; a follow-up / addition gets its own study
+listing its own labData analyses, and the earlier study keeps its links. Relatives are linked to the index Patient by an
 MII MolGen Familienanamnese (FamilyMemberHistory) pointing at the relative's own Patient through the core
 extension familymemberhistory-patient-record; relation 'other' (and a second 'index') has no relationship concept
 and is dropped. coverageType: versicherungsart-de-basis codes, SKT -> KBV_CS_FOR_Payor_Type_KBV, UNK ->
@@ -19,13 +25,14 @@ Shared names: ctx.refs['patient'] (index donor), ctx.refs['coverage'], ctx.refs[
 ctx.refs['genomic_study']; ctx.ids[('donor', pseudonym)] for every donor (grz.labdata needs it);
 ctx.refs['lab'] (sequencing lab Organization).
 """
-from ...systems import (FHIR_EXT, MOLGEN, MTB, MVGS_SD, PERSON, SID_DONOR, SID_GDC, SID_KDK, SID_LE,
-                        SID_LOCAL_CASE, SID_TAN_G, SNOMED, V2_0203, V3_OBSVALUE)
+from ...systems import (FHIR_EXT, MOLGEN, MTB, MVGS_SD, PERSON, SID_DONOR, SID_LE, SID_LOCAL_CASE, SID_TAN_G, SNOMED,
+                        V2_0203, V3_OBSVALUE)
 from ...terminology import local_coding
 from ..coverage import add_coverage
 from ..common import cc, coding, ext, identifier
 from ..consent import build_mv_consent
 from ..research_consent import build_research_consent
+from ..submission import submission_organization
 from ..patient import GENDER_AMTLICH_CS, GENDER_AMTLICH_EXT
 
 PATIENT_PROFILE = PERSON + "StructureDefinition/PatientPseudonymisiert"
@@ -38,8 +45,6 @@ FMH_PATIENT_RECORD = FHIR_EXT + "familymemberhistory-patient-record"
 ROLECODE = "http://terminology.hl7.org/CodeSystem/v3-RoleCode"
 ADMIN_GENDER = "http://hl7.org/fhir/administrative-gender"
 OBS_CATEGORY = "http://terminology.hl7.org/CodeSystem/observation-category"
-DATA_OPERATION = "http://terminology.hl7.org/CodeSystem/v3-DataOperation"
-PROV_PARTICIPANT = "http://terminology.hl7.org/CodeSystem/provenance-participant-type"
 
 # relation -> (SNOMED descendant of 125677006 'Relative' [mii-vs-molgen-family-member-snomed], v3-RoleCode)
 RELATION = {
@@ -50,8 +55,6 @@ RELATION = {
     "child": (("67822003", "Child (person)"), ("CHILD", "child")),
 }
 GENDERS = ("male", "female", "other", "unknown")
-# submissionType -> v3-DataOperation (correction rewrites, follow-up/addition extend the case)
-DATA_OP = {"initial": "CREATE", "correction": "UPDATE", "followup": "APPEND", "addition": "APPEND"}
 SUBTYPE_CS = "mvgs-cs-grz-study-subtype"
 DISEASE_CS = "mvgs-cs-grz-disease-type"
 
@@ -69,8 +72,7 @@ def build(ctx):
         index = donors[0]
         ctx.warn("donors[].relation", f"no donor with relation 'index'; donor {index['donorPseudonym']!r} "
                                       "carries the index identifiers, relationships are not represented")
-    submitter = _organization(ctx, sub, "submitter", SID_LE, "submission.submitterId",
-                              "Leistungserbringer (submitter)")
+    submitter = _organization(ctx, sub, "submission.submitterId")
 
     # Patients first: the index Patient must be registered before family history and consents reference it
     pats = {}
@@ -100,7 +102,7 @@ def build(ctx):
 
     _coverage(ctx, sub)
     _genomic_study(ctx, sub)
-    _provenance(ctx, sub, submitter, pats)
+    _routing_organizations(ctx, sub)
 
 
 # ---- Patients ------------------------------------------------------------------------------------------
@@ -108,7 +110,7 @@ def _patient(ctx, d: dict, sub: dict, is_index: bool, submitter: dict | None) ->
     k = ctx.key
     pseudo = d["donorPseudonym"]
     pat = ctx.new("Patient", "donor", pseudo, profile=PATIENT_PROFILE)
-    ids = [identifier(SID_DONOR, f"{k.submitter_id}|{pseudo}", V3_OBSVALUE, "PSEUDED")]
+    ids = [identifier(SID_DONOR, k.scoped(pseudo), V3_OBSVALUE, "PSEUDED")]
     paths = ["donors[].donorPseudonym"]
     if is_index:
         if d.get("relation") == "index":     # the index role is the Patient carrying tan-g / local-case-id
@@ -117,7 +119,7 @@ def _patient(ctx, d: dict, sub: dict, is_index: bool, submitter: dict | None) ->
             ids.append(identifier(SID_TAN_G, sub["tanG"], V3_OBSVALUE, "PSEUDED"))
             paths.append("submission.tanG")
         if sub.get("localCaseId"):
-            ids.append(identifier(SID_LOCAL_CASE, f"{k.submitter_id}|{sub['localCaseId']}", V2_0203, "MR",
+            ids.append(identifier(SID_LOCAL_CASE, k.scoped(), V2_0203, "MR",
                                   assigner_system=SID_LE, assigner_value=k.submitter_id))
             paths.append("submission.localCaseId")
     pat["identifier"] = ids
@@ -166,16 +168,9 @@ def _coverage(ctx, sub: dict):
 
 
 # ---- Organizations ---------------------------------------------------------------------------------------
-def _organization(ctx, sub: dict, role: str, system: str, path: str, label: str) -> dict | None:
-    key = path.split(".")[-1]
-    val = sub.get(key)
-    if not val:
-        return None
-    org = ctx.new("Organization", role, val)
-    org.update(identifier=[identifier(system, val)], active=True, name=f"{label} {val}")
-    ref = ctx.add(org, name=f"org_{role}")
-    ctx.preserve(path, "grz-submission-organization")
-    return ref
+def _organization(ctx, sub: dict, path: str) -> dict | None:
+    """Submission Organization, built exactly as for KDK (submission.submission_organization)."""
+    return submission_organization(ctx, sub, path.split(".")[-1], "submission.")
 
 
 def _lab(ctx, sub: dict) -> dict | None:
@@ -191,7 +186,8 @@ def _lab(ctx, sub: dict) -> dict | None:
 def _genomic_study(ctx, sub: dict):
     disease = sub.get("diseaseType")
     profile = STUDY_PROFILE.get(disease, STUDY_PROFILE_DEFAULT)
-    st = ctx.new("Procedure", "submission", "genomic-study", profile=profile)
+    # initial + corrections: one study (a correction rewrites it); follow-up / addition: own study (docs/IDENTITY.md)
+    st = ctx.new("Procedure", "submission", "genomic-study", *ctx.key.submission_parts(), profile=profile)
     exts = []
     design = sub.get("genomicStudyType")
     if design:
@@ -231,36 +227,7 @@ def _genomic_study(ctx, sub: dict):
     ctx.add(st, name="genomic_study")
 
 
-# ---- submission Provenance ----------------------------------------------------------------------------------
-def _provenance(ctx, sub: dict, submitter: dict | None, pats: dict):
-    gdc = _organization(ctx, sub, "genomic-data-center", SID_GDC, "submission.genomicDataCenterId",
-                        "Genomrechenzentrum")
-    kdk = _organization(ctx, sub, "clinical-data-node", SID_KDK, "submission.clinicalDataNodeId",
-                        "Klinischer Datenknoten")
-    date = sub.get("submissionDate")
-    stype = sub.get("submissionType")
-    if not date:
-        return
-    agents = []
-    if submitter:
-        agents.append({"type": cc(coding(PROV_PARTICIPANT, "author", "Author")), "who": submitter})
-    if gdc:
-        agents.append({"type": cc(coding(PROV_PARTICIPANT, "custodian", "Custodian")), "who": gdc})
-    if kdk:
-        agents.append({"type": cc(text="clinical data node (KDK) of the submission"), "who": kdk})
-    if not agents:
-        return
-    prov = ctx.new("Provenance", "grz-submission")
-    targets = list(pats.values()) + [r for r in (ctx.refs.get("genomic_study"), ctx.refs.get("coverage")) if r]
-    prov.update(
-        target=targets,
-        occurredDateTime=date,
-        recorded=f"{date}T00:00:00Z" if len(date) == 10 else date,
-        activity=cc(coding(DATA_OPERATION, DATA_OP[stype]) if stype in DATA_OP else None,
-                    text=f"genomDE GRZ submission ({stype})" if stype else None),
-        agent=agents,
-    )
-    ctx.add(prov)
-    ctx.preserve("submission.submissionDate", "grz-submission-provenance")
-    if stype:
-        ctx.preserve("submission.submissionType", "grz-submission-provenance")
+# ---- routing Organizations (agents of the submission Provenance, convert._provenance; same for KDK) -------------
+def _routing_organizations(ctx, sub: dict):
+    _organization(ctx, sub, "submission.genomicDataCenterId")
+    _organization(ctx, sub, "submission.clinicalDataNodeId")

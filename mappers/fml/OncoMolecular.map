@@ -15,8 +15,10 @@
 //
 // Output (Python builder):
 //   DiagnosticReport mii-pr-mtb-ngs-bericht 'ngs-report' (molecular_report) with entry uuid ctx 'ngsReport'; it exists
-//   exactly when the block yields at least one finding (OncoMolHasResults predicate below). Every finding is created
-//   from the report rule, so that it can be listed in rep.result (Q4); order = Python pipeline order.
+//   when the block yields a finding other than a complex biomarker, or exactly one complexBiomarkers item yields
+//   biomarkers (predicates in OncoMolecular below). With several such items each gets its own report
+//   'ngs-report:complex-biomarker:<k>' (uuid ctx 'ngsReport:<i>'). Every finding is created from the rule of its report,
+//   so that it can be listed in rep.result (Q4); order = Python pipeline order.
 //   smallVariants[]       -> mii-pr-mtb-einfache-variante 'small-variant:<k>' (+ molekulare-konsequenz '<role>:consequence')
 //   copyNumberVariants[]  -> mii-pr-mtb-copy-number-variant 'cnv:<k>' (+ consequence)
 //   structuralVariants[]  -> mii-pr-mtb-dna-fusion / mii-pr-mtb-rna-fusion 'sv:<k>' (+ consequence)
@@ -31,7 +33,7 @@
 // the entries are created in Python order, so the FIRST entry with that identifier is the resource Python registers.
 // OncoMolFindingRef resolves it to the entry's fullUrl ('urn:uuid:..'); callers guard with OncoMolFindingRef's predicate:
 //   rec.variants as vid where (%bundle.entry.where(resource.identifier.where(system = 'https://genomde.de/fhir/sid/molecular-finding-id'
-//         and value = (%ctx.parameter.where(name = 'submitterId').value & '|' & %ctx.parameter.where(name = 'caseId').value & '|' & %vid)).exists()).exists())
+//         and value = (%ctx.parameter.where(name = 'submitterId').value & '|' & %ctx.parameter.where(name = 'caseId').value & '|' & %vid.replace('\\', '\\\\').replace('|', '\\|'))).exists()).exists())
 //      -> sr.reasonReference as r then OncoMolFindingRef(vid, ctx, bundle, r) "variant";
 // This requires OncoMolecular to run before the plan map (OncoCase calls it first).
 //
@@ -48,6 +50,7 @@ uses "http://hl7.org/fhir/StructureDefinition/Coding" alias Coding as target
 uses "http://hl7.org/fhir/StructureDefinition/CodeableConcept" alias CodeableConcept as target
 uses "http://hl7.org/fhir/StructureDefinition/Reference" alias Reference as target
 uses "http://hl7.org/fhir/StructureDefinition/Range" alias Range as target
+uses "http://hl7.org/fhir/StructureDefinition/Parameters" alias Parameters as target
 
 imports "https://genomde.de/fhir/StructureMap/DatenkranzCommon"
 
@@ -55,37 +58,55 @@ imports "https://genomde.de/fhir/StructureMap/DatenkranzCommon"
 // Entry groups
 // ================================================================================================================
 
-// The predicate 'the block yields at least one finding' appears twice (report and episode link) and must stay identical:
-//   smallVariants / copyNumberVariants / structuralVariants / expressionVariants: every item yields a resource;
-//   complexBiomarkers: an item with tmb, ploidy, hrdHigh, lstHigh or taiHigh; sbsSignatures: an item with a non-blank name.
+// The main report 'ngs-report' exists when the block yields a finding other than a complex biomarker, or exactly one
+// complexBiomarkers item yields biomarkers. With several such items (n > 1) the result slices TMB / HRD score / ploidy
+// (0..1) of one report would overflow: every such item gets a report of its own (role 'ngs-report:complex-biomarker:<k>',
+// entry uuid ctx 'ngsReport:<i>', i = array position) with its [tmb, hrd, ploidy] results (molecular_report.py).
+// The predicates appear twice (reports and episode link) and must stay identical:
+//   other finding: any smallVariants / copyNumberVariants / structuralVariants / expressionVariants item, or an
+//                  sbsSignatures item with a non-blank name;
+//   yielding complexBiomarkers item: tmb, ploidy, hrdHigh, lstHigh or taiHigh present.
 group OncoMolecular(source mol, target bundle : Bundle, source ctx) {
   mol where (smallVariants.exists() or copyNumberVariants.exists() or structuralVariants.exists() or expressionVariants.exists()
-        or complexBiomarkers.where(tmb.exists() or ploidy.exists() or hrdHigh.exists() or lstHigh.exists() or taiHigh.exists()).exists()
-        or sbsSignatures.where(name.where($this.trim() != '').exists()).exists())
+        or sbsSignatures.where(name.where($this.trim() != '').exists()).exists()
+        or complexBiomarkers.where(tmb.exists() or ploidy.exists() or hrdHigh.exists() or lstHigh.exists() or taiHigh.exists()).count() = 1)
      -> bundle.entry as e, e.resource = create('DiagnosticReport') as rep, ('ngs-report') as role,
-        (%ctx.parameter.where(name = 'ngsReport').value) as fid, (%ctx.parameter.where(name = 'ck').value) as ck
+        (%ctx.parameter.where(name = 'ngsReport').value) as fid, (%ctx.parameter.where(name = 'ck').value) as ck,
+        ck.extension as msx, msx.url = 'urn:genomde2fhir:meta-source', msx.value = (%ctx.parameter.where(name = 'metaSource').value),
+        create('Parameters') as c1, create('Parameters') as c2, create('Parameters') as c3, create('Parameters') as c4,
+        create('Parameters') as c5, create('Parameters') as c6
      then DkEntry(ck, role, fid, e, rep), OncoMolReportBody(mol, ctx, rep),
-          OncoMolSmallVariants(mol, ck, ctx, rep, bundle), OncoMolCnvs(mol, ck, ctx, rep, bundle),
-          OncoMolFusions(mol, ck, ctx, rep, bundle), OncoMolBiomarkers(mol, ck, ctx, rep, bundle),
-          OncoMolExpression(mol, ck, ctx, rep, bundle), OncoMolSignatures(mol, ck, ctx, rep, bundle) "ngs-report";
+          OncoMolSmallVariants(mol, ck, ctx, rep, c1, bundle), OncoMolCnvs(mol, ck, ctx, rep, c2, bundle),
+          OncoMolFusions(mol, ck, ctx, rep, c3, bundle), OncoMolBiomarkers(mol, ck, ctx, rep, c4, bundle),
+          OncoMolExpression(mol, ck, ctx, rep, c5, bundle), OncoMolSignatures(mol, ck, ctx, rep, c6, bundle) "ngs-report";
+  // only complex biomarkers, from several items: no main report, one report per item
+  mol where ((smallVariants.exists() or copyNumberVariants.exists() or structuralVariants.exists() or expressionVariants.exists()
+        or sbsSignatures.where(name.where($this.trim() != '').exists()).exists()).not() and complexBiomarkers.where(tmb.exists() or ploidy.exists() or hrdHigh.exists() or lstHigh.exists() or taiHigh.exists()).count() > 1)
+     -> (%ctx.parameter.where(name = 'ck').value) as ck,
+        ck.extension as msx, msx.url = 'urn:genomde2fhir:meta-source', msx.value = (%ctx.parameter.where(name = 'metaSource').value),
+        create('Parameters') as cnt
+     then OncoMolBiomarkerReports(mol, ck, ctx, cnt, bundle) "biomarker-reports";
 }
 
-// molecular_report.link_episode: investigation:NgsBericht -> the current NGS report
+// molecular_report.link_episode: one investigation:NgsBericht per report
 group OncoMolEpisodeLink(source mol, source ctx, target ep : ClinicalImpression) {
   mol where (smallVariants.exists() or copyNumberVariants.exists() or structuralVariants.exists() or expressionVariants.exists()
-        or complexBiomarkers.where(tmb.exists() or ploidy.exists() or hrdHigh.exists() or lstHigh.exists() or taiHigh.exists()).exists()
-        or sbsSignatures.where(name.where($this.trim() != '').exists()).exists())
+        or sbsSignatures.where(name.where($this.trim() != '').exists()).exists()
+        or complexBiomarkers.where(tmb.exists() or ploidy.exists() or hrdHigh.exists() or lstHigh.exists() or taiHigh.exists()).count() = 1)
      -> ep.investigation as inv, inv.code as cc, cc.coding as c, c.system = 'http://snomed.info/sct', c.code = '106221001',
         c.display = 'Genetic finding', inv.item as it, it.reference = ('urn:uuid:' & %ctx.parameter.where(name = 'ngsReport').value) "investigation";
+  ctx.parameter as p where (name.startsWith('ngsReport:'))
+     -> ep.investigation as inv, inv.code as cc, cc.coding as c, c.system = 'http://snomed.info/sct', c.code = '106221001',
+        c.display = 'Genetic finding', inv.item as it, it.reference = ('urn:uuid:' & %p.value) "investigation-biomarker";
 }
 
 // Reference to the molecular finding a KDK identifier names (Python ctx.ids[('variant', id)]; first one wins). The caller
 // guards with the same lookup (see the header); without a match no rule fires and the reference stays empty (dropped).
 group OncoMolFindingRef(source vid, source ctx, target bundle : Bundle, target ref : Reference) {
   vid where (%bundle.entry.where(resource.identifier.where(system = 'https://genomde.de/fhir/sid/molecular-finding-id'
-        and value = (%ctx.parameter.where(name = 'submitterId').value & '|' & %ctx.parameter.where(name = 'caseId').value & '|' & %vid)).exists()).exists())
+        and value = (%ctx.parameter.where(name = 'submitterId').value & '|' & %ctx.parameter.where(name = 'caseId').value & '|' & %vid.replace('\\', '\\\\').replace('|', '\\|'))).exists()).exists())
      -> ref.reference = (%bundle.entry.where(resource.identifier.where(system = 'https://genomde.de/fhir/sid/molecular-finding-id'
-        and value = (%ctx.parameter.where(name = 'submitterId').value & '|' & %ctx.parameter.where(name = 'caseId').value & '|' & %vid)).exists()).first().fullUrl) "finding";
+        and value = (%ctx.parameter.where(name = 'submitterId').value & '|' & %ctx.parameter.where(name = 'caseId').value & '|' & %vid.replace('\\', '\\\\').replace('|', '\\|'))).exists()).first().fullUrl) "finding";
 }
 
 // ================================================================================================================
@@ -103,7 +124,7 @@ group OncoMolRefPrimary(source ctx, target ref : Reference) {
 // molecular-finding-id '<submitterId>|<caseId>|<KDK identifier>' (common.scoped_id; none without an identifier)
 group OncoMolFindingId(source item, source ctx, target o : Observation) {
   item.identifier as i where (i != '') -> o.identifier as id, id.system = 'https://genomde.de/fhir/sid/molecular-finding-id',
-        id.value = (%ctx.parameter.where(name = 'submitterId').value & '|' & %ctx.parameter.where(name = 'caseId').value & '|' & %i) "identifier";
+        id.value = (%ctx.parameter.where(name = 'submitterId').value & '|' & %ctx.parameter.where(name = 'caseId').value & '|' & %i.replace('\\', '\\\\').replace('|', '\\|')) "identifier";
 }
 
 // subject -> Patient, focus -> primary tumour (when emitted)
@@ -197,19 +218,23 @@ group OncoMolReportBody(source mol, source ctx, target rep : DiagnosticReport) {
 
 // ================================================================================================================
 // smallVariants[] (molecular_variants.py)
-// key: identifier, or identifier#index when it is missing or not the first item with that identifier
-// acc: versioned RefSeq (NM_/NR_/XM_/XR_) or Ensembl (ENST) transcript accession usable as HGVS reference, else '-'
+// key: identifier, or identifier#index when it is missing or an earlier item has that identifier (i = array position, from
+// the counter cnt; molecular_cnv.unique_key)
+// acc: versioned RefSeq (NM_/NR_/XM_/XR_) or Ensembl (ENST) transcript accession usable as HGVS reference, else '-'; an
+// unversioned RefSeq accession without a numeric transcriptId.version is none (HGVS needs the version), an unversioned
+// ENST is kept (molecular_variants.transcript_accession)
 // ================================================================================================================
 
-group OncoMolSmallVariants(source mol, source ck, source ctx, target rep : DiagnosticReport, target bundle : Bundle) {
-  mol.smallVariants as sv -> bundle.entry as e, e.resource = create('Observation') as o, uuid() as vfid,
-        (iif(%sv.identifier.where($this != '').exists() and %mol.smallVariants.where(identifier = %sv.identifier).count() = 1, %sv.identifier,
-         iif(%sv.identifier.where($this != '').exists() and %mol.smallVariants.select(iif($this = %sv, $index, {})).first() = %mol.smallVariants.select(iif($this.identifier = %sv.identifier, $index, {})).first(),
-             %sv.identifier, iif(%sv.identifier.exists(), %sv.identifier, '') & '#' & %mol.smallVariants.select(iif($this = %sv, $index, {})).first().toString()))) as key,
+group OncoMolSmallVariants(source mol, source ck, source ctx, target rep : DiagnosticReport, target cnt : Parameters, target bundle : Bundle) {
+  mol.smallVariants as sv -> (%cnt.parameter.count()) as i, cnt.parameter as p, p.name = 'i',
+        bundle.entry as e, e.resource = create('Observation') as o, uuid() as vfid,
+        (iif(%sv.identifier.where($this != '').exists() and %mol.smallVariants.take(%i).where(identifier = %sv.identifier).exists().not(), %sv.identifier,
+         iif(%sv.identifier.exists(), %sv.identifier, '') & '#' & %i.toString())) as key,
         ('small-variant:' & %key) as role,
         (iif(%sv.transcriptId.code.matches('^((N[MR]_|X[MR]_)[0-9]+([.][0-9]+)?|ENST[0-9]+([.][0-9]+)?)$'),
              iif(%sv.transcriptId.code.contains('.').not() and %sv.transcriptId.version.matches('^[0-9]+$') and %sv.transcriptId.code.matches('^[NX].*$'),
-                 %sv.transcriptId.code & '.' & %sv.transcriptId.version, %sv.transcriptId.code), '-')) as acc,
+                 %sv.transcriptId.code & '.' & %sv.transcriptId.version,
+                 iif(%sv.transcriptId.code.matches('^[NX].*$') and %sv.transcriptId.code.contains('.').not(), '-', %sv.transcriptId.code)), '-')) as acc,
         rep.result as rr
      then DkEntry(ck, role, vfid, e, o), DkReference(vfid, rr), OncoMolSmallVariantBody(sv, acc, ctx, o),
           OncoMolConsequence(sv, ck, role, vfid, ctx, rep, bundle) "small-variant";
@@ -314,11 +339,11 @@ group OncoMolSoCoding(source vt, target c : Coding) {
 // copyNumberVariants[] (molecular_cnv.py): cnv-type (DNPM code where one exists + mvgs-cs-cnv-type), SO change type
 // ================================================================================================================
 
-group OncoMolCnvs(source mol, source ck, source ctx, target rep : DiagnosticReport, target bundle : Bundle) {
-  mol.copyNumberVariants as v -> bundle.entry as e, e.resource = create('Observation') as o, uuid() as vfid,
-        (iif(%v.identifier.where($this != '').exists() and %mol.copyNumberVariants.where(identifier = %v.identifier).count() = 1, %v.identifier,
-         iif(%v.identifier.where($this != '').exists() and %mol.copyNumberVariants.select(iif($this = %v, $index, {})).first() = %mol.copyNumberVariants.select(iif($this.identifier = %v.identifier, $index, {})).first(),
-             %v.identifier, iif(%v.identifier.exists(), %v.identifier, '') & '#' & %mol.copyNumberVariants.select(iif($this = %v, $index, {})).first().toString()))) as key,
+group OncoMolCnvs(source mol, source ck, source ctx, target rep : DiagnosticReport, target cnt : Parameters, target bundle : Bundle) {
+  mol.copyNumberVariants as v -> (%cnt.parameter.count()) as i, cnt.parameter as p, p.name = 'i',
+        bundle.entry as e, e.resource = create('Observation') as o, uuid() as vfid,
+        (iif(%v.identifier.where($this != '').exists() and %mol.copyNumberVariants.take(%i).where(identifier = %v.identifier).exists().not(), %v.identifier,
+         iif(%v.identifier.exists(), %v.identifier, '') & '#' & %i.toString())) as key,
         ('cnv:' & %key) as role, rep.result as rr
      then DkEntry(ck, role, vfid, e, o), DkReference(vfid, rr), OncoMolCnvBody(v, ctx, o),
           OncoMolConsequence(v, ck, role, vfid, ctx, rep, bundle) "cnv";
@@ -369,11 +394,11 @@ group OncoMolCnvType(source t, target tv : CodeableConcept) {
 // a KDK source as data-absent-reason 'unknown'
 // ================================================================================================================
 
-group OncoMolFusions(source mol, source ck, source ctx, target rep : DiagnosticReport, target bundle : Bundle) {
-  mol.structuralVariants as v -> bundle.entry as e, e.resource = create('Observation') as o, uuid() as vfid,
-        (iif(%v.identifier.where($this != '').exists() and %mol.structuralVariants.where(identifier = %v.identifier).count() = 1, %v.identifier,
-         iif(%v.identifier.where($this != '').exists() and %mol.structuralVariants.select(iif($this = %v, $index, {})).first() = %mol.structuralVariants.select(iif($this.identifier = %v.identifier, $index, {})).first(),
-             %v.identifier, iif(%v.identifier.exists(), %v.identifier, '') & '#' & %mol.structuralVariants.select(iif($this = %v, $index, {})).first().toString()))) as key,
+group OncoMolFusions(source mol, source ck, source ctx, target rep : DiagnosticReport, target cnt : Parameters, target bundle : Bundle) {
+  mol.structuralVariants as v -> (%cnt.parameter.count()) as i, cnt.parameter as p, p.name = 'i',
+        bundle.entry as e, e.resource = create('Observation') as o, uuid() as vfid,
+        (iif(%v.identifier.where($this != '').exists() and %mol.structuralVariants.take(%i).where(identifier = %v.identifier).exists().not(), %v.identifier,
+         iif(%v.identifier.exists(), %v.identifier, '') & '#' & %i.toString())) as key,
         ('sv:' & %key) as role, rep.result as rr
      then DkEntry(ck, role, vfid, e, o), DkReference(vfid, rr), OncoMolFusionBody(v, ctx, o),
           OncoMolConsequence(v, ck, role, vfid, ctx, rep, bundle) "fusion";
@@ -452,11 +477,31 @@ group OncoMolAbsentSlice(source v, source s, target o : Observation) {
 // interpretation H/L; LST / TAI as sub-score components), ploidy -> ploidie
 // ================================================================================================================
 
-group OncoMolBiomarkers(source mol, source ck, source ctx, target rep : DiagnosticReport, target bundle : Bundle) {
-  mol.complexBiomarkers as cb -> (iif(%cb.identifier.where($this != '').exists() and %mol.complexBiomarkers.where(identifier = %cb.identifier).count() = 1, %cb.identifier,
-         iif(%cb.identifier.where($this != '').exists() and %mol.complexBiomarkers.select(iif($this = %cb, $index, {})).first() = %mol.complexBiomarkers.select(iif($this.identifier = %cb.identifier, $index, {})).first(),
-             %cb.identifier, iif(%cb.identifier.exists(), %cb.identifier, '') & '#' & %mol.complexBiomarkers.select(iif($this = %cb, $index, {})).first().toString()))) as key
+// at most one yielding item: its results go into the main report
+group OncoMolBiomarkers(source mol, source ck, source ctx, target rep : DiagnosticReport, target cnt : Parameters, target bundle : Bundle) {
+  mol.complexBiomarkers as cb where (%mol.complexBiomarkers.where(tmb.exists() or ploidy.exists() or hrdHigh.exists() or lstHigh.exists() or taiHigh.exists()).count() <= 1)
+     -> (%cnt.parameter.count()) as i, cnt.parameter as p, p.name = 'i',
+        (iif(%cb.identifier.where($this != '').exists() and %mol.complexBiomarkers.take(%i).where(identifier = %cb.identifier).exists().not(), %cb.identifier,
+         iif(%cb.identifier.exists(), %cb.identifier, '') & '#' & %i.toString())) as key
      then OncoMolBiomarker(cb, key, ck, ctx, rep, bundle) "biomarker";
+  // several yielding items: one report each (created here, so that the main report keeps the Python bundle order)
+  mol where (complexBiomarkers.where(tmb.exists() or ploidy.exists() or hrdHigh.exists() or lstHigh.exists() or taiHigh.exists()).count() > 1) -> create('Parameters') as rcnt
+     then OncoMolBiomarkerReports(mol, ck, ctx, rcnt, bundle) "reports";
+}
+
+// one mii-pr-mtb-ngs-bericht per yielding item (role 'ngs-report:complex-biomarker:<k>', uuid ctx 'ngsReport:<i>'),
+// result = the item's [tmb, hrd, ploidy]
+group OncoMolBiomarkerReports(source mol, source ck, source ctx, target cnt : Parameters, target bundle : Bundle) {
+  mol.complexBiomarkers as cb -> (%cnt.parameter.count()) as i, cnt.parameter as p, p.name = 'i',
+        (iif(%cb.identifier.where($this != '').exists() and %mol.complexBiomarkers.take(%i).where(identifier = %cb.identifier).exists().not(), %cb.identifier,
+         iif(%cb.identifier.exists(), %cb.identifier, '') & '#' & %i.toString())) as key
+     then OncoMolBiomarkerReport(mol, cb, i, key, ck, ctx, bundle) "item";
+}
+
+group OncoMolBiomarkerReport(source mol, source cb, source i, source key, source ck, source ctx, target bundle : Bundle) {
+  cb where (tmb.exists() or ploidy.exists() or hrdHigh.exists() or lstHigh.exists() or taiHigh.exists()) -> bundle.entry as e, e.resource = create('DiagnosticReport') as rep,
+        ('ngs-report:complex-biomarker:' & %key) as role, (%ctx.parameter.where(name = ('ngsReport:' & %i.toString())).value) as fid
+     then DkEntry(ck, role, fid, e, rep), OncoMolReportBody(mol, ctx, rep), OncoMolBiomarker(cb, key, ck, ctx, rep, bundle) "report";
 }
 
 group OncoMolBiomarker(source cb, source key, source ck, source ctx, target rep : DiagnosticReport, target bundle : Bundle) {
@@ -504,11 +549,11 @@ group OncoMolPloidyBody(source cb, source p, source ctx, target o : Observation)
 // expressionVariants[] (molecular_expression.py) -> mii-pr-mtb-rna-seq: LL1971-2 Present/Absent + interpretation H/L/N
 // ================================================================================================================
 
-group OncoMolExpression(source mol, source ck, source ctx, target rep : DiagnosticReport, target bundle : Bundle) {
-  mol.expressionVariants as ev -> bundle.entry as e, e.resource = create('Observation') as o, uuid() as fid,
-        (iif(%ev.identifier.where($this != '').exists() and %mol.expressionVariants.where(identifier = %ev.identifier).count() = 1, %ev.identifier,
-         iif(%ev.identifier.where($this != '').exists() and %mol.expressionVariants.select(iif($this = %ev, $index, {})).first() = %mol.expressionVariants.select(iif($this.identifier = %ev.identifier, $index, {})).first(),
-             %ev.identifier, iif(%ev.identifier.exists(), %ev.identifier, '') & '#' & %mol.expressionVariants.select(iif($this = %ev, $index, {})).first().toString()))) as key,
+group OncoMolExpression(source mol, source ck, source ctx, target rep : DiagnosticReport, target cnt : Parameters, target bundle : Bundle) {
+  mol.expressionVariants as ev -> (%cnt.parameter.count()) as i, cnt.parameter as p, p.name = 'i',
+        bundle.entry as e, e.resource = create('Observation') as o, uuid() as fid,
+        (iif(%ev.identifier.where($this != '').exists() and %mol.expressionVariants.take(%i).where(identifier = %ev.identifier).exists().not(), %ev.identifier,
+         iif(%ev.identifier.exists(), %ev.identifier, '') & '#' & %i.toString())) as key,
         ('expression:' & %key) as role, rep.result as rr
      then DkEntry(ck, role, fid, e, o), DkReference(fid, rr), OncoMolExpressionBody(ev, ctx, o) "expression";
 }
@@ -540,21 +585,20 @@ group OncoMolExpressionBody(source ev, source ctx, target o : Observation) {
 // name as text when it differs), a name that is no SBS id -> text '<name> (<version>)'; a repeated SBS id is emitted once
 // ================================================================================================================
 
-group OncoMolSignatures(source mol, source ck, source ctx, target rep : DiagnosticReport, target bundle : Bundle) {
-  mol.sbsSignatures as sig where (name.where($this.trim() != '').exists())
-     -> (iif(%sig.identifier.where($this != '').exists() and %mol.sbsSignatures.where(identifier = %sig.identifier).count() = 1, %sig.identifier,
-         iif(%sig.identifier.where($this != '').exists() and %mol.sbsSignatures.select(iif($this = %sig, $index, {})).first() = %mol.sbsSignatures.select(iif($this.identifier = %sig.identifier, $index, {})).first(),
-             %sig.identifier, iif(%sig.identifier.exists(), %sig.identifier, '') & '#' & %mol.sbsSignatures.select(iif($this = %sig, $index, {})).first().toString()))) as key
-     then OncoMolSignature(sig, key, ck, ctx, rep, bundle) "signature";
+group OncoMolSignatures(source mol, source ck, source ctx, target rep : DiagnosticReport, target cnt : Parameters, target bundle : Bundle) {
+  mol.sbsSignatures as sig -> (%cnt.parameter.count()) as i, cnt.parameter as p, p.name = 'i',
+        (iif(%sig.identifier.where($this != '').exists() and %mol.sbsSignatures.take(%i).where(identifier = %sig.identifier).exists().not(), %sig.identifier,
+         iif(%sig.identifier.exists(), %sig.identifier, '') & '#' & %i.toString())) as key, create('Parameters') as ncnt
+     then OncoMolSignature(sig, key, ck, ctx, rep, ncnt, bundle) "signature";
 }
 
-// norm = normalised SBS id or '' ; j = position among the non-blank names
-group OncoMolSignature(source sig, source key, source ck, source ctx, target rep : DiagnosticReport, target bundle : Bundle) {
+// norm = normalised SBS id or '' ; j = position among the non-blank names (counter ncnt)
+group OncoMolSignature(source sig, source key, source ck, source ctx, target rep : DiagnosticReport, target ncnt : Parameters, target bundle : Bundle) {
   sig.name as n where (n.trim() != '')
      -> (iif(%n.trim().matches('(?i)^SBS\\s*[-_]?\\s*[0-9]+\\s*[a-z]?$'),
              'SBS' & %n.trim().replaceMatches('(?i)^SBS\\s*[-_]?\\s*0*([0-9]+)\\s*([a-z]?)$', '$1')
                    & %n.trim().replaceMatches('(?i)^SBS\\s*[-_]?\\s*0*([0-9]+)\\s*([a-z]?)$', '$2').lower(), '')) as norm,
-        (%sig.name.where($this.trim() != '').select(iif($this = %n, $index, {})).first()) as j
+        (%ncnt.parameter.count()) as j, ncnt.parameter as p, p.name = 'j'
      then OncoMolSignatureItem(sig, n, norm, j, key, ck, ctx, rep, bundle) "name";
 }
 

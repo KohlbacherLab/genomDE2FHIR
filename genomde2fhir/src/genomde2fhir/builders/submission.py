@@ -8,20 +8,37 @@ activities; Seltene has no board profile) -> local CarePlan profile `mvgs-inclus
   decisionToInclude true  -> CarePlan.status active,  activity.detail.status scheduled
   decisionToInclude false -> CarePlan.status revoked, activity.detail.status cancelled,
                              reasonCode = mvgs-cs-mv-rejection-reason#<rejectionJustification>
-Registered as ctx.refs['indication_board'] so plan builders can point `basedOn` at it.
+Registered as ctx.refs['indication_board']; the oncology Therapieplan points `basedOn` at it (onco.careplan).
 
-Submission block (metaData.submission.*): transport metadata, no KDS element (mapping table NOMAP). submitterId,
-date and type are used for resource identity (docs/IDENTITY.md) and the conversion Provenance; the routing ids and
-the disease type are dropped with a reason.
+Submission block (metaData.submission.*): transport metadata, no KDS element; handled like GRZ submission.* (mapping
+table DRAFT: kept in core resources without an MII profile). submitterId, clinicalDataNodeId and genomicDataCenterId
+each give one core Organization (submission_organization, shared with grz.donors: id parts (role, value), identifier
+le-id / clinical-data-node / genomic-data-center, name '<label> <value>'; an absent or empty id gives none), the
+author / custodian agents of the per-submission Provenance (convert._provenance); the FML maps build the same
+Organizations (DkOrg* groups, no Provenance); submitterId also scopes every resource identity (docs/IDENTITY.md).
+Date and type are preserved on every resource by meta.source (identity.CaseKey.source, convert._label_source; also
+without the Provenance) and by the per-submission Provenance (convert._provenance: occurredDateTime / recorded,
+activity = v3-DataOperation by type, one Provenance per submission); a test submission's type also by the HTEST label
+(separate identity namespace). The disease type is dropped with a reason: the KDK branch (oncology / rare disease) and
+its diagnosis resources already carry the disease. GRZ keeps it as the reasonCode of its sequencing genomic study;
+KDK builds no submission-level genomic study (its only genomic studies are the oncology prior-diagnostic studies of
+case.priorDiagnostics[], which describe earlier tests and point to the diagnosis by reasonReference).
 """
-from ..systems import MVGS_SD
+from ..systems import MVGS_SD, SID_GDC, SID_KDK, SID_LE
 from ..terminology import local_coding
-from .common import cc
+from .common import cc, identifier
 from .consent import mark
 
 PROFILE = MVGS_SD + "mvgs-inclusion-decision"
 ADMIN_CS = "mvgs-cs-mv-administrative"
 REJECTION_CS = "mvgs-cs-mv-rejection-reason"
+# submission field (same name in KDK metaData.submission and GRZ submission) -> (role, identifier system, name label);
+# ctx.refs['org_<role>'] are the agents of the submission Provenance (convert._provenance)
+SUBMISSION_ORGS = {
+    "submitterId": ("submitter", SID_LE, "Leistungserbringer (submitter)"),
+    "clinicalDataNodeId": ("clinical-data-node", SID_KDK, "Klinischer Datenknoten"),
+    "genomicDataCenterId": ("genomic-data-center", SID_GDC, "Genomrechenzentrum"),
+}
 
 
 def build(ctx):
@@ -30,17 +47,28 @@ def build(ctx):
     _indication_board(ctx, md)
 
 
+def submission_organization(ctx, sub: dict, key: str, prefix: str) -> dict | None:
+    """Core Organization (no MII profile) for one routing id of the submission block, both streams alike: id parts
+    (role, value), identifier <system>|<value>, name '<label> <value>', ctx.refs['org_<role>']; the field is preserved
+    (rep submission-organization). None when the field is absent or empty."""
+    val = sub.get(key)
+    if not val:
+        return None
+    role, system, label = SUBMISSION_ORGS[key]
+    org = ctx.new("Organization", role, val)
+    org.update(identifier=[identifier(system, val)], active=True, name=f"{label} {val}")
+    ref = ctx.add(org, name=f"org_{role}")
+    ctx.preserve(prefix + key, "submission-organization")
+    return ref
+
+
 def _submission(ctx, s):
     p = "metaData.submission."
-    for k, how in (("submitterId", "identity: resource ids, local-case-id assigner (docs/IDENTITY.md)"),
-                   ("date", "conversion Provenance.recorded"), ("type", "conversion Provenance.activity.text")):
-        if s.get(k):
-            ctx.preserve(p + k, how)
-    # clinicalDataNodeId / genomicDataCenterId: preserved as conversion Provenance agents (convert._provenance)
-    for k, why in (("diseaseType", "submission routing (oncological/hereditary/rare); the branch and the diagnosis "
-                                   "resources carry the disease"),):
-        if s.get(k):
-            ctx.drop(p + k, s[k], why)
+    for key in SUBMISSION_ORGS:     # same Organizations as GRZ (grz.donors); date / type: convert._provenance
+        submission_organization(ctx, s, key, p)
+    if s.get("diseaseType"):
+        ctx.drop(p + "diseaseType", s["diseaseType"], "submission routing (oncological/hereditary/rare); the KDK "
+                 "branch and its diagnosis resources carry the disease")
 
 
 def _indication_board(ctx, md):

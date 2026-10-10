@@ -15,15 +15,24 @@ plan.preventiveMeasures[].*  (docs/REVIEW-TD-2026-10-06.md A "MTB plan"; docs/RE
                                    several substances are grouped by mii-pr-mtb-therapieempfehlung-kombination)
   recommendedStudies            -> mii-pr-mtb-studieneinschluss-anfrage (ServiceRequest) + mii-pr-mtb-studie
   preventiveMeasures            -> ServiceRequest (intent plan), code.text = type
+  indication board (submission) -> Therapieplan.basedOn (ctx.refs['indication_board'], CarePlan 0..* in both sets)
 
 Boolean flags are encoded by presence of the activity (false -> no activity), hence covered either way.
 `recommendations.build` is a no-op: everything is built here because the CarePlan references it.
+
+Identity (docs/IDENTITY.md): a repeated recommendation / measure identifier gets the array index appended to its
+id part and a warning (ctx.ids keeps the first). A combination's first MedicationRequest keeps the recommendation's
+id, further members add their index, so the ids do not depend on the number of substances. The recommendation
+identifier is carried by the first (or only) MedicationRequest, the target of follow-up causedBy references, and by
+the RequestGroup; combination members additionally carry '<identifier>:<member index>'.
 """
 import re
 
+from ...bundle import prune
 from ...systems import MII, MTB, MVGS_SD, ONKO, SID_KDK_OBJECT, SNOMED
 from ...terminology import local_coding
 from ..common import as_list, atc_system, cc, coding, ext, scoped_id
+from ..rd.careplan import PLACEHOLDER_NAMES   # same placeholder rule as rare disease (study names)
 
 P = "plan."
 CP = P + "carePlanOd."
@@ -141,8 +150,12 @@ def build(ctx):
     if cp.get("interventionRecommended") is not None:
         if cp["interventionRecommended"] and not interventions and "OP" not in obds:
             obds.append("OP")   # "Recommendation for an operation" without a specified intervention
-        elif not cp["interventionRecommended"] and interventions:
-            ctx.warn(CP + "interventionRecommended", "false although suitableInterventions[] is not empty")
+        elif not cp["interventionRecommended"]:
+            if interventions:
+                ctx.warn(CP + "interventionRecommended", "false although suitableInterventions[] is not empty")
+            if "OP" in obds:   # the OP activity from otherRecommendations[] reads back as interventionRecommended=true
+                ctx.warn(CP + "interventionRecommended", "false although otherRecommendations[] contains OP; "
+                         "the OP activity is emitted")
         ctx.cover(CP + "interventionRecommended")
     for code in obds:
         activities.append({"detail": {"code": cc(coding(CS_THERAPY_TYPE, code, THERAPY_TYPE[code])),
@@ -165,6 +178,8 @@ def build(ctx):
         "category": [cc(coding(CS_PLAN_TYPE, "praeth"), text="Molekulares Tumorboard")],
         "subject": ctx.patient,
         "created": date,
+        # the MV indication board decision (submission.py, REPRESENTATIONS #36); CarePlan.basedOn is open (0..*)
+        "basedOn": [ctx.refs["indication_board"]] if ctx.refs.get("indication_board") else [],
         "addresses": [ctx.refs["primary"]] if ctx.refs.get("primary") else [],
         "supportingInfo": [ctx.refs["episode"]] if ctx.refs.get("episode") else [],
         "activity": activities,
@@ -177,6 +192,22 @@ def build(ctx):
 def _identifier(ctx, value):
     i = scoped_id(ctx, SID_KDK_OBJECT, value)
     return [i] if i else []
+
+
+def _rid(ctx, kind: str, identifier, i: int, path: str) -> str:
+    """Id part of a recommendation / measure: the KDK identifier, else 'index-<i>'. A repeated identifier gets the
+    array index appended and a warning (docs/IDENTITY.md, as rd.careplan._rid) instead of a duplicate resource."""
+    rid = identifier or f"index-{i}"
+    if (kind, rid) in ctx.ids:
+        ctx.warn(path, f"duplicate identifier {rid!r}; id made unique with array index {i}")
+        rid = f"{rid}#{i}"
+    return rid
+
+
+def _real(value) -> str | None:
+    """Source string unless it is a placeholder (rd.careplan.PLACEHOLDER_NAMES, trimmed, any case: 'N/A', 'unknown',
+    '-', 'unbekannt', 'k. A.', 'keine Angabe', ...)."""
+    return value if isinstance(value, str) and value.strip().lower() not in PLACEHOLDER_NAMES else None
 
 
 def _request(ctx, profile, id_parts, base, **fields):
@@ -194,23 +225,43 @@ def _primary(ctx, path):
 
 
 def _variant_refs(ctx, ids, path):
-    """References for KDK variant identifiers (registered by the molecular builders)."""
+    """References for KDK variant identifiers (registered by the molecular builders). Exact identifier first; else
+    a cited id resolves to every finding whose identifier is '<cited>_<suffix>' (a CNV split into one entry per
+    gene, '<id>_<GENE>'), with one warning per cited id."""
     out = []
     for vid in as_list(ids):
         r = ctx.ids.get(("variant", vid))
-        if r:
-            out.append(r)
-        else:
-            ctx.drop(path, vid, "variant identifier not found among the molecular findings")
+        found = [r] if r else _split_variant_refs(ctx, vid, path)
+        if not found:
+            ctx.drop(path, vid, "cited variant id not present in this submission")
+        out += [x for x in found if x not in out]
     return out
+
+
+def _split_variant_refs(ctx, vid, path) -> list:
+    if vid in (None, ""):
+        return []
+    prefix = f"{vid}_"
+    hits = [(k[1], r) for k, r in ctx.ids.items() if k[0] == "variant" and isinstance(k[1], str)
+            and k[1].startswith(prefix)]
+    warned = ctx.bag["plan_split_variant_ids"]   # one warning per cited id (therapies and studies may share it)
+    if hits and vid not in warned:
+        warned.append(vid)
+        ctx.warn(path, f"variant id {vid!r} not found; resolved to the {len(hits)} finding(s) "
+                       f"'{prefix}<suffix>' ({', '.join(k[len(prefix):] for k, _ in hits)})")
+    return [r for _, r in hits]
 
 
 def _priority(ctx, value, path):
     if value is None:
         return None
-    if isinstance(value, int) and value > 0:
+    # the schema's integer may be written as an integral decimal (1.0, 1e0; JSON Schema counts it as an integer): kept as
+    # that integer, as the FML map does (OncoPlanPrio); positiveInt range 1..2147483647
+    n = value if isinstance(value, int) and not isinstance(value, bool) else \
+        int(value) if isinstance(value, float) and value.is_integer() else None
+    if n is not None and 0 < n <= 2147483647:
         ctx.cover(path)
-        return ext(EX_PRIO, valuePositiveInt=value)
+        return ext(EX_PRIO, valuePositiveInt=n)
     ctx.drop(path, value, "priority is not a positive integer (mii-ex-mtb-empfehlung-prioritaet)")
     return None
 
@@ -238,7 +289,14 @@ def _evidence_cc(ctx, level, details, path):
 
 
 def _medication(ctx, sub, path):
-    """Substance -> CodeableConcept (ATC BfArM -> coding:atcClassDe, WHO -> coding:atcClassEn)."""
+    """Substance -> CodeableConcept (ATC BfArM -> coding:atcClassDe, WHO -> coding:atcClassEn); paths covered."""
+    concept, paths = _medication_cc(ctx, sub, path)
+    ctx.cover(*paths)
+    return concept
+
+
+def _medication_cc(ctx, sub, path) -> tuple:
+    """(CodeableConcept, mapping paths it carries) for one substance, nothing covered yet."""
     c = sub.get("code") or {}
     name = sub.get("name")
     paths = []
@@ -249,14 +307,13 @@ def _medication(ctx, sub, path):
                  [path + "code." + k for k in ("display", "version") if c.get(k)]
     if name:
         paths.append(path + "name")
-    ctx.cover(*paths)
-    return cc(cod, text=name or c.get("display"))
+    return cc(cod, text=name or c.get("display")), paths
 
 
 # ---- systemic therapy recommendations ------------------------------------------------------------
 def _therapy(ctx, t, i, base):
-    tid = t.get("identifier") or f"index-{i}"
     path = TH
+    tid = _rid(ctx, "therapy_recommendation", t.get("identifier"), i, path + "identifier")
     subs = [s for s in as_list(t.get("substances")) if s and ((s.get("code") or {}).get("code") or s.get("name"))]
     if not subs:   # medication[x] is 1..1: without a coded or named substance there is no Therapieempfehlung
         ctx.drop(path + "identifier", tid, "therapy recommendation without substance: no MedicationRequest")
@@ -311,13 +368,24 @@ def _therapy(ctx, t, i, base):
     if named:
         common["note"] = [{"text": "Substanz ohne Code: " + n} for n in named]
     refs = []
+    combo = len(subs) > 1
     for j, s in enumerate(subs):
-        mr = ctx.new("MedicationRequest", "therapy_recommendation", tid, *(() if len(subs) == 1 else (j,)),
-                     profile=PR_THERAPY)
-        mr.update({"extension": exts, "identifier": _identifier(ctx, t.get("identifier")),
+        # the first substance keeps the recommendation's id whatever the substance count, further members add their
+        # index: a correction that adds or removes a combination partner rewrites the same MedicationRequests
+        mr = ctx.new("MedicationRequest", "therapy_recommendation", tid, *((j,) if j else ()), profile=PR_THERAPY)
+        # identifier: the plain recommendation id stays on exactly one MedicationRequest, the first member (as its
+        # resource id), so a follow-up's logical causedBy {type MedicationRequest, identifier <id>} (plan not in the
+        # submission) resolves to it whether the recommendation is single or a combination, and before and after a
+        # correction adds a partner (#13: causedBy -> the first member). Combination members additionally carry
+        # '<id>:<member index>' (the first: both), one per member; the RequestGroup carries <id> (another type).
+        ident = t.get("identifier")
+        members = (([ident] if j == 0 else []) + ([f"{ident}:{j}"] if combo else [])) if ident else []
+        mr.update({"extension": exts, "identifier": [i for m in members for i in _identifier(ctx, m)],
                    "medicationCodeableConcept": _medication(ctx, s, path + "substances[]."),
                    "category": category, **common})
         refs.append(ctx.add(mr))
+        # per-substance target of follow-up MedicationStatement.basedOn (first member with that code wins)
+        ctx.ids.setdefault(("therapy_recommendation_member", tid, s["code"]["code"]), refs[-1])
     if t.get("identifier"):
         ctx.cover(path + "identifier")
     ctx.ids[("therapy_recommendation", tid)] = refs[0]
@@ -339,8 +407,8 @@ def _therapy(ctx, t, i, base):
 
 # ---- study recommendations ------------------------------------------------------------------------
 def _study(ctx, s, i, base):
-    sid = s.get("identifier") or f"index-{i}"
     path = ST
+    sid = _rid(ctx, "study_recommendation", s.get("identifier"), i, path + "identifier")
     exts = []
     prio = _priority(ctx, s.get("priority"), path + "priority")
     if prio:
@@ -376,15 +444,22 @@ def _study(ctx, s, i, base):
 
 def _research_study(ctx, s, path, notes):
     register, number, name = s.get("register"), s.get("id"), s.get("name")
+    title = _real(name)   # placeholder names (PLACEHOLDER_NAMES: 'N/A', 'unbekannt', ...) are dropped, as in rare disease
+    if name and not title:
+        ctx.drop(path + "name", name, "placeholder study name")
     if register == "yesButStudyIsUnknown":
         # a study is recommended but not identified: inclusion request without ResearchStudy
         ctx.cover(path + "register")
         ctx.rep("study-unknown-no-researchstudy")
-        if name or number:
-            notes.append("Empfohlene Studie (nicht identifiziert): " + " ".join(x for x in (name, number) if x))
-            for k in ("name", "id"):
-                if s.get(k):
+        real_id = _real(number)
+        if number and not real_id:
+            ctx.drop(path + "id", number, "placeholder study id (register yesButStudyIsUnknown)")
+        if title or real_id:
+            notes.append("Empfohlene Studie (nicht identifiziert): " + " ".join(x for x in (title, real_id) if x))
+            for k, v in (("name", title), ("id", real_id)):
+                if v:
                     ctx.preserve(path + k, "study-unknown-note")
+        _substance_notes(ctx, s, path, notes)
         return None
     ident = None
     if number:
@@ -399,21 +474,62 @@ def _research_study(ctx, s, path, notes):
             ctx.preserve(path + "register", "study-register-other")
     elif register:
         ctx.drop(path + "register", register, "register without study id")
-    if not ident and not name:
+    if not ident and not title:
+        _substance_notes(ctx, s, path, notes)
         return None
-    rs = ctx.new("ResearchStudy", "study", register or "", number or name, profile=PR_STUDY)
+    rs = ctx.new("ResearchStudy", "study", register or "", number or title, profile=PR_STUDY)
+    focus = [_medication_cc(ctx, sub, path + "substances[].") for sub in as_list(s.get("substances")) if sub]
+    existing = ctx.resource({"reference": f"urn:uuid:{rs['id']}"})
+    if existing:   # same study recommended twice: one ResearchStudy; what differs stays on this request
+        _repeated_study(ctx, existing, title, focus, path, notes)
+        return {"reference": f"urn:uuid:{rs['id']}"}
     rs.update({
         "identifier": [ident] if ident else [],
-        "title": name,
+        "title": title,
         # required; an MTB inclusion recommendation implies a study open for inclusion
         "status": "active",
-        "focus": [_medication(ctx, sub, path + "substances[].") for sub in as_list(s.get("substances")) if sub],
+        "focus": [c for c, _ in focus],
     })
-    if name:
+    for _, paths in focus:
+        ctx.cover(*paths)
+    if title:
         ctx.cover(path + "name")
-    if ctx.bundle.has(rs["id"]):   # same study recommended twice: one ResearchStudy
-        return {"reference": f"urn:uuid:{rs['id']}"}
     return ctx.add(rs)
+
+
+def _repeated_study(ctx, existing, title, focus, path, notes):
+    """A further recommendation of a study already in the bundle: a name or substance the ResearchStudy does not
+    carry becomes a note of this recommendation's own inclusion request (preserved), never silently covered."""
+    how = "repeated-study-recommendation-note"
+    if title and title != existing.get("title"):
+        notes.append(f"Studienname laut dieser Empfehlung: {title}")
+        ctx.preserve(path + "name", how)
+    elif title:
+        ctx.cover(path + "name")
+    for concept, paths in focus:
+        if not concept:
+            continue
+        if prune(concept) in existing.get("focus", []):
+            ctx.cover(*paths)
+            continue
+        _substance_note(ctx, concept, paths, notes, how)
+
+
+def _substance_notes(ctx, s, path, notes):
+    """Substances of a study recommendation that gets no ResearchStudy (no identifiable study, so no focus to carry
+    them): a note of the inclusion request (preserved) instead of a silent loss."""
+    for sub in as_list(s.get("substances")):
+        concept, paths = _medication_cc(ctx, sub, path + "substances[].") if sub else (None, [])
+        if concept:
+            _substance_note(ctx, concept, paths, notes, "study-substance-note")
+
+
+def _substance_note(ctx, concept, paths, notes, how):
+    code = ((concept.get("coding") or [{}])[0]).get("code")
+    label = " ".join(x for x in (concept.get("text"), f"({code})" if code else None) if x)
+    notes.append(f"Studiensubstanz laut dieser Empfehlung: {label}")
+    for k, p in enumerate(paths):
+        ctx.preserve(p, how if k == 0 else "")
 
 
 # ---- interventions and preventive measures -------------------------------------------------------
@@ -442,7 +558,7 @@ def _intervention(ctx, si, i, base):
 
 
 def _preventive(ctx, m, i, base):
-    mid = m.get("identifier") or f"index-{i}"
+    mid = _rid(ctx, "preventive_measure", m.get("identifier"), i, PM + "identifier")
     sr = ctx.new("ServiceRequest", "preventive_measure", mid)
     sr.update({"identifier": _identifier(ctx, m.get("identifier")), "status": "active", "intent": "plan",
                "category": [PREVENTIVE_CATEGORY], "code": cc(text=m.get("type")), **base})

@@ -56,6 +56,55 @@
    {
     "id": "Extension.value[x].coding",
     "path": "Extension.value[x].coding",
+    "slicing": {
+     "discriminator": [
+      {
+       "type": "value",
+       "path": "system"
+      }
+     ],
+     "description": "Slice by system, as mii-ex-mtb-empfehlung-evidenzgraduierung",
+     "ordered": false,
+     "rules": "open"
+    },
+    "min": 1
+   },
+   {
+    "id": "Extension.value[x].coding:Evidenzgrad",
+    "path": "Extension.value[x].coding",
+    "sliceName": "Evidenzgrad",
+    "short": "Evidence level (exactly one)",
+    "min": 1,
+    "max": "1"
+   },
+   {
+    "id": "Extension.value[x].coding:Evidenzgrad.system",
+    "path": "Extension.value[x].coding.system",
+    "min": 1,
+    "patternUri": "https://www.medizininformatik-initiative.de/fhir/ext/modul-mtb/CodeSystem/mii-cs-mtb-empfehlung-evidenzgrad"
+   },
+   {
+    "id": "Extension.value[x].coding:Evidenzgrad.code",
+    "path": "Extension.value[x].coding.code",
+    "min": 1
+   },
+   {
+    "id": "Extension.value[x].coding:Zusatzverweis",
+    "path": "Extension.value[x].coding",
+    "sliceName": "Zusatzverweis",
+    "short": "Additional reference to the evidence level",
+    "min": 0,
+    "max": "*"
+   },
+   {
+    "id": "Extension.value[x].coding:Zusatzverweis.system",
+    "path": "Extension.value[x].coding.system",
+    "min": 1,
+    "patternUri": "https://www.medizininformatik-initiative.de/fhir/ext/modul-mtb/CodeSystem/mii-cs-mtb-empfehlung-evidenzgrad-zusatzverweis"
+   },
+   {
+    "id": "Extension.value[x].coding:Zusatzverweis.code",
+    "path": "Extension.value[x].coding.code",
     "min": 1
    }
   ]

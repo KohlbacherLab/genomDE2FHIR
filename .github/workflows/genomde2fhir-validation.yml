@@ -25,11 +25,10 @@ jobs:
         run: . .venv/bin/activate && python scripts/build_mvgs.py --install http://localhost:8091/matchboxv3/fhir --maps
       - name: Tests incl. matchbox-backed ones
         run: . .venv/bin/activate && MB2027=http://localhost:8091/matchboxv3/fhir pytest genomde2fhir/tests -q
-      - name: Corpus run (sample) with FML parity
-        run: . .venv/bin/activate && python scripts/run_corpus.py --sample 30 --fml
-      - name: Fail on content errors
-        run: |
-          python3 -c "import json,sys; r=json.load(open('out/e2e-2027/results.json')); bad={b:d['verdicts'].get('FAIL',0) for b,d in r['branches'].items()}; print(bad); sys.exit(1 if any(bad.values()) else 0)"
+      # --gate: exit 1 on conversion errors, accepted invalid inputs, FAIL/ERROR verdicts (Python and FML), $transform
+      # failures, parity differences, HAPI ingest or idempotency failures, or a branch without a converted bundle
+      - name: Corpus run (sample) with FML parity (gate)
+        run: . .venv/bin/activate && python scripts/run_corpus.py --sample 30 --fml --gate
       - uses: actions/upload-artifact@v4
         if: always()
         with:

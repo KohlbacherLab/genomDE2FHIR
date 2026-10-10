@@ -42,10 +42,13 @@ CHROMOSOME = {**{str(n): (c, f"Chromosome {n}") for n, c in enumerate((
 # MT has no LL2938-0 answer -> genomic-ref-seq with the mitochondrial reference sequence (rCRS, GRCh37 and GRCh38)
 MT_REFSEQ = ("NC_012920.1", "Homo sapiens mitochondrion, complete genome")
 REFSEQ = "http://www.ncbi.nlm.nih.gov/refseq"
-# LOINC LL381-5 (allelic-state, extensible)
+# LOINC LL381-5 (allelic-state, extensible). LL381-5 has no compound-heterozygous answer (LA26217-2 belongs to
+# LL3999-1): compHet -> LA6706-1 Heterozygous (each variant of a compound-heterozygous pair is heterozygous at its
+# locus) plus LA26217-2 as a second coding, so the binding is met and the KDK value stays coded
 ZYGOSITY = {"heterozygous": ("LA6706-1", "Heterozygous"), "homozygous": ("LA6705-3", "Homozygous"),
-            "hemi": ("LA6707-9", "Hemizygous"), "compHet": ("LA26217-2", "Compound heterozygous"),
+            "hemi": ("LA6707-9", "Hemizygous"), "compHet": ("LA6706-1", "Heterozygous"),
             "homoplasmic": ("LA6704-6", "Homoplasmic"), "heteroplasmic": ("LA6703-8", "Heteroplasmic")}
+COMPOUND_HET = {"system": LOINC, "code": "LA26217-2", "display": "Compound heterozygous"}
 # LOINC LL5489-1 (variant-inheritance, extensible); fromMotherAndFather -> local biparental; notPerformed -> omitted
 SEGREGATION = {"deNovo": ("LA26807-0", "De novo"), "fromFather": ("LA26321-2", "Paternal"),
                "fromMother": ("LA26320-4", "Maternal")}
@@ -120,12 +123,17 @@ def _variant(ctx, key: str, kind: str, index: int, v: dict):
         paths.append(P + "externalId")
     obs["identifier"] = ids
 
-    # genes -> gene-studied (HGNC lock http://www.genenames.org; source system ignored)
+    # genes -> gene-studied (HGNC lock http://www.genenames.org; source system ignored); the sender's display is
+    # copied to coding.display
     for g in v.get("genes") or []:
         code = (g or {}).get("code")
         if code:
             comps.append(_comp(LOINC, "48018-6", valueCodeableConcept=_cc(HGNC, code, g.get("display"))))
             paths.append(P + "genes[].code")
+            if g.get("display"):
+                # not declared in the KDK schema: the validator's 'unknown field' finding stays (the CLI reports it
+                # as converted, --strict rejects it like every other undeclared field)
+                ctx.cover_undeclared(P + "genes[].display")
 
     chrom = v.get("chromosome")
     if chrom:
@@ -195,8 +203,11 @@ def _variant(ctx, key: str, kind: str, index: int, v: dict):
     z = v.get("zygosity")
     if z:
         if z in ZYGOSITY:
-            comps.append(_comp(LOINC, "53034-5", valueCodeableConcept=_cc(LOINC, *ZYGOSITY[z])))
+            value = cc(coding(LOINC, *ZYGOSITY[z]), dict(COMPOUND_HET) if z == "compHet" else None)
+            comps.append(_comp(LOINC, "53034-5", valueCodeableConcept=value))
             paths.append(P + "zygosity")
+            if z == "compHet":
+                ctx.rep("zygosity-comphet-heterozygous-plus-la26217-2")
         else:
             ctx.drop(P + "zygosity", z, "not in LOINC LL381-5")
 
@@ -233,7 +244,8 @@ def _consequence(ctx, P: str, parts: tuple, v: dict, vref: dict):
         if not so:
             ctx.drop(P + "localization[].code", code, "not in mvgs-cm-rd-localization-so")
             continue
-        comps.append(_comp(TBD_GR, "feature-consequence", valueCodeableConcept=cc(*so)))
+        # KDK value kept as text (REPRESENTATIONS #26, as onco.molecular_variants)
+        comps.append(_comp(TBD_GR, "feature-consequence", valueCodeableConcept=cc(*so, text=code)))
         paths.append(P + "localization[].code")
     if not comps:
         return

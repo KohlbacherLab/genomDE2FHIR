@@ -3,7 +3,8 @@
 Rows: case.priorRds[].genomicTestType, .genomicStudyType, .diagnosticDate, .diagnosticResult,
 .hospitalizationDuration, .hospitalizationPeriods, .zseContactDate (rare-disease table).
 The synthetic/DNPM corpus delivers the pre-1.6.5 singular object `case.priorRd`; it is read as a one-element
-`priorRds` (warning), since the content is identical.
+`priorRds` (warning), since the content is identical. An empty array counts as an absent key, for either key
+(`priorRds: []` plus `priorRd` -> the legacy key is read), as in the FML: matchbox parses [] as a missing key.
 
 Per entry i
 - ServiceRequest MolGen `anforderung-genetischer-test` (status completed, intent order) for the prior test:
@@ -53,10 +54,12 @@ OBS_CODE = {"hospitalizationDuration": "hospitalization-duration", "hospitalizat
 def entries(ctx) -> list[dict]:
     case = ctx.dk.get("case") or {}
     items = case.get("priorRds")
-    if items is None and case.get("priorRd") is not None:
+    if items in (None, []) and case.get("priorRd") not in (None, []):   # [] = absent (module docstring, FML parity)
         legacy = case["priorRd"]
         items = legacy if isinstance(legacy, list) else [legacy]
         ctx.warn("case.priorRds[]", "legacy key case.priorRd (KDK < 1.6.5) read as priorRds")
+        if any(isinstance(p, dict) for p in items):
+            ctx.cover_undeclared("case.priorRd")   # only when read: next to a non-empty priorRds it stays unread
     return [p for p in (items or []) if isinstance(p, dict)]
 
 

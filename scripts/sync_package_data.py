@@ -11,7 +11,6 @@ Usage: python3 scripts/sync_package_data.py [--check] [--no-index]
 """
 import json
 import os
-import shutil
 import sys
 from pathlib import Path
 

@@ -108,7 +108,9 @@ def test_type_rules_on_real_schemas():
         assert els[scope + ".category"]["max"] == "*" and els[scope + ".provision"]["max"] == "1"
         assert els[scope + ".provision.provision"]["max"] == "*"
         assert scope + ".provision.provision.provision.provision" not in els
-        assert scope + ".text" not in els and scope + ".contained" not in els
+        # R39: contained is declared (the migration keeps the '#id'-referenced resources); text is still discarded
+        assert scope + ".text" not in els
+        assert t(els, scope + ".contained") == "Resource" and els[scope + ".contained"]["max"] == "*"
     # legacy keys: a copy of the schema key's tree
     assert t(onc, "DatenkranzOncology.case.priorDiagnostic") == "BackboneElement"
     assert onc["DatenkranzOncology.case.priorDiagnostic"]["max"] == "1"

@@ -7,8 +7,12 @@ Per labData element (id parts: 'donor', donorPseudonym, 'labdata', labDataName):
   type.coding:sct from tissueTypeId via mvgs-cm-tissue-sct, mapped only when tissueTypeName agrees with the
   ontology label of the code (otherwise the root concept 123038009 'Specimen' and a warning); the original
   ontology coding (UBERON / BTO by CURIE prefix, version from tissueOntology) is kept as second coding.
+  An ICD-O-3 topography goes to collection.bodySite coding:icd-o-3 (code dotted, C341 -> C34.1); its edition is
+  normalised to the MII value-set versions 2014 / 2019 (onco.diagnosis.ICDO3_VERSIONS) or omitted with a warning.
   sampleDate -> collection.collectedDateTime; sampleConservation ffpe / cryo-frozen -> processing.procedure
   (SNOMED via mvgs-cm-grz-sample-conservation-sct, no temperatures); fresh-tissue -> Specimen.note (preserved).
+  Profile set 2026: SpecimenCore 2026.0.1 requires processing.extension:temperaturbedingungen (1..1; optional in
+  2027); GRZ sends no temperature, so the extension carries a Range with data-absent-reason 'unknown' only.
 - genomic-study-analysis Procedure: the profile family follows the submission's genomic study (grz.donors):
   diseaseType 'oncological' -> MTB mii-pr-mtb-genomic-study-analysis, 'rare' / 'hereditary' -> MolGen
   mii-pr-molgen-genomic-study-analysis. method-type from libraryType (mvgs-cm-grz-library-type-method-type)
@@ -40,6 +44,7 @@ from ...bundle import ref as uuid_ref
 from ...systems import BIOBANK, GR, LOINC, MOLGEN, MTB, SID_BARCODE, SID_LAB_DATA, SNOMED, UCUM
 from ...terminology import concept_map, local_coding, translate
 from ..common import cc, coding, dar_ext, ext, identifier
+from ..onco.diagnosis import ICDO3_VERSIONS   # ICD-O-3 edition labels -> MII VS versions 2014 / 2019
 
 P = "donors[].labData[]."
 
@@ -48,6 +53,7 @@ ANALYSIS_PROFILE = {"mtb": MTB + "StructureDefinition/mii-pr-mtb-genomic-study-a
                     "molgen": MOLGEN + "StructureDefinition/mii-pr-molgen-genomic-study-analysis"}
 DEVICE_PROFILE = MTB + "StructureDefinition/genomic-study-device"
 TZG_PROFILE = MTB + "StructureDefinition/mii-pr-mtb-tumorzellgehalt"
+EXT_TEMPERATURE = BIOBANK + "StructureDefinition/Temperaturbedingungen"
 
 GR_SD = GR + "StructureDefinition/"
 EXT_METHOD_TYPE = GR_SD + "genomic-study-analysis-method-type"
@@ -150,12 +156,12 @@ def _specimen(ctx, parts, pseudo, ldn, ld, subject) -> dict:
     acc = None
     bc = ld.get("barcode")
     if bc and bc.strip().lower() not in ABSENT_TEXT:
-        acc = identifier(SID_BARCODE, f"{ctx.key.submitter_id}|{bc}")
+        acc = identifier(SID_BARCODE, k.sender_scoped(bc))   # '<submitterId>|<barcode>[|test]', escaped
         paths.append(P + "barcode")
     elif bc:
         ctx.drop(P + "barcode", bc, "no barcode ('na')")
     spec.update(
-        identifier=[identifier(SID_LAB_DATA, f"{k.submitter_id}|{pseudo}|{ld.get('labDataName') or ldn}")],
+        identifier=[identifier(SID_LAB_DATA, k.scoped(pseudo, ld.get("labDataName") or ldn))],   # case-scoped (R14)
         accessionIdentifier=acc,
         status="available",        # the GRZ received data from this sample; SpecimenCore requires a status
         type=_specimen_type(ctx, ld, spec, paths),
@@ -205,7 +211,7 @@ def _specimen_type(ctx, ld: dict, spec: dict, paths: list) -> dict | None:
     if system is None and tid:
         if claimed == SNOMED and tid.isdigit():
             system = SNOMED
-        elif claimed == ICDO3 and re.fullmatch(r"C\d{2}(\.\d)?", tid):
+        elif claimed == ICDO3 and re.fullmatch(r"C\d{2}\.?\d?", tid.upper()):
             system = ICDO3
         elif claimed in (UBERON, BTO):
             system = claimed           # bare code in the claimed ontology
@@ -231,8 +237,16 @@ def _specimen_type(ctx, ld: dict, spec: dict, paths: list) -> dict | None:
     if version and system == SNOMED and not version.startswith("http://snomed.info/sct/"):
         version = None   # SNOMED CT versions are edition URIs; a bare release label ('2024.03') is not one
         ctx.drop(P + "tissueOntology.version", onto["version"], "not a SNOMED CT edition/version URI")
+    elif version and system == ICDO3 and not ICDO3_VERSIONS.get(str(version).strip().lower()):
+        # bodySite coding:icd-o-3 is required-bound to mii-vs-onko-icdo3-topographie (editions 2014 and 2019 only)
+        version = None
+        ctx.warn(P + "tissueOntology.version", f"ICD-O-3 edition {onto['version']!r} is neither 2014 nor 2019 "
+                                               "(nor a first / second revision label); coding.version omitted")
+        ctx.drop(P + "tissueOntology.version", onto["version"], "ICD-O-3 edition outside the MII value set")
     elif onto.get("version"):
         if version:
+            if system == ICDO3:
+                version = ICDO3_VERSIONS[str(version).strip().lower()]
             paths.append(P + "tissueOntology.version")
         else:
             ctx.drop(P + "tissueOntology.version", onto["version"], "version of an ontology the code is not from")
@@ -241,7 +255,11 @@ def _specimen_type(ctx, ld: dict, spec: dict, paths: list) -> dict | None:
         return cc(coding(SNOMED, tid, tname, version), text=tname)
     if system == ICDO3:
         # topography = site, not a specimen type: collection.bodySite coding:icd-o-3; type stays the root concept
-        spec["_bodySite"] = cc(coding(ICDO3, tid, tname, version))
+        m = re.fullmatch(r"C(\d{2})\.?(\d)?", tid.upper())
+        topo = f"C{m[1]}.{m[2]}" if m[2] else f"C{m[1]}"
+        if topo != tid:
+            ctx.warn(P + "tissueTypeId", f"ICD-O-3 topography {tid!r} normalised to {topo!r}")
+        spec["_bodySite"] = cc(coding(ICDO3, topo, tname, version))
         return cc(coding(SNOMED, *SPECIMEN_ROOT), text=tname)
     original = coding(system, tid, tname, version)
     el = _cm_element("mvgs-cm-tissue-sct", system, tid)
@@ -270,6 +288,9 @@ def _conservation(ctx, sc: str | None, spec: dict, paths: list):
     if hits:
         spec["processing"] = [{"procedure": cc({**hits[0], "system": SNOMED}, local)}]
         paths.append(P + "sampleConservation")
+        if not ctx.is_2027:   # SpecimenCore 2026.0.1: temperaturbedingungen 1..1, no temperature in the GRZ data
+            spec["processing"][0]["extension"] = [ext(EXT_TEMPERATURE, valueRange={"extension": [dar_ext("unknown")]})]
+            ctx.rep("specimen-2026-temperature-data-absent")
     elif sc == "fresh-tissue":
         spec["note"] = [{"text": "Sample conservation: fresh tissue (not fixed, not frozen)"}]
         ctx.preserve(P + "sampleConservation", "grz-fresh-tissue-note")

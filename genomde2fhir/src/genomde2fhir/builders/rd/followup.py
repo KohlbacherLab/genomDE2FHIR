@@ -14,6 +14,11 @@ Per follow-up k (effective = followUpDate):
   HDB-975 pending; same coding as the diagnosis GMFCS) -> preserved.
 - vitalStatus -> `Vitalstatus` Observation (LOINC 67162-8, MII Vitalstatus CS L/T).
 - deathDate -> Patient.deceasedDateTime (YYYY-MM is a valid dateTime); deceased without date -> deceasedBoolean.
+  A deathDate before symptom onset, the MV consent or a board decision is kept, with a data-quality warning.
+
+Ids are keyed by followUpDate (required; index appended only for a repeated date), not by array position, so a
+follow-up submission carrying only the newest follow-up does not overwrite older ones (docs/IDENTITY.md, as
+onco.followup); phenotype assessments keep their index within the follow-up.
 """
 from ...systems import COND_VER, HPO, LOINC, PERSON, SELTENE, SNOMED
 from ..common import cc, coding, obs_category
@@ -46,7 +51,7 @@ GMFCS_LEVEL = {"I": "LA16552-4", "II": "LA15151-6", "III": "LA15150-8", "IV": "L
 PFX = "followUp.followUpRds[]."
 
 
-def _hpo(ctx, k: int, j: int, ph: dict, date):
+def _hpo(ctx, k: str, j: int, ph: dict, date):
     p = PFX + "phenotypes[]."
     system = ph.get("system")
     if system in HPO_ALIASES or str(ph.get("code", "")).startswith("HP:"):
@@ -76,7 +81,7 @@ def _hpo(ctx, k: int, j: int, ph: dict, date):
     ctx.add(obs, *paths)
 
 
-def _gmfcs(ctx, k: int, level, date):
+def _gmfcs(ctx, k: str, level, date):
     if level not in GMFCS_LEVEL:
         ctx.drop(PFX + "gmfcs", level, "unknown GMFCS level")
         return
@@ -90,7 +95,7 @@ def _gmfcs(ctx, k: int, level, date):
     ctx.preserve(PFX + "gmfcs", "gmfcs-generic-observation")
 
 
-def _vital(ctx, k: int, status, date):
+def _vital(ctx, k: str, status, date):
     if status not in VITAL:
         ctx.drop(PFX + "vitalStatus", status, "unknown vital status")
         return
@@ -128,7 +133,7 @@ def _reconcile_diagnosis(ctx, established: bool):
         cond["verificationStatus"] = {"coding": [{"system": COND_VER, "code": "unconfirmed"}]}
 
 
-def _impression(ctx, k: int, fu: dict, date):
+def _impression(ctx, k: str, fu: dict, date):
     dx = ctx.refs.get("rd_diagnosis")
     est = fu.get("diagnosisEstablished")
     paths, finding, notes = [], [], []
@@ -157,28 +162,54 @@ def _impression(ctx, k: int, fu: dict, date):
     ctx.add(ci, *paths)
 
 
+def _check_death_date(ctx, death: str):
+    """Data-quality check: a death before symptom onset, the MV consent or a board decision contradicts the case
+    (e.g. a generator deriving deathDate from birthDate). The value is kept; only a warning is issued."""
+    dk = ctx.dk
+    meta, dx = dk.get("metaData") or {}, (dk.get("case") or {}).get("diagnosisRd") or {}
+    consent = meta.get("mvConsent") or {}
+    later = [("case.diagnosisRd.symptomOnsetDate", dx.get("symptomOnsetDate")),
+             ("metaData.mvConsent.presentationDate", consent.get("presentationDate")),
+             *(("metaData.mvConsent.scope[].date", s.get("date")) for s in consent.get("scope") or []
+               if isinstance(s, dict)),
+             ("metaData.molecularBoardDecisionDate", meta.get("molecularBoardDecisionDate")),
+             ("case.diagnosisRd.molecularBoardDecisionDate", dx.get("molecularBoardDecisionDate")),
+             ("plan.carePlanRd.molecularBoardDecisionDate",
+              ((dk.get("plan") or {}).get("carePlanRd") or {}).get("molecularBoardDecisionDate"))]
+    # de-duplicated: consent scopes usually share one date
+    for path, d in dict.fromkeys((p, d) for p, d in later if isinstance(d, str) and d):
+        n = min(len(d), len(death))      # compare at the coarser precision (YYYY-MM vs YYYY-MM-DD)
+        if death[:n] < d[:n]:
+            ctx.warn(PFX + "deathDate", f"data quality: deathDate {death} is before {path} {d}; value kept")
+
+
 def build(ctx):
     fus = (ctx.dk.get("followUp") or {}).get("followUpRds") or []
     if not fus:
         return
     latest = None
     death_date, deceased = None, False
-    for k, fu in enumerate(fus):
+    seen = set()
+    for i, fu in enumerate(fus):
         date = fu.get("followUpDate")
         if date:
             ctx.cover(PFX + "followUpDate")
         if latest is None or (date or "") >= (fus[latest].get("followUpDate") or ""):
-            latest = k
-        _impression(ctx, k, fu, date)
+            latest = i
+        key = date if date and date not in seen else f"{date}#{i}"   # id key (docs/IDENTITY.md)
+        if date in seen:
+            ctx.warn(PFX + "followUpDate", f"two follow-ups dated {date}; the later one keyed by its index")
+        seen.add(date)
+        _impression(ctx, key, fu, date)
         for j, ph in enumerate(fu.get("phenotypes") or []):
             if ph.get("code"):
-                _hpo(ctx, k, j, ph, date)
+                _hpo(ctx, key, j, ph, date)
             else:
                 ctx.drop(PFX + "phenotypes[].code", ph, "phenotype without code")
         if fu.get("gmfcs"):
-            _gmfcs(ctx, k, fu["gmfcs"], date)
+            _gmfcs(ctx, key, fu["gmfcs"], date)
         if fu.get("vitalStatus"):
-            _vital(ctx, k, fu["vitalStatus"], date)
+            _vital(ctx, key, fu["vitalStatus"], date)
             deceased = deceased or fu["vitalStatus"] == "deceased"
         if fu.get("deathDate"):
             if fu.get("vitalStatus") != "deceased":
@@ -187,6 +218,8 @@ def build(ctx):
 
     if isinstance(fus[latest].get("diagnosisEstablished"), bool):
         _reconcile_diagnosis(ctx, fus[latest]["diagnosisEstablished"])
+    if death_date:
+        _check_death_date(ctx, death_date)
 
     pat = _resource(ctx, ctx.refs.get("patient"))
     if pat is not None and (death_date or deceased):

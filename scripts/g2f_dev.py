@@ -6,8 +6,9 @@ convert them, validate the output with matchbox-2027 and group the content error
   python3 scripts/g2f_dev.py --branch grz --path donors --n 5 --profile-filter specimen
   python3 scripts/g2f_dev.py --files a.json b.json --no-validate
 
-Prints: conversion status, warnings/drops for the selected path, and per profile the distinct content /
-unchecked / waived issues with counts. Exit 1 if any content error remains for --profile-filter.
+Prints: conversion status, warnings/drops for the selected path, and per profile the distinct content / source /
+unchecked / waived / cascade / candidate / validator-error issues with counts (an ERROR verdict, i.e. validation could
+not run, is printed per file). Exit 1 if any content or validator error remains for --profile-filter.
 """
 import argparse
 import collections
@@ -18,7 +19,9 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "genomde2fhir" / "src"))
+from genomde2fhir.cli import _out_name  # noqa: E402
 from genomde2fhir.convert import convert  # noqa: E402
+from genomde2fhir.io import dumps, loads  # noqa: E402
 from genomde2fhir.validate import Matchbox, validate_bundle  # noqa: E402
 
 MANIFEST = ROOT / "genomde2fhir" / "tests" / "corpus_manifest.json"
@@ -45,7 +48,7 @@ def pick(branch, path, n):
         if seen_dirs[d] >= max(1, n // 2):
             continue
         try:
-            dk = json.loads((ROOT / f).read_text())
+            dk = loads((ROOT / f).read_text(encoding="utf-8"))
         except Exception:
             continue
         if has_path(dk, parts):
@@ -74,9 +77,9 @@ def main():
     out.mkdir(parents=True, exist_ok=True)
     mb = None if a.no_validate else Matchbox(MB)
     issues = collections.defaultdict(collections.Counter)
-    bad = 0
+    bad, taken = 0, set()   # output names as the CLI picks them: same-named inputs do not overwrite each other
     for f in files:
-        dk = json.loads((ROOT / f if not Path(f).is_absolute() else Path(f)).read_text())
+        dk = loads((ROOT / f if not Path(f).is_absolute() else Path(f)).read_text(encoding="utf-8"))
         bundle, rep = convert(dk, f, a.profile_set)
         rel = [w for w in rep.warnings if a.path in w[0] or w[0].startswith("(")]
         print(f"{rep.status:<9} {f}  resources={dict(rep.resources)}")
@@ -89,9 +92,11 @@ def main():
                 print(f"   drop {p}={v!r}: {r}")
         if bundle is None:
             continue
-        (out / (Path(f).stem + ".bundle.json")).write_text(json.dumps(bundle, indent=1, ensure_ascii=False))
+        (out / _out_name(f, taken)).write_text(dumps(bundle), encoding="utf-8")
         if mb:
-            res = validate_bundle(bundle, mb, source=dk)
+            res = validate_bundle(bundle, mb, source=dk)   # never raises; ERROR = validation could not run
+            if res["verdict"] == "ERROR":
+                print(f"   validation ERROR: {res.get('error', '')[:300]}")
             for r in res["resources"]:
                 prof = (r["profile"] or r["type"]).split("/")[-1]
                 if a.profile_filter and a.profile_filter not in prof:
@@ -100,7 +105,7 @@ def main():
                     if i["class"] == "info":
                         continue
                     issues[(prof, i["class"])][f"{i['expression']} :: {i['text'][:260]}"] += 1
-                    bad += i["class"] == "content"
+                    bad += i["class"] in ("content", "validator-error")
     for (prof, cls), c in sorted(issues.items()):
         print(f"\n== {prof} [{cls}] {sum(c.values())}")
         for msg, n in c.most_common(25):

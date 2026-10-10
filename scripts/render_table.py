@@ -2,7 +2,7 @@
 """Render the mapping tables (3 CSVs) into one self-contained, filterable HTML page.
 Usage: python3 scripts/render_table.py  ->  docs/mapping-table.html
 """
-import csv, json, html
+import csv, json
 from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 rows = []

@@ -9,7 +9,7 @@ ponytail: deliberately a flattener, not a full JSON-Schema validator. Handles th
 constructs these two schemas actually use (properties, items, $ref, allOf,
 anyOf/oneOf, enum). Add more keywords only if a schema starts using them.
 """
-import json, sys, csv, os, re
+import json, sys, csv, os
 from pathlib import Path
 
 KDK_DIR = Path(__file__).resolve().parent.parent / "schemas" / "kdk"

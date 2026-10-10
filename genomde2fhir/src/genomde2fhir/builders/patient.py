@@ -17,8 +17,8 @@ def build(ctx):
     k = ctx.key
     pat = ctx.new("Patient", profile=PROFILE)
     ids = [identifier(SID_TAN_C, md.get("tanC"), V3_OBSVALUE, "PSEUDED")]
-    if k.case_id_is_local:
-        ids.append(identifier(SID_LOCAL_CASE, f"{k.submitter_id}|{md.get('localCaseId')}", V2_0203, "MR",
+    if k.case_id_is_local:   # '<submitterId>|<caseKey>' (escaped; test submissions: '<localCaseId>|test')
+        ids.append(identifier(SID_LOCAL_CASE, k.scoped(), V2_0203, "MR",
                               assigner_system=SID_LE, assigner_value=k.submitter_id))
     pat["identifier"] = ids
     paths = ["metaData.tanC"] + (["metaData.localCaseId"] if md.get("localCaseId") else [])

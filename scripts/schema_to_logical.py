@@ -236,8 +236,9 @@ EXTRA_NOTE = "legacy/non-schema property accepted by genomde2fhir"
 # (path below scope, type code, max). Leaves use FHIR datatypes, so matchbox parses them like the Consent itself and
 # FML can copy them whole. A type 'Resource' (or 'Consent') for scope itself parses a Consent too, but fails the
 # whole $transform with 'Unable to find resourceType property' (HTTP 500) on the schema-valid `scope: {}` of every
-# GRZ corpus file, so the elements are declared one by one. Not declared (the migration discards them): text,
-# contained.
+# GRZ corpus file, so the elements are declared one by one. `contained` is declared as Resource: the migration keeps
+# the contained resources the carried-over elements reference ('#id'); an item without resourceType (invalid FHIR)
+# fails the $transform. Not declared (the migration discards it): text.
 CONSENT_TOP = [
     ("resourceType", "string", "1"), ("id", "string", "1"), ("meta", "Meta", "1"), ("implicitRules", "string", "1"),
     ("language", "string", "1"), ("extension", "Extension", "*"), ("modifierExtension", "Extension", "*"),
@@ -247,7 +248,7 @@ CONSENT_TOP = [
     ("sourceReference", "Reference", "1"), ("policy", "BackboneElement", "*"), ("policy.authority", "string", "1"),
     ("policy.uri", "string", "1"), ("policyRule", "CodeableConcept", "1"), ("verification", "BackboneElement", "*"),
     ("verification.verified", "boolean", "1"), ("verification.verifiedWith", "Reference", "1"),
-    ("verification.verificationDate", "string", "1"),
+    ("verification.verificationDate", "string", "1"), ("contained", "Resource", "*"),
 ]
 CONSENT_PROVISION = [
     ("type", "string", "1"), ("period", "Period", "1"), ("actor", "BackboneElement", "*"),

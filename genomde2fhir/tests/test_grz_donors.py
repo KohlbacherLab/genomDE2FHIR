@@ -57,8 +57,10 @@ def test_single_donor_index(convert_dk):
     assert len(pats) == 1
     p, s = pats[0], dk["submission"]
     assert ident(p, SID_TAN_G) == s["tanG"]
-    assert ident(p, SID_LOCAL_CASE) == f"{s['submitterId']}|{s['localCaseId']}"
-    assert ident(p, SID_DONOR) == f"{s['submitterId']}|{dk['donors'][0]['donorPseudonym']}"
+    test = "|test" if s["submissionType"] == "test" else ""     # test submissions: case key '<caseId>|test'
+    assert ident(p, SID_LOCAL_CASE) == f"{s['submitterId']}|{s['localCaseId']}{test}"
+    # donor pseudonyms are case-scoped (the schema's literal 'index' recurs in every case)
+    assert ident(p, SID_DONOR) == f"{s['submitterId']}|{s['localCaseId']}{test}|{dk['donors'][0]['donorPseudonym']}"
     assert p["gender"] == dk["donors"][0]["gender"]
     assert not resources(bundle, "FamilyMemberHistory")
     study = study_of(bundle)
@@ -106,9 +108,12 @@ def test_coverage_and_provenance(convert_dk):
     bundle, rep = convert_dk(dk, str(f))
     cov = resources(bundle, "Coverage", "coverage-de-basis")
     assert len(cov) == 1 and cov[0]["type"]["coding"][0]["code"] == "GKV"
-    prov = [p for p in resources(bundle, "Provenance") if p.get("occurredDateTime")]
+    prov = resources(bundle, "Provenance")      # one Provenance per submission (convert._provenance)
     assert len(prov) == 1 and prov[0]["occurredDateTime"] == dk["submission"]["submissionDate"]
-    assert len(prov[0]["agent"]) == 3
+    agents = {a["type"]["coding"][0]["code"]: a["who"] for a in prov[0]["agent"]}
+    assert len(prov[0]["agent"]) == 4 and set(agents) == {"assembler", "author", "custodian"}
+    orgs = {"urn:uuid:" + o["id"] for o in resources(bundle, "Organization")}
+    assert agents["author"]["reference"] in orgs        # GRZ agents point at the submission Organizations
 
 
 def test_ids_registered_for_labdata():

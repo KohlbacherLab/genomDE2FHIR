@@ -154,11 +154,12 @@ def test_profile_set_2026(convert_dk):
 # ---- (b) synthetic fixture: enum values and edge cases --------------------------------------------
 def test_fixture_zygosity_segregation(fixture_run):
     _, bundle, rep = fixture_run
-    zyg = {"SNV-1": "LA6706-1", "SNV-2": "LA6703-8", "SNV-3": "LA6707-9", "SNV-4": "LA6705-3",
-           "SNV-5": "LA26217-2"}
-    for vid, code in zyg.items():
+    # compHet: LL381-5 has no compound-heterozygous answer -> Heterozygous + LA26217-2 as second coding
+    zyg = {"SNV-1": ["LA6706-1"], "SNV-2": ["LA6703-8"], "SNV-3": ["LA6707-9"], "SNV-4": ["LA6705-3"],
+           "SNV-5": ["LA6706-1", "LA26217-2"]}
+    for vid, codes in zyg.items():
         (o,) = by_identifier(bundle, vid)
-        assert value_code(comp(o, LOINC, "53034-5")[0]) == code
+        assert [c["code"] for c in comp(o, LOINC, "53034-5")[0]["valueCodeableConcept"]["coding"]] == codes
     seg = {"SNV-1": "LA26807-0", "SNV-2": "LA26320-4", "SNV-3": "LA26321-2"}
     for vid, code in seg.items():
         (o,) = by_identifier(bundle, vid)

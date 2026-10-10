@@ -34,11 +34,13 @@ from genomde2fhir.validate import Hapi, Matchbox, validate_bundle  # noqa: E402
 MB = os.environ.get("MB2027")
 HAPI = os.environ.get("HAPI2027", "http://localhost:8092/fhir")
 MAP = "https://genomde.de/fhir/StructureMap/DatenkranzOncologyToMii"
-FILES = [  # ukdd (TNM as weitere-klassifikationen, research-consent-absent), DNPM (UICC TNM, embedded Broad Consent,
-           # legacy priorDiagnostic), NCT (SNOMED TNM, prior variants)
-    "example-data/synthData-v1/ukdd/synth_json_1.json",
+FILES = [  # diagnosis fixture (TNM as weitere-klassifikationen, tumour spread, research-consent-absent), DNPM (UICC TNM,
+           # embedded Broad Consent, priorDiagnostics[] since the 2026-08-09 revision; the legacy priorDiagnostic is
+           # covered by test_fml_integration and test_fix_fml F19-legacy-prior), prior fixture (SNOMED TNM, every prior
+           # enum, prior variants); all tracked in git
+    "genomde2fhir/tests/fixtures/onco_diagnosis/diagnosis_full.json",
     "example-data/oncology/OncologySubmission_044AFF6262356F2F8EC60039DC08AE36FBAA011DE29740CBC83E9FA5643E4640.json",
-    "example-data/synthData-v1/nct/case_011.json",
+    "genomde2fhir/tests/fixtures/onco_prior/prior_all_enums.json",
 ]
 
 SPINE_PROFILES = {
@@ -46,7 +48,7 @@ SPINE_PROFILES = {
     "mvgs-inclusion-decision", "mii-pr-mtb-diagnose-primaertumor", "Diagnose", "mii-pr-onko-grading",
     "mii-pr-seltene-hpo-assessment", "mii-pr-onko-weitere-klassifikationen", "mii-pr-onko-tnm-klassifikation",
     "mii-pr-onko-tnm-t-kategorie", "mii-pr-onko-tnm-n-kategorie", "mii-pr-onko-tnm-m-kategorie", "anforderung-genetischer-test",
-    "mii-pr-mtb-behandlungsepisode", "mii-pr-mtb-systemische-vortherapie",
+    "mii-pr-mtb-behandlungsepisode", "mii-pr-mtb-systemische-vortherapie", "mii-pr-mtb-tumorausbreitung",
 }
 ASSESSMENT_CS = "https://genomde.de/fhir/CodeSystem/mvgs-cs-genetic-diagnostic-assessment"
 
@@ -76,10 +78,10 @@ def _refs(o):
 
 
 def _fml_key(dk: dict, role: str) -> str:
-    """FML resource-key identifier value of a role (mappers/fml/README.md: base64url of '<case key>:<role>')."""
-    md = dk.get("metaData") or {}
-    ck = f"kdk:{(md.get('submission') or {}).get('submitterId', '')}:{md.get('localCaseId') or md.get('tanC', '')}"
-    return base64.urlsafe_b64encode(f"{ck}:{role}".encode()).decode()
+    """FML resource-key identifier value of a role (mappers/fml/README.md: base64url of '<case key>:<role>', case key
+    'kdk:<submitterId>:<CK>' with CK = identity.CaseKey.case_id: escaped, '|test' for a test submission)."""
+    k = case_key(dk, "oncology")
+    return base64.urlsafe_b64encode(f"kdk:{k.submitter_id}:{k.case_id}:{role}".encode()).decode()
 
 
 def spine_entries(bundle: dict, dk: dict) -> list:
@@ -214,7 +216,7 @@ def _set(d, **kw):
 
 
 SCT_V = "http://snomed.info/sct/900000000000207008/version/20250201"
-# Edge cases the corpus lacks, applied to FILES[2] (NCT; Python converts them with check_input=False)
+# Edge cases the corpus lacks, applied to FILES[2] (prior fixture; Python converts them with check_input=False)
 MUTATIONS = {
     "tnm-prefixes-mixed": lambda dk: _set(_dx(dk), tnmClassifications=[
         {"system": "UICC", "code": "T2", "display": "ypT2", "version": "8th ed."},
@@ -284,7 +286,7 @@ def mb():
 @pytest.mark.parametrize("f", FILES)
 def test_onco_spine(mb, f):
     if not (REPO / f).is_file():
-        pytest.skip(f"{f} not in this checkout")
+        pytest.fail(f"{f} not in this checkout")
     r = check_file(f, mb)
     assert r["type"] == "Bundle", r
     assert r["content_errors_not_in_python"] == [], r["content_errors"]
@@ -299,7 +301,7 @@ def test_onco_spine(mb, f):
 def test_onco_spine_edge_cases(mb, mutation):
     f = FILES[2]
     if not (REPO / f).is_file():
-        pytest.skip(f"{f} not in this checkout")
+        pytest.fail(f"{f} not in this checkout")
     dk = json.loads((REPO / f).read_text(encoding="utf-8"))
     MUTATIONS[mutation](dk)
     r = check_file(f, mb, ingest=False, dk=dk, label=f"{f} [{mutation}]")

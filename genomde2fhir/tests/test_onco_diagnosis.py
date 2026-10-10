@@ -56,10 +56,10 @@ def test_corpus_dnpm_primary_and_satellites(convert_dk):
     morph = [e for e in cond["extension"] if e["url"].endswith("morphology-behavior-icdo3")][0]
     assert morph["valueCodeableConcept"]["coding"][0] == {"system": ICDO3, "code": "8253/2", "version": "2019",
                                                          "display": "Muzinöses Adenocarcinoma in situ [C34.-]"}
-    # topography 'T' is no ICD-O-3 code -> Condition.note, all sub-fields preserved, no bodySite
-    assert "bodySite" not in cond
-    assert cond["note"] == [{"text": "Topography (ICD-O-3 T, as delivered): T Topographie"}]
-    assert {f"case.diagnosisOd.topography.{k}" for k in ("code", "system", "version", "display")} <= rep.preserved
+    # topography 'T' is the ICD-O-3 topography-axis root (topography not specified) -> no bodySite, no note, dropped
+    assert "bodySite" not in cond and "note" not in cond
+    dropped = {p for p, _, _ in rep.dropped}
+    assert {f"case.diagnosisOd.topography.{k}" for k in ("code", "system", "version", "display")} <= dropped
     # UICC strings T3/N3/M0 (system 'UICC', 8th ed.) -> three category observations + grouping
     cats = [r for r in by_profile(b, P_TNM) if "klassifikation" not in r["meta"]["profile"][0]]
     assert sorted(c["valueCodeableConcept"]["coding"][0]["code"] for c in cats) == ["M0", "N3", "T3"]
@@ -71,14 +71,18 @@ def test_corpus_dnpm_primary_and_satellites(convert_dk):
     ecog, = dx_ecog(b)
     assert codes(ecog["valueCodeableConcept"]) >= {(LOINC, "LA9626-8")}
     assert ecog["focus"] == [ref_of(cond)]
-    # grading M; kds-tumor-spread -> weitere Klassifikationen with SNOMED
+    # grading M; kds-tumor-spread -> mii-pr-mtb-tumorausbreitung, linked as stage:ErstdiagnoseZeitpunkt
     grading = one(b, "mii-pr-onko-grading")
     assert grading["valueCodeableConcept"]["coding"][0]["code"] == "M"
     assert "_effectiveDateTime" in grading
-    wk = one(b, "weitere-klassifikationen")
-    assert wk["code"]["text"] == "dnpm-dip/mtb/diagnosis/kds-tumor-spread"
-    assert wk["valueCodeableConcept"] == {"coding": [{"system": SNOMED, "code": "58899004", "display": "No evidence of tumor"}],
+    assert not by_profile(b, "weitere-klassifikationen")
+    ts = one(b, "mii-pr-mtb-tumorausbreitung")
+    assert ts["valueCodeableConcept"] == {"coding": [{"system": SNOMED, "code": "58899004", "display": "No evidence of tumor"}],
                                          "text": "tumor-free"}
+    assert ts["effectiveDateTime"] == "2023-02-01" and ts["focus"] == [ref_of(cond)]
+    assert cond["stage"] == [{"type": {"coding": [{"system": "https://nih-ncpi.github.io/ncpi-fhir-ig/CodeSystem-ncit.html",
+                                                   "code": "C19251", "display": "Stage at Diagnosis"}]},
+                              "assessment": [ref_of(ts)]}]
     sr = [r for r in resources(b, "ServiceRequest") if (r.get("code") or {}).get("coding", [{}])[0].get("code") == "whole-genom-sequencing"]
     assert len(sr) == 1 and sr[0]["reasonReference"] == [ref_of(cond)]
     assert sr[0]["meta"]["profile"] == ["https://www.medizininformatik-initiative.de/fhir/ext/modul-molgen/StructureDefinition/anforderung-genetischer-test"]
@@ -196,8 +200,9 @@ def test_fixture_drops(convert_dk):
             "case.diagnosisOd.germlineDiagnosisConfirmed"} <= dropped
     assert not dx_ecog(b)
     cond = one(b, P_PRIMARY)
-    assert len(cond["note"]) == 2 and not any(e["url"].endswith("morphology-behavior-icdo3") for e in cond["extension"])
-    assert "bodySite" not in cond
+    # histology 'unknown' -> note; topography placeholder 'T' -> dropped (no note)
+    assert len(cond["note"]) == 1 and not any(e["url"].endswith("morphology-behavior-icdo3") for e in cond["extension"])
+    assert "bodySite" not in cond and "case.diagnosisOd.topography.code" in dropped
     # UICC string in a SNOMED field (T2 with text pT2) accepted; unknown M9 -> weitere Klassifikationen
     t = one(b, "mii-pr-onko-tnm-t-kategorie")
     assert t["valueCodeableConcept"]["coding"] == [{"system": UICC, "code": "T2", "display": "T2"}]
@@ -256,7 +261,8 @@ def test_grading_all_codes(convert_dk):
 def test_profile_set_2026(convert_dk):
     b, _ = convert_dk(load(FIX / "diagnosis_full.json"), profile_set="2026")
     t = one(b, "mii-pr-onko-tnm-t-kategorie")
-    assert "modifierExtension" not in t                            # y prefix: no 2026 element
+    assert "modifierExtension" not in t                            # y prefix 2026: y-symbol Observation, no extension
+    one(b, "mii-pr-onko-tnm-y-symbol")
     assert [c["system"] for c in t["valueCodeableConcept"]["coding"]] == [UICC]   # SNOMED coding 2027 only
     one(b, P_PRIMARY)
 

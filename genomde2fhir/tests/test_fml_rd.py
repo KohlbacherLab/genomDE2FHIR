@@ -19,6 +19,7 @@ import copy
 import importlib.util
 import json
 import os
+import re
 import sys
 import urllib.request
 from pathlib import Path
@@ -36,7 +37,7 @@ MAP_URL = "https://genomde.de/fhir/StructureMap/DatenkranzRareDiseaseToMii"
 MAPS = ["DatenkranzCommon.map", "DatenkranzRareDiseaseToMii.map"]
 FILES = [
     "example-data/rarediseases/RareDiseasesSubmission_06B1EE824EDF30E43FAA6FF4DCFC5E00FD9A772ACCE0E4AD0BC593F6834F6566.json",
-    "example-data/synthData-v1/nse/RareDiseasesSubmission_9CCF7812F458C024A5D35754087C22A48E935AC16BA0056C61CE3F8A9CE846F3.json",
+    "example-data/rarediseases/RareDiseasesSubmission_9CCF7812F458C024A5D35754087C22A48E935AC16BA0056C61CE3F8A9CE846F3.json",
     "examples/rarediseases/RareDiseasesSubmission_4B8581EA6277B9C60B04DD2304B40ED1C57B886FAD33E28C3C6575A76CCE248F.json",
 ]
 
@@ -90,7 +91,7 @@ def parity(py_bundle: dict, fml_bundle: dict):
         out = collections.Counter()
         for k, v in canonical(b).items():
             r = json.loads(k)
-            if r.get("identifier") == []:    # canonical() leaves [] when the resource-key was the only identifier
+            if r.get("identifier") == []:    # harmless no-op: canonical() omits an emptied identifier list
                 r.pop("identifier")
             out[json.dumps(r, sort_keys=True)] += v
         return out
@@ -263,6 +264,12 @@ def check(f: str, mb: Matchbox, ingest: bool = False, mutation: str | None = Non
         vp = validate_bundle(py, mb)
         res["py_content_errors"] = [f"{r['type']}/{r['profile']}: {i['expression']} :: {i['text'][:200]}"
                                     for r in vp["resources"] for i in r["issues"] if i["class"] == "content"]
+
+        def errs(val):     # multiset of normalised errors (entry uuids differ between the two bundles)
+            return collections.Counter(f"{r['type']}/{r['profile']}: " + re.sub(r"urn:uuid:[0-9a-f-]{36}", "urn:uuid:*",
+                                                                             i["text"][:200])
+                                       for r in val["resources"] for i in r["issues"] if i["class"] == "content")
+        res["content_errors_not_in_python"] = sorted((errs(v) - errs(vp)).elements())
     eq, only_py, only_fml = parity(py, fml)
     res.update(equal=sum(eq.values()), only_python=list(only_py.elements()), only_fml=list(only_fml.elements()),
                entries=len(fml["entry"]))
@@ -285,7 +292,7 @@ def mb():
 @pytest.mark.parametrize("f", FILES)
 def test_rd_file(mb, f):
     if not (REPO / f).is_file():
-        pytest.skip(f"{f} not in this checkout")
+        pytest.fail(f"{f} not in this checkout")
     r = check(f, mb, ingest=True)
     assert r["type"] == "Bundle", r
     assert r["content_errors"] == [], r["content_errors"]
@@ -299,10 +306,10 @@ def test_rd_file(mb, f):
 @pytest.mark.parametrize("mutation", sorted(MUTATIONS))
 def test_rd_edge_cases(mb, mutation):
     if not (REPO / FILES[0]).is_file():
-        pytest.skip(f"{FILES[0]} not in this checkout")
+        pytest.fail(f"{FILES[0]} not in this checkout")
     r = check(FILES[0], mb, mutation=mutation, raw=False)
     assert r["type"] == "Bundle", r
-    assert len(r["content_errors"]) <= len(r["py_content_errors"]), (r["content_errors"], r["py_content_errors"])
+    assert r["content_errors_not_in_python"] == [], (r["content_errors"], r["py_content_errors"])
     assert r["only_python"] == [] and r["only_fml"] == [], (r["only_python"], r["only_fml"])
 
 

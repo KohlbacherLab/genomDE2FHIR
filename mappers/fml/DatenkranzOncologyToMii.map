@@ -16,23 +16,31 @@
 //   OncoPlanPatient(src, ctx, pat)           mappers/fml/OncoPlanFollowUp.map    (Patient.deceased[x] from the follow-up)
 //
 // ctx = a Parameters object built once per case by OncoCtx (never emitted). Every value is a valueString:
-//   ck           case key 'kdk:<submitterId>:<localCaseId|tanC>' (README: resource keys)
+//   ck           case key 'kdk:<submitterId>:<CK>' (README: resource keys; CK escaped, '|test' for a test submission)
+//   metaSource   the meta.source marker main attaches to ck as an extension (DkEntry); the Parameters keeps only ck's
+//                string value, so a reader re-attaches it:  ck.extension as msx, msx.url = 'urn:genomde2fhir:meta-source',
+//                msx.value = (%ctx.parameter.where(name = 'metaSource').value)
 //   patient      entry uuid of the Patient                                 -> 'urn:uuid:' + value
 //   primary      entry uuid of the primary-tumour Condition; ONLY present when the primary is emitted
 //                (case.diagnosisOd.mainDiagnosis.code non-empty). Test with %ctx.parameter.where(name = 'primary').exists()
 //   episode      entry uuid of the MTB Behandlungsepisode (always emitted)
+//   indicationBoard  entry uuid of the indication board CarePlan (only when metaData.molecularBoardDecisionDate exists)
 //   ngsReport    entry uuid reserved for the current NGS DiagnosticReport (mii-pr-mtb-ngs-bericht, OncoMolecular)
-//   submitterId  metaData.submission.submitterId;  caseId  localCaseId, else tanC (identifier values '<submitterId>|<caseId>|..')
+//   ngsReport:<i> entry uuid of the own NGS report of complexBiomarkers[i] when several entries yield biomarkers
+//   tumorSpread  entry uuid of the first DNPM tumour-spread Observation (only when there is one)
+//   submitterId  metaData.submission.submitterId (escaped);  caseId  CK = escaped localCaseId, else tanC, + '|test' for a
+//                test submission (identifier values '<submitterId>|<caseId>|<escaped id>', CaseKey.scoped)
 // Read a value with  (%ctx.parameter.where(name = 'ck').value) as ck . A computed variable that evaluates to nothing
 // cannot be passed to a group ('INPUT variable ... has no value'): guard optional entries (primary) with where (...exists()).
 //
-// Array indices: the engine has no rule index; index-based keys use the position of the first item equal to the current
-// one, %list.select(iif($this = %item, $index, {})).first(). Exact duplicate items therefore share a resource key (none in
-// the corpus); see README.
+// Array indices: the engine has no rule index. Index-based keys use a counter: the caller creates a Parameters, the
+// iterating rule reads (%cnt.parameter.count()) and appends a parameter, so the value is the item's position even for
+// two identical items (value equality, %list.select(iif($this = %item, $index, {})), would give them one key; README).
 
 uses "https://genomde.de/fhir/StructureDefinition/DatenkranzOncology" alias Datenkranz as source
 uses "http://hl7.org/fhir/StructureDefinition/Bundle" alias Bundle as target
 uses "http://hl7.org/fhir/StructureDefinition/Patient" alias Patient as target
+uses "http://hl7.org/fhir/StructureDefinition/Organization" alias Organization as target
 uses "http://hl7.org/fhir/StructureDefinition/Condition" alias Condition as target
 uses "http://hl7.org/fhir/StructureDefinition/Observation" alias Observation as target
 uses "http://hl7.org/fhir/StructureDefinition/ServiceRequest" alias ServiceRequest as target
@@ -52,22 +60,53 @@ imports "https://genomde.de/fhir/StructureMap/OncoPlanFollowUp"
 
 group main(source src : Datenkranz, target bundle : Bundle) {
   src -> bundle.type = 'transaction' "type";
+  // ck = 'kdk:<submitterId>:<CK>', CK = escaped localCaseId (else tanC) + '|test' for a test submission (README)
+  // meta.source of every resource (DkEntry): 'urn:genomde2fhir:submission:<submitterId>:<caseId>:<date>:<type>'
+  // (identity.CaseKey.source; caseId = localCaseId, else tanC, raw: a test submission differs by its type 'test'). Each
+  // component is percent-encoded like identity.source_component: printable ASCII 0x21-0x7E stays except % : | # ? /,
+  // every other UTF-8 byte becomes '%XX' (upper-case hex; encode('hex') split into byte pairs, kept pairs decoded back)
   src.metaData as md -> ('kdk:' & %md.submission.submitterId & ':' &
-        iif(%md.localCaseId.exists() and %md.localCaseId != '', %md.localCaseId, %md.tanC)) as ck,
+        iif(%md.localCaseId.exists() and %md.localCaseId != '', %md.localCaseId, %md.tanC).replace('\\', '\\\\').replace('|', '\\|')
+        & iif(%md.submission.type = 'test', '|test', '')) as ck,
+        ck.extension as msx, msx.url = 'urn:genomde2fhir:meta-source',
+        msx.value = ('urn:genomde2fhir:submission:' & (%md.submission.submitterId).encode('hex').upper().replaceMatches('(..)', '$1 ').trim().split(' ').select(iif($this.matches('^(2[1246-9A-E]|3[0-9B-E]|[4-6][0-9A-F]|7[0-9ABDE])$'), $this.decode('hex'), '%' & $this)).join('') & ':' & (iif(%md.localCaseId.exists() and %md.localCaseId != '', %md.localCaseId, %md.tanC)).encode('hex').upper().replaceMatches('(..)', '$1 ').trim().split(' ').select(iif($this.matches('^(2[1246-9A-E]|3[0-9B-E]|[4-6][0-9A-F]|7[0-9ABDE])$'), $this.decode('hex'), '%' & $this)).join('') & ':' & (%md.submission.date).encode('hex').upper().replaceMatches('(..)', '$1 ').trim().split(' ').select(iif($this.matches('^(2[1246-9A-E]|3[0-9B-E]|[4-6][0-9A-F]|7[0-9ABDE])$'), $this.decode('hex'), '%' & $this)).join('') & ':' & (%md.submission.type).encode('hex').upper().replaceMatches('(..)', '$1 ').trim().split(' ').select(iif($this.matches('^(2[1246-9A-E]|3[0-9B-E]|[4-6][0-9A-F]|7[0-9ABDE])$'), $this.decode('hex'), '%' & $this)).join('')),
         uuid() as pid, uuid() as prim, uuid() as ep, uuid() as ngs, create('Parameters') as ctx
      then OncoCtx(src, md, ck, pid, prim, ep, ngs, ctx), OncoCase(src, md, ck, pid, ctx, bundle) "case";
+  // a remaining key collision (two entries with one fullUrl or one conditional URL) fails the transform, as Python's
+  // 'duplicate resource' does, instead of HAPI merging the entries silently ('Check condition failed')
+  src check (%bundle.entry.fullUrl.isDistinct() and %bundle.entry.request.url.isDistinct()) -> bundle.type = 'transaction' "unique-keys";
 }
 
 group OncoCtx(source src, source md, source ck, source pid, source prim, source ep, source ngs, target ctx : Parameters) {
   src -> ctx.parameter as p, p.name = 'ck', p.value = ck "ck";
+  // the meta.source marker attached to ck (a Parameters keeps only the string value; OncoMolecular / OncoPlanFollowUp
+  // re-attach it when they read ck back)
+  ck -> ctx.parameter as p, p.name = 'metaSource', p.value = (%ck.extension.where(url = 'urn:genomde2fhir:meta-source').value.first()) "metaSource";
   src -> ctx.parameter as p, p.name = 'patient', p.value = pid "patient";
   src where (case.diagnosisOd.mainDiagnosis.code.where($this != '').exists()) -> ctx.parameter as p, p.name = 'primary', p.value = prim "primary";
   src -> ctx.parameter as p, p.name = 'episode', p.value = ep "episode";
+  // indication board CarePlan (mvgs-inclusion-decision): Therapieplan.basedOn (careplan.build)
+  md where (molecularBoardDecisionDate.exists()) -> ctx.parameter as p, p.name = 'indicationBoard', p.value = uuid() "indicationBoard";
   src -> ctx.parameter as p, p.name = 'ngsReport', p.value = ngs "ngsReport";
+  // first DNPM tumour-spread item: mii-pr-mtb-tumorausbreitung, linked from the primary as stage:ErstdiagnoseZeitpunkt
+  src where (case.diagnosisOd.additionalClassification.where(system = 'dnpm-dip/mtb/diagnosis/kds-tumor-spread' and (key = 'tumor-free' or key = 'local' or key = 'metastasized' or key = 'unknown')).exists())
+     -> ctx.parameter as p, p.name = 'tumorSpread', p.value = uuid() "tumorSpread";
+  // several complexBiomarkers items with biomarkers: an NGS report each (OncoMolecular), uuid 'ngsReport:<array position>'
+  src.molecular as mol where (complexBiomarkers.where(tmb.exists() or ploidy.exists() or hrdHigh.exists() or lstHigh.exists() or taiHigh.exists()).count() > 1) -> create('Parameters') as cnt
+     then OncoCtxBiomarkerReports(mol, cnt, ctx) "biomarker-reports";
   md.submission as sub then {
-    sub.submitterId as s -> ctx.parameter as p, p.name = 'submitterId', p.value = s "submitterId";
+    sub.submitterId as s -> ctx.parameter as p, p.name = 'submitterId', p.value = (%s.replace('\\', '\\\\').replace('|', '\\|')) "submitterId";
   } "submission";
-  md -> ctx.parameter as p, p.name = 'caseId', p.value = (iif(%md.localCaseId.exists() and %md.localCaseId != '', %md.localCaseId, %md.tanC)) "caseId";
+  md -> ctx.parameter as p, p.name = 'caseId', p.value = (iif(%md.localCaseId.exists() and %md.localCaseId != '', %md.localCaseId, %md.tanC).replace('\\', '\\\\').replace('|', '\\|')
+        & iif(%md.submission.type = 'test', '|test', '')) "caseId";
+}
+
+group OncoCtxBiomarkerReports(source mol, target cnt : Parameters, target ctx : Parameters) {
+  mol.complexBiomarkers as cb -> (%cnt.parameter.count().toString()) as i, cnt.parameter as p, p.name = 'i' then OncoCtxBiomarkerReport(cb, i, ctx) "item";
+}
+
+group OncoCtxBiomarkerReport(source cb, source i, target ctx : Parameters) {
+  cb where (tmb.exists() or ploidy.exists() or hrdHigh.exists() or lstHigh.exists() or taiHigh.exists()) -> ctx.parameter as p, p.name = ('ngsReport:' & %i), p.value = uuid() "uuid";
 }
 
 // ================================================================================================================
@@ -78,32 +117,57 @@ group OncoCase(source src, source md, source ck, source pid, source ctx, target 
   // patient.py; OncoPlanPatient adds deceased[x] from the follow-up (Q4: all writes to the Patient run in this rule)
   md -> bundle.entry as e, e.resource = create('Patient') as pat, ('patient') as role
      then DkEntry(ck, role, pid, e, pat), DkKdkPatientBody(md, pat), OncoPlanPatient(src, ctx, pat) "patient";
+  // submission Organizations (builders/submission.submission_organization, shared with GRZ: DkOrg*); ck is the
+  // 'kdk:<submitterId>:<CK>' key, so the keys stay stream-scoped as in Python (key.id('Organization', role, value), stream
+  // kdk). No Provenance in FML, so no agent references are needed
+  md.submission as sub then {
+    sub.submitterId as v where (v != '') -> bundle.entry as e, e.resource = create('Organization') as org, uuid() as fid,
+          ('org:submitter') as role
+       then DkEntry(ck, role, fid, e, org), DkOrgSubmitter(sub, org) "org-submitter";
+    sub.genomicDataCenterId as v where (v != '') -> bundle.entry as e, e.resource = create('Organization') as org, uuid() as fid,
+          ('org:genomic-data-center:' & %v) as role
+       then DkEntry(ck, role, fid, e, org), DkOrgGdc(sub, org) "org-gdc";
+    sub.clinicalDataNodeId as v where (v != '') -> bundle.entry as e, e.resource = create('Organization') as org, uuid() as fid,
+          ('org:clinical-data-node:' & %v) as role
+       then DkEntry(ck, role, fid, e, org), DkOrgKdk(sub, org) "org-kdk";
+  } "submission-orgs";
   md.coverageType as ct then DkCoverage(ct, ck, pid, bundle) "coverage";
   md.mvConsent as mvc -> ('mv-consent') as role then DkMvConsent(mvc, ck, role, pid, bundle) "mv-consent";
-  md then DkKdkIndicationBoard(md, ck, pid, bundle) "indication-board";
+  // DkKdkIndicationBoard with the uuid reserved in ctx (the Therapieplan's basedOn target)
+  md where (molecularBoardDecisionDate.exists()) -> bundle.entry as e, e.resource = create('CarePlan') as cp,
+        (%ctx.parameter.where(name = 'indicationBoard').value) as fid, ('indication-board') as role
+     then DkEntry(ck, role, fid, e, cp), DkKdkIndicationBoardBody(md, pid, cp) "indication-board";
   // research_consent.py: an embedded MII Broad Consent (scope) -> mii-pr-consent-einwilligung (DkResearchConsent);
   // entries without scope -> mvgs-research-consent-absent (value = absence reason)
-  md.researchConsents as rc -> ('research-consent:' & %md.researchConsents.select(iif($this = %rc, $index, {})).first().toString()) as role
-     then DkResearchConsent(rc, ck, role, pid, bundle) "research-consent";
-  md.researchConsents as rc where (scope.exists().not() and (noScopeJustification = 'patient unable to consent'
-        or noScopeJustification = 'patient refuses to sign consent' or noScopeJustification = 'patient did not return consent documents'
-        or noScopeJustification = 'other patient-related reason'
-        or noScopeJustification = 'consent information cannot be submitted by LE due to technical reason'
-        or noScopeJustification = 'consent is not implemented at LE due to organizational issues'))
-     -> bundle.entry as e, e.resource = create('Observation') as o, uuid() as fid,
-        ('research-consent-absent:' & %md.researchConsents.select(iif($this = %rc, $index, {})).first().toString()) as role
-     then DkEntry(ck, role, fid, e, o), OncoRcAbsentBody(rc, ctx, o) "research-consent-absent";
+  md -> create('Parameters') as cnt then OncoResearchConsents(md, ck, pid, ctx, cnt, bundle) "research-consents";
   src.case as c then {
     c.diagnosisOd as d then OncoDiagnosis(d, ck, ctx, bundle) "diagnosis";
   } "case";
   // prior_procedures.ensure_episode: one MTB Behandlungsepisode per case. Prior therapies and prior findings are created
   // from this rule so that they can be listed in its supportingInfo (Q4); the molecular sub-map adds investigation.
   src.case as c -> bundle.entry as e, e.resource = create('ClinicalImpression') as ci, ('episode') as role,
-        (%ctx.parameter.where(name = 'episode').value) as ep
-     then DkEntry(ck, role, ep, e, ci), OncoEpisodeBody(md, ctx, ci), OncoPriorProcedures(c, ck, ctx, ci, bundle),
-          OncoPriorDiagnostics(c, ck, ctx, ci, bundle), OncoEpisodeMolecular(src, ctx, ci) "episode";
+        (%ctx.parameter.where(name = 'episode').value) as ep,
+        create('Parameters') as pcnt, create('Parameters') as dcnt
+     then DkEntry(ck, role, ep, e, ci), OncoEpisodeBody(md, ctx, ci), OncoPriorProcedures(c, ck, ctx, ci, pcnt, bundle),
+          OncoPriorDiagnostics(c, ck, ctx, ci, dcnt, bundle), OncoEpisodeMolecular(src, ctx, ci) "episode";
   src.molecular as mol then OncoMolecular(mol, bundle, ctx) "molecular";
   src then OncoPlanFollowUp(src, bundle, ctx) "plan-followup";
+}
+
+group OncoResearchConsents(source md, source ck, source pid, source ctx, target cnt : Parameters, target bundle : Bundle) {
+  md.researchConsents as rc -> (%cnt.parameter.count().toString()) as i, cnt.parameter as p, p.name = 'i'
+     then OncoResearchConsent(rc, i, ck, pid, ctx, bundle) "item";
+}
+
+group OncoResearchConsent(source rc, source i, source ck, source pid, source ctx, target bundle : Bundle) {
+  rc -> ('research-consent:' & %i) as role then DkResearchConsent(rc, ck, role, pid, bundle) "research-consent";
+  rc where (scope.exists().not() and (noScopeJustification = 'patient unable to consent'
+        or noScopeJustification = 'patient refuses to sign consent' or noScopeJustification = 'patient did not return consent documents'
+        or noScopeJustification = 'other patient-related reason'
+        or noScopeJustification = 'consent information cannot be submitted by LE due to technical reason'
+        or noScopeJustification = 'consent is not implemented at LE due to organizational issues'))
+     -> bundle.entry as e, e.resource = create('Observation') as o, uuid() as fid, ('research-consent-absent:' & %i) as role
+     then DkEntry(ck, role, fid, e, o), OncoRcAbsentBody(rc, ctx, o) "research-consent-absent";
 }
 
 group OncoEpisodeMolecular(source src, source ctx, target ci : ClinicalImpression) {
@@ -150,25 +214,17 @@ group OncoDiagnosis(source d, source ck, source ctx, target bundle : Bundle) {
   d.mainDiagnosis as m where (code.exists() and code != '') -> bundle.entry as e, e.resource = create('Condition') as cond,
         ('primary') as role, (%ctx.parameter.where(name = 'primary').value) as fid
      then DkEntry(ck, role, fid, e, cond), OncoPrimaryBody(d, m, ctx, cond) "primary";
-  d.additionalDiagnoses as a where (code.exists() and code != '') -> bundle.entry as e, e.resource = create('Condition') as cond, uuid() as fid,
-        ('additional-diagnosis:' & %d.additionalDiagnoses.select(iif($this = %a, $index, {})).first().toString()) as role
-     then DkEntry(ck, role, fid, e, cond), OncoDiagnose(a, ctx, cond) "additional-diagnosis";
+  d -> create('Parameters') as cnt then OncoAdditionalDiagnoses(d, ck, ctx, cnt, bundle) "additional-diagnoses";
   // index over the items with a code (germline_diagnoses enumerates the filtered list)
-  d.germlineDiagnoses as g where (code.exists() and code != '') -> bundle.entry as e, e.resource = create('Condition') as cond, uuid() as fid,
-        ('germline-diagnosis:' & %d.germlineDiagnoses.where(code.exists() and code != '').select(iif($this = %g, $index, {})).first().toString()) as role
-     then DkEntry(ck, role, fid, e, cond), OncoGermline(d, g, ctx, cond) "germline-diagnosis";
+  d -> create('Parameters') as cnt then OncoGermlineDiagnoses(d, ck, ctx, cnt, bundle) "germline-diagnoses";
   d.grading as gr where (gr != '') -> bundle.entry as e, e.resource = create('Observation') as o, uuid() as fid, ('grading') as role
      then DkEntry(ck, role, fid, e, o), OncoGradingBody(gr, ctx, o) "grading";
-  d.hpoTerms as h where (code.exists() and code != '') -> bundle.entry as e, e.resource = create('Observation') as o, uuid() as fid,
-        ('hpo:' & %d.hpoTerms.select(iif($this = %h, $index, {})).first().toString()) as role
-     then DkEntry(ck, role, fid, e, o), OncoHpoBody(h, ctx, o) "hpo";
+  d -> create('Parameters') as cnt then OncoHpoTerms(d, ck, ctx, cnt, bundle) "hpo";
   // libraryType none / unknown -> no request (dropped)
   d.libraryType as lt where (lt = 'panel' or lt = 'wes' or lt = 'wgs' or lt = 'wgs_lr') -> bundle.entry as e,
         e.resource = create('ServiceRequest') as sr, uuid() as fid, ('sequencing') as role
      then DkEntry(ck, role, fid, e, sr), OncoSequencingBody(lt, ctx, sr) "sequencing";
-  d.additionalClassification as ac where (system.exists() and system != '') -> bundle.entry as e, e.resource = create('Observation') as o, uuid() as fid,
-        ('additional-classification:' & %d.additionalClassification.select(iif($this = %ac, $index, {})).first().toString()) as role
-     then DkEntry(ck, role, fid, e, o), OncoWeitereBody(ac, ctx, o) "additional-classification";
+  d -> create('Parameters') as cnt then OncoAdditionalClassifications(d, ck, ctx, cnt, bundle) "additional-classification";
   d.diagnosticAssessment as a where (a = 'genetic-diagnostic-assessment' or a = 'noGeneticDiagnosis' or a = 'suspectedGeneticDiagnosis'
         or a = 'furtherGeneticDiagnosticRecommended' or a = 'confirmedGeneticDiagnosis' or a = 'partialGeneticDiagnosis')
      -> bundle.entry as e, e.resource = create('Observation') as o, uuid() as fid, ('genetic-diagnostic-assessment') as role
@@ -180,6 +236,51 @@ group OncoDiagnosis(source d, source ck, source ctx, target bundle : Bundle) {
      -> bundle.entry as e, e.resource = create('Observation') as o, uuid() as fid, ('ecog:diagnosis') as role,
         (iif(%s = 'unknown', 'U', %s)) as sc
      then DkEntry(ck, role, fid, e, o), OncoEcogBody(sc, ctx, o) "ecog";
+}
+
+group OncoAdditionalDiagnoses(source d, source ck, source ctx, target cnt : Parameters, target bundle : Bundle) {
+  d.additionalDiagnoses as a -> (%cnt.parameter.count().toString()) as i, cnt.parameter as p, p.name = 'i' then OncoAdditionalDiagnosis(a, i, ck, ctx, bundle) "item";
+}
+
+group OncoAdditionalDiagnosis(source a, source i, source ck, source ctx, target bundle : Bundle) {
+  a where (code.exists() and code != '') -> bundle.entry as e, e.resource = create('Condition') as cond, uuid() as fid,
+        ('additional-diagnosis:' & %i) as role
+     then DkEntry(ck, role, fid, e, cond), OncoDiagnose(a, ctx, cond) "additional-diagnosis";
+}
+
+group OncoGermlineDiagnoses(source d, source ck, source ctx, target cnt : Parameters, target bundle : Bundle) {
+  d.germlineDiagnoses as g where (code.exists() and code != '') -> (%cnt.parameter.count().toString()) as i, cnt.parameter as p, p.name = 'i',
+        bundle.entry as e, e.resource = create('Condition') as cond, uuid() as fid, ('germline-diagnosis:' & %i) as role
+     then DkEntry(ck, role, fid, e, cond), OncoGermline(d, g, ctx, cond) "germline-diagnosis";
+}
+
+group OncoHpoTerms(source d, source ck, source ctx, target cnt : Parameters, target bundle : Bundle) {
+  d.hpoTerms as h -> (%cnt.parameter.count().toString()) as i, cnt.parameter as p, p.name = 'i' then OncoHpoTerm(h, i, ck, ctx, bundle) "item";
+}
+
+group OncoHpoTerm(source h, source i, source ck, source ctx, target bundle : Bundle) {
+  h where (code.exists() and code != '') -> bundle.entry as e, e.resource = create('Observation') as o, uuid() as fid, ('hpo:' & %i) as role
+     then DkEntry(ck, role, fid, e, o), OncoHpoBody(h, ctx, o) "hpo";
+}
+
+// DNPM kds-tumor-spread with a known key -> mii-pr-mtb-tumorausbreitung (the first one takes ctx 'tumorSpread', linked from
+// the primary tumour); any other system / key -> mii-pr-onko-weitere-klassifikationen (value.text = key)
+group OncoAdditionalClassifications(source d, source ck, source ctx, target cnt : Parameters, target bundle : Bundle) {
+  d.additionalClassification as ac -> (%cnt.parameter.count()) as i, cnt.parameter as p, p.name = 'i'
+     then OncoAdditionalClassification(d, ac, i, ck, ctx, bundle) "item";
+}
+
+group OncoAdditionalClassification(source d, source ac, source i, source ck, source ctx, target bundle : Bundle) {
+  ac where (system.exists() and system != '' and (system = 'dnpm-dip/mtb/diagnosis/kds-tumor-spread' and (key = 'tumor-free' or key = 'local' or key = 'metastasized' or key = 'unknown')).not())
+     -> bundle.entry as e, e.resource = create('Observation') as o, uuid() as fid, ('additional-classification:' & %i.toString()) as role
+     then DkEntry(ck, role, fid, e, o), OncoWeitereBody(ac, ctx, o) "additional-classification";
+  ac where (system = 'dnpm-dip/mtb/diagnosis/kds-tumor-spread' and (key = 'tumor-free' or key = 'local' or key = 'metastasized' or key = 'unknown') and %d.additionalClassification.take(%i).where(system = 'dnpm-dip/mtb/diagnosis/kds-tumor-spread' and (key = 'tumor-free' or key = 'local' or key = 'metastasized' or key = 'unknown')).exists().not())
+     -> bundle.entry as e, e.resource = create('Observation') as o, (%ctx.parameter.where(name = 'tumorSpread').value) as fid,
+        ('additional-classification:' & %i.toString()) as role
+     then DkEntry(ck, role, fid, e, o), OncoTumorSpreadBody(d, ac, ctx, o) "tumor-spread-first";
+  ac where (system = 'dnpm-dip/mtb/diagnosis/kds-tumor-spread' and (key = 'tumor-free' or key = 'local' or key = 'metastasized' or key = 'unknown') and %d.additionalClassification.take(%i).where(system = 'dnpm-dip/mtb/diagnosis/kds-tumor-spread' and (key = 'tumor-free' or key = 'local' or key = 'metastasized' or key = 'unknown')).exists())
+     -> bundle.entry as e, e.resource = create('Observation') as o, uuid() as fid, ('additional-classification:' & %i.toString()) as role
+     then DkEntry(ck, role, fid, e, o), OncoTumorSpreadBody(d, ac, ctx, o) "tumor-spread";
 }
 
 // ---- primary tumour --------------------------------------------------------------------------------------------
@@ -196,11 +297,16 @@ group OncoPrimaryBody(source d, source m, source ctx, target cond : Condition) {
   m -> cond.subject as s then OncoRefPatient(ctx, s) "subject";
   m.date as dt where (dt != '') -> cond.recordedDate = dt "recordedDate";
   d then OncoIcdo3(d, cond) "icdo3";
+  // stage:ErstdiagnoseZeitpunkt (0..1) -> the first DNPM tumour-spread Observation
+  d where (%ctx.parameter.where(name = 'tumorSpread').exists()) -> cond.stage as st, st.type as ty, ty.coding as c,
+        c.system = 'https://nih-ncpi.github.io/ncpi-fhir-ig/CodeSystem-ncit.html', c.code = 'C19251', c.display = 'Stage at Diagnosis',
+        st.assessment as a, a.reference = ('urn:uuid:' & %ctx.parameter.where(name = 'tumorSpread').value) "stage";
 }
 
 // ICD-O-3 (diagnosis.icdo3_slots): each field is placed by the axis of its code; morphology 'M?nnnn/?n', topography
 // 'Cnn.?n?'. A code in the wrong field fills the other slot when that slot is free; codes of neither axis or a second
-// code for an occupied slot -> Condition.note; an exact duplicate of the occupied slot is dropped.
+// code for an occupied slot -> Condition.note; an exact duplicate of the occupied slot is dropped; the placeholder 'T'
+// (root of the ICD-O-3 topography axis = not specified) is dropped.
 group OncoIcdo3(source d, target cond : Condition) {
   d.histology as h where (code.trim().matches('^M?[0-9]{4}/?[0-9]$'))
      -> cond.extension as ex, ex.url = 'https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-ex-onko-histology-morphology-behavior-icdo3',
@@ -213,12 +319,12 @@ group OncoIcdo3(source d, target cond : Condition) {
   d.histology as h where (code.trim().upper().matches('^C[0-9]{2}[.]?[0-9]?$') and %d.topography.where(code.trim().upper().matches('^C[0-9]{2}[.]?[0-9]?$')).exists().not())
      -> cond.bodySite as bs, bs.coding as c then OncoIcdo3T(h, c) "topography-from-histology";
   // notes: histology that is not a morphology code and does not fill / duplicate the topography slot
-  d.histology as h where (code.exists() and code != '' and code.trim().matches('^M?[0-9]{4}/?[0-9]$').not()
+  d.histology as h where (code.exists() and code != '' and code.trim().upper() != 'T' and code.trim().matches('^M?[0-9]{4}/?[0-9]$').not()
         and (code.trim().upper().matches('^C[0-9]{2}[.]?[0-9]?$').not()
              or %d.topography.where(code.trim().upper().matches('^C[0-9]{2}[.]?[0-9]?$')
                   and iif(code.trim().upper().matches('^C[0-9]{2}[.]?[0-9]$'), code.trim().upper().replaceMatches('^C([0-9]{2})[.]?([0-9])$', 'C$1.$2'), code.trim().upper().replaceMatches('^C([0-9]{2})[.]?$', 'C$1')) != iif(%d.histology.code.trim().upper().matches('^C[0-9]{2}[.]?[0-9]$'), %d.histology.code.trim().upper().replaceMatches('^C([0-9]{2})[.]?([0-9])$', 'C$1.$2'), %d.histology.code.trim().upper().replaceMatches('^C([0-9]{2})[.]?$', 'C$1'))).exists()))
      -> cond.note as n, n.text = (('Histology (ICD-O-3 M, as delivered): ' & %h.code & ' ' & iif(%h.display.exists(), %h.display, '')).trim()) "histology-note";
-  d.topography as t where (code.exists() and code != '' and code.trim().upper().matches('^C[0-9]{2}[.]?[0-9]?$').not()
+  d.topography as t where (code.exists() and code != '' and code.trim().upper() != 'T' and code.trim().upper().matches('^C[0-9]{2}[.]?[0-9]?$').not()
         and (code.trim().matches('^M?[0-9]{4}/?[0-9]$').not()
              or %d.histology.where(code.trim().matches('^M?[0-9]{4}/?[0-9]$')
                   and code.trim().replaceMatches('^M?([0-9]{4})/?([0-9])$', '$1/$2') != %d.topography.code.trim().replaceMatches('^M?([0-9]{4})/?([0-9])$', '$1/$2')).exists()))
@@ -361,13 +467,27 @@ group OncoWeitereBody(source ac, source ctx, target o : Observation) {
         c.system = 'http://terminology.hl7.org/CodeSystem/data-absent-reason', c.code = 'unknown' "value-absent";
 }
 
-// DNPM kds-tumor-spread keys -> SNOMED (mii-vs-mtb-tumorausbreitung); text = key
+// value.text = key (a DNPM tumour-spread item with a known key is mii-pr-mtb-tumorausbreitung, OncoTumorSpreadBody)
 group OncoWeitereValue(source ac, source k, target v : CodeableConcept) {
   k -> v.text = k "text";
-  ac where (system = 'dnpm-dip/mtb/diagnosis/kds-tumor-spread' and (key = 'tumor-free' or key = 'local' or key = 'metastasized' or key = 'unknown'))
-     -> v.coding as c, c.system = 'http://snomed.info/sct',
+}
+
+// mii-pr-mtb-tumorausbreitung (diagnosis.tumor_spread): category ErstdiagnoseZeitpunkt, code Tumor stage, effective =
+// mainDiagnosis.date (data-absent-reason without it), value = mii-vs-mtb-tumorausbreitung coding + key as text
+group OncoTumorSpreadBody(source d, source ac, source ctx, target o : Observation) {
+  ac -> o.meta as m, m.profile = 'https://www.medizininformatik-initiative.de/fhir/ext/modul-mtb/StructureDefinition/mii-pr-mtb-tumorausbreitung' "profile";
+  ac -> o.status = 'final' "status";
+  ac -> o.category as cat, cat.coding as c, c.system = 'http://snomed.info/sct', c.code = '473302008', c.display = 'Aware of diagnosis' "category";
+  ac -> o.code as cc, cc.coding as c, c.system = 'http://snomed.info/sct', c.code = '371508000', c.display = 'Tumor stage' "code";
+  ac -> o.subject as s then OncoRefPatient(ctx, s) "subject";
+  ac where (%ctx.parameter.where(name = 'primary').exists()) -> o.focus as f then OncoRefPrimary(ctx, f) "focus";
+  d where (mainDiagnosis.date.where($this != '').exists()) -> o.effective = create('dateTime') as ed, ed.value = (%d.mainDiagnosis.date) "effective";
+  d where (mainDiagnosis.date.where($this != '').exists().not()) -> o.effective = create('dateTime') as ed, ed.extension as dx,
+        dx.url = 'http://hl7.org/fhir/StructureDefinition/data-absent-reason', dx.value = create('code') as cv, cv.value = 'unknown' "effective-absent";
+  ac.key as k -> o.value = create('CodeableConcept') as v, v.coding as c, c.system = 'http://snomed.info/sct',
         c.code = (iif(%k = 'tumor-free', '58899004', iif(%k = 'local', '255127006', iif(%k = 'metastasized', '128462008', '261665006')))),
-        c.display = (iif(%k = 'tumor-free', 'No evidence of tumor', iif(%k = 'local', 'Local tumor spread', iif(%k = 'metastasized', 'Metastases', 'Unknown')))) "tumor-spread";
+        c.display = (iif(%k = 'tumor-free', 'No evidence of tumor', iif(%k = 'local', 'Local tumor spread', iif(%k = 'metastasized', 'Metastases', 'Unknown')))),
+        v.text = k "value";
 }
 
 // ---- genetic diagnostic assessment (local CS, no profile) --------------------------------------------------------------------
@@ -419,7 +539,8 @@ group OncoEcogValue(source sc, target v : CodeableConcept) {
 // TNM (onco/tnm.py). Each tnmClassifications[] item is classified once into tp (Parameters, never emitted):
 //   parameter name = item index, value = 'kind|cp|uicc|yra|edition' ('-' = none)
 //   kind S: SNOMED code of ConceptMap mvgs-cm-tnm-sct-uicc group 1 (cp and UICC from the map, SNOMED wins over the text)
-//   kind U: an accepted UICC string (group 2), also in a SNOMED-labelled field (cp from the notation, edition from version)
+//   kind U: an accepted UICC string (group 2), also in a SNOMED-labelled field (cp from the notation, edition from version:
+//           only an explicit edition number 1-9, '8', '8th ed.', 'UICC 8', 'TNM8', '8. Auflage'; dates and years give '-')
 //   no parameter: no UICC equivalent -> mii-pr-onko-weitere-klassifikationen 'TNM'
 // notation = (text, else display).trim(); '^([yra]*)([cpu]?)([TNM].*)$' gives the y/r/a prefixes and the c/p/u prefix.
 // The SNOMED lookup table below is generated from mvgs-cm-tnm-sct-uicc group 1 ('|<sct>=<cp><UICC>|', cp = the
@@ -427,9 +548,13 @@ group OncoEcogValue(source sc, target v : CodeableConcept) {
 // Regenerate it when the ConceptMap changes. The UICC value coding of S items comes from translate().
 // ================================================================================================================
 
+// i = position in tnmClassifications[] (counter; two identical items are two categories, as in tnm.py)
 group OncoTnmClassify(source d, target tp : Parameters) {
-  d.tnmClassifications as it where (code.exists() and code != '')
-     -> (%d.tnmClassifications.select(iif($this = %it, $index, {})).first().toString()) as i then OncoTnmClassifyItem(it, i, tp) "item";
+  d -> create('Parameters') as cnt then OncoTnmClassifyAll(d, cnt, tp) "items";
+}
+
+group OncoTnmClassifyAll(source d, target cnt : Parameters, target tp : Parameters) {
+  d.tnmClassifications as it -> (%cnt.parameter.count().toString()) as i, cnt.parameter as p, p.name = 'i' then OncoTnmClassifyItem(it, i, tp) "item";
 }
 
 group OncoTnmClassifyItem(source it, source i, target tp : Parameters) {
@@ -443,16 +568,25 @@ group OncoTnmClassifyItem(source it, source i, target tp : Parameters) {
         p.value = ('U|' & iif((iif(%it.text.exists() and %it.text != '', %it.text, iif(%it.display.exists(), %it.display, '')).trim()).matches('^[yra]*[cpu][TNM].*$'), (iif(%it.text.exists() and %it.text != '', %it.text, iif(%it.display.exists(), %it.display, '')).trim()).replaceMatches('^([yra]*)([cpu]?)([TNM].*)$', '$2'), '-') & '|'
                  & %it.code.trim() & '|'
                  & iif((iif(%it.text.exists() and %it.text != '', %it.text, iif(%it.display.exists(), %it.display, '')).trim()).matches('^[yra]+[cpu]?[TNM].*$'), (iif(%it.text.exists() and %it.text != '', %it.text, iif(%it.display.exists(), %it.display, '')).trim()).replaceMatches('^([yra]*)([cpu]?)([TNM].*)$', '$1'), '-') & '|'
-                 & iif(%it.version.exists() and %it.version.matches('^\\s*[1-9].*$'), %it.version.trim().substring(0, 1), '-')) "uicc";
+                 & iif(%it.version.trim().lower().matches('^((uicc|tnm)[\\s-]*)?[1-9]\\s*(\\.|st|nd|rd|th)?\\s*(ed\\.?|edition|aufl\\.?|auflage)?$'),
+                       %it.version.trim().lower().replaceMatches('^((uicc|tnm)[\\s-]*)?([1-9]).*$', '$3'), '-')) "uicc";
 }
 
 group OncoTnm(source d, source ck, source ctx, source tp, target bundle : Bundle) {
   // grouping mii-pr-onko-tnm-klassifikation with hasMember -> the category Observations (created from this rule, Q4)
-  d where (%tp.parameter.exists()) -> bundle.entry as e, e.resource = create('Observation') as g, uuid() as fid, ('tnm:grouping') as role
-     then DkEntry(ck, role, fid, e, g), OncoTnmGroupBody(d, ctx, tp, g), OncoTnmCategories(d, ck, ctx, tp, g, bundle) "grouping";
-  d.tnmClassifications as it where (code.exists() and code != '' and %tp.parameter.where(name = %d.tnmClassifications.select(iif($this = %it, $index, {})).first().toString()).exists().not())
-     -> bundle.entry as e, e.resource = create('Observation') as o, uuid() as fid,
-        ('tnm:' & %d.tnmClassifications.select(iif($this = %it, $index, {})).first().toString()) as role
+  d where (%tp.parameter.exists()) -> bundle.entry as e, e.resource = create('Observation') as g, uuid() as fid, ('tnm:grouping') as role,
+        create('Parameters') as cnt
+     then DkEntry(ck, role, fid, e, g), OncoTnmGroupBody(d, ctx, tp, g), OncoTnmCategories(d, ck, ctx, tp, g, cnt, bundle) "grouping";
+  d -> create('Parameters') as cnt then OncoTnmUnmatchedAll(d, ck, ctx, tp, cnt, bundle) "unmatched";
+}
+
+group OncoTnmUnmatchedAll(source d, source ck, source ctx, source tp, target cnt : Parameters, target bundle : Bundle) {
+  d.tnmClassifications as it -> (%cnt.parameter.count().toString()) as i, cnt.parameter as p, p.name = 'i' then OncoTnmUnmatched(it, i, ck, ctx, tp, bundle) "item";
+}
+
+group OncoTnmUnmatched(source it, source i, source ck, source ctx, source tp, target bundle : Bundle) {
+  it where (code.exists() and code != '' and %tp.parameter.where(name = %i).exists().not())
+     -> bundle.entry as e, e.resource = create('Observation') as o, uuid() as fid, ('tnm:' & %i) as role
      then DkEntry(ck, role, fid, e, o), OncoTnmUnmatchedBody(it, ctx, o) "unmatched";
 }
 
@@ -474,10 +608,14 @@ group OncoTnmGroupBody(source d, source ctx, source tp, target g : Observation) 
         c.display = (%tp.parameter.value.where($this.split('|')[0] = 'U' and $this.split('|')[4] != '-').select($this.split('|')[4]).first() & '. Auflage') "method";
 }
 
-group OncoTnmCategories(source d, source ck, source ctx, source tp, target g : Observation, target bundle : Bundle) {
-  d.tnmClassifications as it where (%tp.parameter.where(name = %d.tnmClassifications.select(iif($this = %it, $index, {})).first().toString()).exists())
-     -> (%tp.parameter.where(name = %d.tnmClassifications.select(iif($this = %it, $index, {})).first().toString()).value) as rec,
-        ('tnm:' & %d.tnmClassifications.select(iif($this = %it, $index, {})).first().toString()) as role,
+group OncoTnmCategories(source d, source ck, source ctx, source tp, target g : Observation, target cnt : Parameters, target bundle : Bundle) {
+  d.tnmClassifications as it -> (%cnt.parameter.count().toString()) as i, cnt.parameter as p, p.name = 'i'
+     then OncoTnmCategory(it, i, ck, ctx, tp, g, bundle) "item";
+}
+
+group OncoTnmCategory(source it, source i, source ck, source ctx, source tp, target g : Observation, target bundle : Bundle) {
+  it where (%tp.parameter.where(name = %i).exists())
+     -> (%tp.parameter.where(name = %i).value) as rec, ('tnm:' & %i) as role,
         uuid() as fid, bundle.entry as e, e.resource = create('Observation') as o, g.hasMember as hm
      then DkEntry(ck, role, fid, e, o), DkReference(fid, hm), OncoTnmCategoryBody(it, rec, ctx, o) "category";
 }
@@ -521,8 +659,8 @@ group OncoTnmValue(source it, source rec, target v : CodeableConcept) {
         c.system = translate(sct, 'https://genomde.de/fhir/ConceptMap/mvgs-cm-tnm-sct-uicc', 'system'),
         c.code = translate(sct, 'https://genomde.de/fhir/ConceptMap/mvgs-cm-tnm-sct-uicc', 'code'),
         c.display = translate(sct, 'https://genomde.de/fhir/ConceptMap/mvgs-cm-tnm-sct-uicc', 'display') "uicc-from-snomed";
-  it where (%rec.split('|')[0] = 'U') -> v.coding as c, c.system = 'https://www.uicc.org/resources/tnm',
-        c.code = (%rec.split('|')[2]), c.display = (%rec.split('|')[2]) "uicc";
+  it where (%rec.split('|')[0] = 'U') -> (%rec.split('|')[2]) as u, v.coding as c, c.system = 'https://www.uicc.org/resources/tnm',
+        c.code = u, c.display = translate(u, 'https://genomde.de/fhir/ConceptMap/mvgs-cm-tnm-sct-uicc', 'display') "uicc";
   it where (%rec.split('|')[0] = 'S' and (version.exists() and version.matches('^http://snomed[.]info/sct/[0-9]+(/version/[0-9]{8})?$')).not())
      -> v.coding as c, c.system = 'http://snomed.info/sct', c.code = (%it.code.trim()),
         c.display = ('Union for International Cancer Control ' & %rec.split('|')[1] & %rec.split('|')[2] & ' (qualifier value)') "snomed";
@@ -571,12 +709,12 @@ group OncoEpisodeBody(source md, source ctx, target ci : ClinicalImpression) {
 // supportingInfo
 // ================================================================================================================
 
-group OncoPriorProcedures(source c, source ck, source ctx, target ep : ClinicalImpression, target bundle : Bundle) {
-  c.priorProcedures as pp -> bundle.entry as e, e.resource = create('Procedure') as proc, uuid() as fid,
-        ('prior_procedure:' & %c.priorProcedures.select(iif($this = %pp, $index, {})).first().toString()) as role,
-        ep.supportingInfo as si
+group OncoPriorProcedures(source c, source ck, source ctx, target ep : ClinicalImpression, target cnt : Parameters, target bundle : Bundle) {
+  c.priorProcedures as pp -> (%cnt.parameter.count().toString()) as i, cnt.parameter as p, p.name = 'i',
+        bundle.entry as e, e.resource = create('Procedure') as proc, uuid() as fid, ('prior_procedure:' & %i) as role,
+        ep.supportingInfo as si, create('Parameters') as scnt
      then DkEntry(ck, role, fid, e, proc), DkReference(fid, si), OncoPriorProcBody(pp, ctx, proc),
-          OncoPriorProcMeds(pp, ck, role, fid, ctx, bundle), OncoPriorProcResponse(pp, ck, role, fid, ctx, bundle) "procedure";
+          OncoPriorProcMeds(pp, ck, role, fid, ctx, scnt, bundle), OncoPriorProcResponse(pp, ck, role, fid, ctx, bundle) "procedure";
 }
 
 group OncoPriorProcBody(source pp, source ctx, target proc : Procedure) {
@@ -622,10 +760,15 @@ group OncoPriorPeriod(source pp, target per : Period) {
   pp.therapyEndDate as ed where (ed != '') -> per.end = ed "end";
 }
 
-group OncoPriorProcMeds(source pp, source ck, source prole, source pfid, source ctx, target bundle : Bundle) {
-  pp.substances as sub where (code.code.where($this != '').exists())
-     -> bundle.entry as e, e.resource = create('MedicationStatement') as ms, uuid() as fid,
-        (%prole & ':substance:' & %pp.substances.select(iif($this = %sub, $index, {})).first().toString()) as role
+// j = position in substances[]
+group OncoPriorProcMeds(source pp, source ck, source prole, source pfid, source ctx, target cnt : Parameters, target bundle : Bundle) {
+  pp.substances as sub -> (%cnt.parameter.count().toString()) as j, cnt.parameter as p, p.name = 'j'
+     then OncoPriorProcMed(pp, sub, j, ck, prole, pfid, ctx, bundle) "item";
+}
+
+group OncoPriorProcMed(source pp, source sub, source j, source ck, source prole, source pfid, source ctx, target bundle : Bundle) {
+  sub where (code.code.where($this != '').exists())
+     -> bundle.entry as e, e.resource = create('MedicationStatement') as ms, uuid() as fid, (%prole & ':substance:' & %j) as role
      then DkEntry(ck, role, fid, e, ms), OncoPriorMedBody(pp, sub, pfid, ctx, ms) "substance";
 }
 
@@ -681,22 +824,24 @@ group OncoPriorRespBody(source pp, source r, source pfid, source ctx, target o :
 // genomic study + analysis (method-type via mvgs-cm-genomic-test-type-method-type), simple variants
 // mii-pr-mtb-einfache-variante; each report -> episode supportingInfo:Vorbefund.
 // type 'none' without findings -> nothing. The legacy single-object key case.priorDiagnostic (pre-KDK 1.6.5, a
-// logical-model extra) is one more entry with the key 'prior_diagnostic:legacy' (Python: only a non-empty object).
+// logical-model extra) is one more entry with the next index (Python: only a non-empty object).
 // ================================================================================================================
 
-group OncoPriorDiagnostics(source c, source ck, source ctx, target ep : ClinicalImpression, target bundle : Bundle) {
-  c.priorDiagnostics as pd where (type.exists().not() or type != 'none' or simpleVariants.exists() or complexVariants.where($this != '').exists())
-     -> bundle.entry as e, e.resource = create('DiagnosticReport') as rep, uuid() as fid,
-        ('prior_diagnostic:' & %c.priorDiagnostics.select(iif($this = %pd, $index, {})).first().toString()) as role,
-        ep.supportingInfo as si
+group OncoPriorDiagnostics(source c, source ck, source ctx, target ep : ClinicalImpression, target cnt : Parameters, target bundle : Bundle) {
+  c.priorDiagnostics as pd -> (%cnt.parameter.count().toString()) as k, cnt.parameter as p, p.name = 'k'
+     then OncoPriorDiagnostic(pd, k, ck, ctx, ep, bundle) "report";
+  // the legacy object is one more entry with the next index (0 without priorDiagnostics[]), so its resources are the
+  // ones of the same test resent as priorDiagnostics[0] (prior_diagnostics.build)
+  c.priorDiagnostic as pd where (children().exists()) -> (%c.priorDiagnostics.count().toString()) as k
+     then OncoPriorDiagnostic(pd, k, ck, ctx, ep, bundle) "report-legacy";
+}
+
+group OncoPriorDiagnostic(source pd, source k, source ck, source ctx, target ep : ClinicalImpression, target bundle : Bundle) {
+  pd where (type.exists().not() or type != 'none' or simpleVariants.exists() or complexVariants.where($this != '').exists())
+     -> bundle.entry as e, e.resource = create('DiagnosticReport') as rep, uuid() as fid, ('prior_diagnostic:' & %k) as role,
+        ep.supportingInfo as si, create('Parameters') as vcnt
      then DkEntry(ck, role, fid, e, rep), DkReference(fid, si), OncoPriorReportBody(pd, ctx, rep),
-          OncoPriorStudy(pd, ck, role, ctx, rep, bundle), OncoPriorVariants(pd, ck, role, ctx, rep, bundle) "report";
-  c.priorDiagnostic as pd where (children().exists() and (type.exists().not() or type != 'none' or simpleVariants.exists()
-        or complexVariants.where($this != '').exists()))
-     -> bundle.entry as e, e.resource = create('DiagnosticReport') as rep, uuid() as fid, ('prior_diagnostic:legacy') as role,
-        ep.supportingInfo as si
-     then DkEntry(ck, role, fid, e, rep), DkReference(fid, si), OncoPriorReportBody(pd, ctx, rep),
-          OncoPriorStudy(pd, ck, role, ctx, rep, bundle), OncoPriorVariants(pd, ck, role, ctx, rep, bundle) "report-legacy";
+          OncoPriorStudy(pd, ck, role, ctx, rep, bundle), OncoPriorVariants(pd, ck, role, ctx, rep, vcnt, bundle) "report";
 }
 
 group OncoPriorReportBody(source pd, source ctx, target rep : DiagnosticReport) {
@@ -754,10 +899,15 @@ group OncoPriorAnalysisBody(source pd, source t, source ctx, target an : Procedu
   pd.date as d where (d != '') -> an.performed = create('dateTime') as dt, dt.value = d "performed";
 }
 
-group OncoPriorVariants(source pd, source ck, source rrole, source ctx, target rep : DiagnosticReport, target bundle : Bundle) {
-  pd.simpleVariants as sv -> bundle.entry as e, e.resource = create('Observation') as o, uuid() as vfid,
-        (%rrole & ':variant:' & %pd.simpleVariants.select(iif($this = %sv, $index, {})).first().toString()) as role,
-        (iif(%sv.transcript.code.matches('^((N[MR]_|X[MR]_)[0-9]+([.][0-9]+)?|ENST[0-9]+([.][0-9]+)?)$'), iif(%sv.transcript.code.contains('.').not() and %sv.transcript.version.matches('^[0-9]+$') and %sv.transcript.code.matches('^[NX].*$'), %sv.transcript.code & '.' & %sv.transcript.version, %sv.transcript.code), '-')) as acc, rep.result as rr
+// acc: versioned RefSeq / Ensembl accession usable as HGVS reference, else '-' (an unversioned RefSeq accession without a
+// numeric transcript.version is none; molecular_variants.transcript_accession)
+group OncoPriorVariants(source pd, source ck, source rrole, source ctx, target rep : DiagnosticReport, target cnt : Parameters, target bundle : Bundle) {
+  pd.simpleVariants as sv -> (%cnt.parameter.count().toString()) as j, cnt.parameter as p, p.name = 'j',
+        bundle.entry as e, e.resource = create('Observation') as o, uuid() as vfid, (%rrole & ':variant:' & %j) as role,
+        (iif(%sv.transcript.code.matches('^((N[MR]_|X[MR]_)[0-9]+([.][0-9]+)?|ENST[0-9]+([.][0-9]+)?)$'),
+             iif(%sv.transcript.code.contains('.').not() and %sv.transcript.version.matches('^[0-9]+$') and %sv.transcript.code.matches('^[NX].*$'),
+                 %sv.transcript.code & '.' & %sv.transcript.version,
+                 iif(%sv.transcript.code.matches('^[NX].*$') and %sv.transcript.code.contains('.').not(), '-', %sv.transcript.code)), '-')) as acc, rep.result as rr
      then DkEntry(ck, role, vfid, e, o), DkReference(vfid, rr), OncoPriorVariantBody(pd, sv, acc, ctx, o) "variant";
 }
 

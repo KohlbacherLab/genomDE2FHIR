@@ -1,0 +1,15 @@
+/// url = 'https://genomde.de/fhir/StructureMap/EngineCheckProbe'
+/// name = 'EngineCheckProbe'
+/// title = 'Engine probe: a failing source check aborts the transform'
+/// status = 'draft'
+
+// Probe (matchbox 4.1.21, 2026-10-09): two identical molecular.smallVariants -> HTTP 500 'Rule "dup-check": Check
+// condition failed'; distinct items -> Bundle with id 'ok'.
+
+uses "https://genomde.de/fhir/StructureDefinition/DatenkranzOncology" alias Datenkranz as source
+uses "http://hl7.org/fhir/StructureDefinition/Bundle" alias Bundle as target
+
+group main(source src : Datenkranz, target bundle : Bundle) {
+  src -> bundle.type = 'transaction' "type";
+  src.molecular as mol check (smallVariants.count() = smallVariants.distinct().count()) -> bundle.id = 'ok' "dup-check";
+}

@@ -78,7 +78,7 @@ def test_paired_examples(convert_dk, name, family):
     [spec] = by_profile(bundle, "Specimen", SPECIMEN)
     assert spec["subject"]["reference"] == f"urn:uuid:{pat['id']}"
     assert spec["collection"]["collectedDateTime"] == ld["sampleDate"]
-    assert spec["accessionIdentifier"]["value"].endswith("|" + ld["barcode"])   # "<submitterId>|<barcode>"
+    assert spec["accessionIdentifier"]["value"].endswith("|" + ld["barcode"])   # "<submitterId>|<barcode>", escaped ('|test' appended for test submissions)
     codes = {c["system"]: c["code"] for c in spec["type"]["coding"]}
     assert codes[SNOMED] == "119297000"                      # blood (BTO:0000089 / UBERON:0000178)
     assert ld["tissueTypeId"] in codes.values()

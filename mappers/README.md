@@ -38,9 +38,12 @@ embedded MII Broad Consent under `researchConsents[].scope`, the pre-1.6.5 keys 
 (`mvgs-ig/`) together with the profiles, CodeSystems and ConceptMaps that the maps use.
 
 Every resource is one entry with a `urn:uuid` fullUrl and a conditional `PUT <Type>?identifier=https://genomde.de/fhir/sid/resource-key|<key>`.
-The key is the base64url form of `<stream>:<submitterId>:<caseKey>:<role>`. Loading the same case again therefore
-updates the existing resources and creates no new ones. Unlike the Python path, the FML maps emit no Provenance and set
-no resource ids. A Python ingest and an FML ingest of the same case into one server give two separate sets of
+The key is the base64url form of `<stream>:<submitterId>:<caseKey>:<role>`, with the case key of `docs/IDENTITY.md`
+(escaped localCaseId, else the TAN; `|test` appended for a test submission, whose resources also carry
+`meta.security` HTEST). Loading the same case again therefore updates the existing resources and creates no new ones.
+Array positions in roles come from counters, so identical array items are separate resources as in the Python path.
+Every resource carries `meta.source` = the submission (`urn:genomde2fhir:submission:<submitterId>:<caseId>:<date>:<type>`,
+the raw components percent-encoded, as on the Python path; `docs/IDENTITY.md`). Unlike the Python path, the FML maps emit no Provenance and set no resource ids. A Python ingest and an FML ingest of the same case into one server give two separate sets of
 resources.
 
 ### Loading recipe
@@ -89,5 +92,9 @@ These tests are skipped unless `MB2027` is set to the matchbox-2027 base URL. `H
   whole corpus and `--no-validate` gives a fast run of transform, parity and ingest only.
 - Per-stage tests cover more edge cases: `test_fml_common.py`, `test_fml_onco_spine.py`,
   `test_fml_onco_molecular.py`, `test_fml_onco_plan_followup.py`, `test_fml_rd.py` and `test_fml_grz.py`.
+- `test_fix_fml.py` and `test_fix2_fml.py` hold the regression scenarios of the 2026-10 fix rounds (duplicate items,
+  test submissions, follow-up order and therapy keys, combination members, meta.source, embedded Broad Consent, …) and
+  offline guards (no value-equality positions in the maps; every FML test input is tracked in git).
+- All FML tests read only files git tracks; with `MB2027` set, a missing input fails instead of skipping.
 - Corpus report: `python scripts/run_corpus.py --sample 20 --fml` writes `docs/E2E-REPORT-2027.md`. Its "FML parity"
   row compares the raw files with its own canonical form (see `fml/README.md`, "Parity with the Python converter").

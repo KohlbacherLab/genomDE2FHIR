@@ -4,6 +4,8 @@ Rows: plan.carePlanRd.*, plan.recommendedTherapies[].*, plan.recommendedStudies[
 
 Resources
 - CarePlan `mii-pr-seltene-therapieplan`: created = molecularBoardDecisionDate, addresses -> rd_diagnosis,
+  basedOn -> indication_board (the mvgs-inclusion-decision CarePlan of submission.py, when present; CarePlan.basedOn
+  is 0..* CarePlan in seltene 2026.0.1 and 2027.0.0-ballot, REPRESENTATIONS #36),
   supportingInfo -> rd_report + prior-findings reports (rd.prior). Recommendation flags (*Recommended = true) and clinicalManagementDescriptions[]
   become `activity.detail` entries coded with `mvgs-cs-rd-plan-recommendation` (no MII code exists). A flag that
   is false yields no activity: the five flags are mandatory in the KDK, so an absent flag activity in a genomDE
@@ -23,13 +25,20 @@ Resources
   NCT / DRKS / EudraCT; register `other` -> identifier without system, register in `identifier.type.text`,
   preserved), variants -> `reasonReference` (the Seltene profile allows Observation there). No ResearchStudy
   without a study id or a real name. `yesButStudyIsUnknown` -> request without `supportingInfo:Studie`; a
-  non-placeholder name/id goes to the request's `note` (preserved). Placeholders ('N/A', 'unknown') are dropped.
+  non-placeholder name/id goes to the request's `note` (preserved). Placeholders (PLACEHOLDER_NAMES: 'N/A', 'na',
+  'unknown', '-', 'unbekannt', 'k.A.', 'k. A.', 'keine Angabe', 'n.a.', empty; trimmed, any case) are dropped.
+- Profile set 2026 (seltene 2026.0.1): activity:NichtMedikamentoesTherapie also targets the base ServiceRequest,
+  so a study request in `activity.reference` matches two slices (NichtMedikamentoesTherapie and
+  Studieneinschlussempfehlung; fixed in 2027.0.0-ballot). Under 2026 the study request is therefore not listed as
+  an activity; it points to the plan with `basedOn` (allowed by the 2026 anfrage profile) instead.
 - Repeated KDK recommendation identifiers get the role index appended (no duplicate resource ids).
-- Variants (`variants[]`; the synthetic corpus spells it `variantReferences`) resolve via ctx.ids[("variant", id)].
+- Variants (`variants[]`; the synthetic corpus spells it `variantReferences`, read when `variants` is absent or [])
+  resolve via ctx.ids[("variant", id)].
 
 Registers ctx.refs['careplan'], ctx.ids[('therapy_recommendation', identifier)],
 ctx.ids[('study_recommendation', identifier)].
 """
+from ...bundle import ref as uuid_ref
 from ...systems import MII, MVGS_CS, SELTENE, SID_KDK_OBJECT, SNOMED
 from ..common import cc, coding, dar_ext, scoped_id
 
@@ -66,7 +75,9 @@ REGISTER_SYSTEM = {
 }
 STUDY_CATEGORY = {"coding": [{"system": SNOMED, "code": "110465008", "display": "Clinical trial (procedure)"}]}
 STUDY_CODE = {"coding": [{"system": SNOMED, "code": "702475000", "display": "Referral to clinical trial (procedure)"}]}
-PLACEHOLDER_NAMES = {"", "n/a", "na", "unknown", "-"}
+# placeholder study names / ids, compared trimmed and case-insensitively (str.strip().lower()); shared with
+# onco.careplan. English and German fillers for "not known / not given".
+PLACEHOLDER_NAMES = {"", "n/a", "na", "unknown", "-", "unbekannt", "k.a.", "k. a.", "keine angabe", "n.a."}
 
 FLAGS = [  # (KDK flag, local code, display)
     ("studyRecommended", "study-inclusion", "Study inclusion recommended"),
@@ -88,9 +99,11 @@ PFX = "plan.carePlanRd."
 
 def _variant_refs(ctx, rec: dict, path: str) -> list:
     """Resolve recommendation variants against ctx.ids[('variant', id)]; unresolved ids are dropped."""
-    ids = rec.get("variants")
-    if ids is None and rec.get("variantReferences") is not None:
-        ids = rec["variantReferences"]
+    ids, legacy = rec.get("variants"), False
+    # an empty array counts as an absent key (FML parity: matchbox parses [] as missing), so 'variants: []' next to
+    # the legacy key reads the legacy key
+    if ids in (None, []) and rec.get("variantReferences") not in (None, []):
+        ids, legacy = rec["variantReferences"], True
         ctx.warn(path, "non-schema key 'variantReferences' read as 'variants'")
     out, seen = [], set()
     for vid in ids or []:
@@ -102,6 +115,8 @@ def _variant_refs(ctx, rec: dict, path: str) -> list:
             out.append(dict(ref))
     if out:
         ctx.cover(path)
+        if legacy:   # not in the schema, no mapping row
+            ctx.cover_undeclared(path.removesuffix("variants[]") + "variantReferences")
     return out
 
 
@@ -182,7 +197,7 @@ def _rid(ctx, kind: str, identifier, fallback: str, path: str) -> str:
 
 
 def _real(value) -> str | None:
-    """Source string unless it is a placeholder ('N/A', 'unknown', ...)."""
+    """Source string unless it is a placeholder (PLACEHOLDER_NAMES, trimmed, any case: 'N/A', 'k. A.', ...)."""
     return value if isinstance(value, str) and value.strip().lower() not in PLACEHOLDER_NAMES else None
 
 
@@ -249,6 +264,9 @@ def _study(ctx, i: int, rs: dict, board_date) -> dict | None:
         supportingInfo=[study_ref] if study_ref else [],
         note=[{"text": n} for n in notes],
     )
+    if not ctx.is_2027:   # 2026 slice overlap (module docstring): request -> plan instead of plan.activity -> request
+        req["basedOn"] = [uuid_ref("CarePlan", ctx.id("CarePlan", "therapieplan"))]
+        ctx.rep("seltene-2026-study-request-basedon-careplan")
     ref = ctx.add(req, *paths)
     ctx.ids[("study_recommendation", rid)] = ref
     return ref
@@ -298,7 +316,7 @@ def build(ctx):
             activities.append({"reference": dict(ref)})
     for i, rs in enumerate(studies):
         ref = _study(ctx, i, rs, board_date)
-        if ref:
+        if ref and ctx.is_2027:   # 2026: linked by the request's basedOn (see _study)
             activities.append({"reference": dict(ref)})
     for extra in ctx.bag.get("careplan_activities", []):
         if isinstance(extra.get("reference"), str):      # a plain Reference
@@ -314,6 +332,8 @@ def build(ctx):
     careplan.update(
         status="active", intent="proposal",
         subject=dict(ctx.patient), created=board_date,
+        # the MV indication board decision (submission.py, REPRESENTATIONS #36), as on the oncology Therapieplan
+        basedOn=[dict(ctx.refs["indication_board"])] if ctx.refs.get("indication_board") else [],
         addresses=_diagnosis_refs(ctx),
         supportingInfo=([dict(ctx.refs["rd_report"])] if ctx.refs.get("rd_report") else [])
         + [dict(r) for r in ctx.bag.get("rd_prior_reports", [])],

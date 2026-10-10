@@ -1,10 +1,13 @@
 """FML stage 'onco_plan_followup': mappers/fml/OncoPlanFollowUp.map (sub-map of DatenkranzOncologyToMii).
 
 Skipped unless MB2027 (matchbox-2027 base URL) is set; HAPI2027 defaults to http://localhost:8092/fhir.
-For 3 oncology files: push the maps, $transform -> Bundle, no content error on the plan / follow-up resources that the
+For 3 oncology inputs tracked in git (FILES: the full-plan fixture and two example-data files; a missing one fails,
+it is never skipped): push the maps, $transform -> Bundle, no content error on the plan / follow-up resources that the
 Python output of the same resources does not have, graph-aware parity with the Python converter on those resources
 (onco/careplan.py, onco/followup.py, Patient.deceased[x]), and an idempotent double ingest into HAPI. Edge cases the
-corpus lacks run as mutations of one file (no ingest).
+corpus lacks run as mutations of one file (ingest only for some); repeated identifiers / HPO codes
+(test_onco_plan_followup_duplicate_ids) are compared with Python too: a repeated identifier is a further resource
+('<id>#<i>'), never a 'duplicate resource' error.
 
 Plan / follow-up resources are selected from both bundles by profile and graph: MTB Therapieplan, therapy
 recommendations (+ Kombination), study inclusion requests, ResearchStudy, counselling / histology re-evaluation /
@@ -15,7 +18,9 @@ MedicationStatements and responses (partOf).
 References are labelled by the target's type/profile over the WHOLE bundle (canonical() of scripts/run_corpus.py does
 it over the passed entries only); conditional references 'T?identifier=<resource-key>|k' are resolved like HAPI does.
 Normalised: references to molecular findings are dropped on the Python side when the FML bundle has no molecular
-finding with that identifier (OncoMolecular not filled yet); an empty identifier list (resource key only).
+finding with that identifier (a guard from before OncoMolecular reached parity; the result counts how often it applies
+as 'variant-refs-without-molecular'); an empty identifier list (resource key only). meta (profile, source, security)
+and ids are not compared here; meta.source parity is test_fix2_fml.py (R43).
 
 Wide run:  MB2027=http://localhost:8091/matchboxv3/fhir python genomde2fhir/tests/test_fml_onco_plan_followup.py --n 30
 """
@@ -39,10 +44,11 @@ MB = os.environ.get("MB2027")
 MAP = "https://genomde.de/fhir/StructureMap/DatenkranzOncologyToMii"
 KEY_SYS = "https://genomde.de/fhir/sid/resource-key"
 FINDING_SYS = "https://genomde.de/fhir/sid/molecular-finding-id"
-FILES = [  # ukdd (preventive measures, counselling), oncology (variant references, death), DNPM (oBDS codes, follow-up)
-    "example-data/synthData-v1/ukdd/synth_json_1.json",
+FILES = [  # full plan (preventive measures, counselling, studies, combinations), oncology (variant references, death),
+           # DNPM (oBDS codes, follow-up); all tracked in git
+    "genomde2fhir/tests/fixtures/onco_plan/plan_full.json",
     "example-data/oncology/OncologySubmission_2980C67615BFCCAC783BAB12CC54041D6D2EAE014112425D565A4F74E2860F05.json",
-    "example-data/synthData-v1/dnpm/OncologySubmission_044AFF6262356F2F8EC60039DC08AE36FBAA011DE29740CBC83E9FA5643E4640.json",
+    "example-data/oncology/OncologySubmission_044AFF6262356F2F8EC60039DC08AE36FBAA011DE29740CBC83E9FA5643E4640.json",
 ]
 
 PLAN_PROFILES = {
@@ -331,7 +337,9 @@ def m_no_plan(dk):
 
 
 def m_therapy_repeated(dk):
-    """The same therapy twice in one follow-up: one Procedure, the later response replaces the earlier one."""
+    """The same therapy (reference + start) twice in one follow-up, the copy with cisplatin added: two Procedures told
+    apart by their substances (onco.followup._FollowUp.therapy_id, never the array index), each with its own
+    response."""
     fu = _fu(dk)[0]
     t = copy.deepcopy(fu["therapies"][0])
     t["therapyResponse"] = "CR"
@@ -361,8 +369,7 @@ MUTATIONS = {f.__name__[2:]: f for f in (m_combination, m_studies, m_careplan_fl
 
 
 def m_duplicate_ids(dk):
-    """A KDK identifier twice in the therapy, study and preventive-measure arrays, an HPO code twice in one follow-up
-    (Python: 'duplicate resource' error)."""
+    """A KDK identifier twice in the therapy, study and preventive-measure arrays, an HPO code twice in one follow-up."""
     for k in ("recommendedSystemicTherapies", "recommendedStudies"):
         _plan(dk)[k].append(dict(copy.deepcopy(_plan(dk)[k][0]), priority=4))
     _plan(dk)["preventiveMeasures"] = [{"identifier": "a", "type": "x"}, {"identifier": "a", "type": "y"}]
@@ -388,7 +395,7 @@ def _assert_parity(r):
 @pytest.mark.parametrize("f", FILES)
 def test_onco_plan_followup(mb, f):
     if not (REPO / f).is_file():
-        pytest.skip(f"{f} not in this checkout")
+        pytest.fail(f"{f} not in this checkout")
     r = check_file(f, mb)
     assert r["type"] == "Bundle", r
     assert r["content_errors_not_in_python"] == [], r["content_errors"]
@@ -403,7 +410,7 @@ def test_onco_plan_followup(mb, f):
 def test_onco_plan_followup_edge_cases(mb, mutation):
     f = FILES[2]
     if not (REPO / f).is_file():
-        pytest.skip(f"{f} not in this checkout")
+        pytest.fail(f"{f} not in this checkout")
     dk = json.loads((REPO / f).read_text(encoding="utf-8"))
     MUTATIONS[mutation](dk)
     r = check_file(f, mb, ingest=mutation in ("studies", "followup_two", "special_chars"), dk=dk, label=f"{f} [{mutation}]")
@@ -417,21 +424,22 @@ def test_onco_plan_followup_edge_cases(mb, mutation):
 
 
 def test_onco_plan_followup_duplicate_ids(mb):
-    """No Python reference (it stops with 'duplicate resource'): the FML emits the first item per identifier, so every
-    conditional PUT URL of the Bundle is unique, and the Bundle validates."""
+    """A repeated identifier is a further recommendation / measure (careplan._rid '<id>#<i>'), a repeated HPO code a
+    further assessment (followup '<code>#<j>'): parity with Python, every conditional PUT URL of the Bundle is unique,
+    and the Bundle validates."""
     f = FILES[2]
     if not (REPO / f).is_file():
-        pytest.skip(f"{f} not in this checkout")
+        pytest.fail(f"{f} not in this checkout")
     dk = json.loads((REPO / f).read_text(encoding="utf-8"))
     m_duplicate_ids(dk)
     st, fml = mb.transform(dk, MAP)
     assert fml.get("resourceType") == "Bundle", fml
     urls = [e["request"]["url"] for e in fml["entry"]]
     assert len(urls) == len(set(urls)), [u for u in set(urls) if urls.count(u) > 1]
-    profiles = collections.Counter(_profile(e["resource"]) for e in mine(fml))
-    assert profiles["mii-pr-mtb-therapieempfehlung"] == 2 and profiles["mii-pr-mtb-studieneinschluss-anfrage"] == 1
-    assert profiles["mii-pr-seltene-hpo-assessment"] == 1
-    assert content_errors(fml, mb, dk, mine(fml)) == []
+    r = check_file(f, mb, ingest=True, dk=dk, label=f"{f} [duplicate_ids]")
+    assert r["content_errors_not_in_python"] == [], r["content_errors"]
+    _assert_parity(r)
+    assert r["ingest"][2]["new"] == 0 and set(r["ingest"][2]["statuses"]) == {"200"}, r["ingest"]
 
 
 # ---- wide corpus run ---------------------------------------------------------------------------------------

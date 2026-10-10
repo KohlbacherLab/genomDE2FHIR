@@ -1,0 +1,28 @@
+/// url = 'https://genomde.de/fhir/StructureMap/EngineCounterProbe'
+/// name = 'EngineCounterProbe'
+/// title = 'Engine probe: array positions from a counter Parameters, check, escaping'
+/// status = 'draft'
+
+// Probe (matchbox 4.1.21, 2026-10-09). Input: an oncology Datenkranz with molecular.smallVariants (identical items
+// allowed) and metaData.localCaseId 'a|b\c', submission.type 'test'. Expected: one Observation per small variant with
+// code.text 'sv#0', 'sv#1', ... (identical items get distinct positions); an Observation with code.text 'a\|b\\c|test'
+// and note 'TEST' (escaped case key, unescaped-'|test' detection). EngineCheckProbe fails with 'Check condition failed'
+// when two small variants are identical.
+
+uses "https://genomde.de/fhir/StructureDefinition/DatenkranzOncology" alias Datenkranz as source
+uses "http://hl7.org/fhir/StructureDefinition/Bundle" alias Bundle as target
+uses "http://hl7.org/fhir/StructureDefinition/Parameters" alias Parameters as target
+uses "http://hl7.org/fhir/StructureDefinition/Observation" alias Observation as target
+
+group main(source src : Datenkranz, target bundle : Bundle) {
+  src -> bundle.type = 'transaction' "type";
+  src.metaData as md -> bundle.entry as e, e.resource = create('Observation') as o, o.status = 'final', o.code as cc,
+        cc.text = (%md.localCaseId.replace('\\', '\\\\').replace('|', '\\|') & iif(%md.submission.type = 'test', '|test', '')) as ck,
+        o.note as n, n.text = (iif(%ck.matches('(^|[^\\\\])(\\\\\\\\)*[|]test$'), 'TEST', 'REAL')) "escape";
+  src.molecular as mol -> create('Parameters') as cnt then EngineCounterItems(mol, cnt, bundle) "counter";
+}
+
+group EngineCounterItems(source mol, target cnt : Parameters, target bundle : Bundle) {
+  mol.smallVariants as sv -> (%cnt.parameter.count()) as i, cnt.parameter as p, p.name = 'i',
+        bundle.entry as e, e.resource = create('Observation') as o, o.status = 'final', o.code as cc, cc.text = ('sv#' & %i.toString()) "item";
+}
