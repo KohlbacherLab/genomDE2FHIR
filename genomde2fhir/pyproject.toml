@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "genomde2fhir"
-version = "0.1.0"
+version = "0.2.0"
 description = "Convert genomDE / MV-GenomSeq Datenkranz JSON (KDK oncology, KDK rare disease, GRZ) into MII KDS FHIR R4 transaction Bundles (2027.0.0 ballot profile set)."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -23,8 +23,12 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-# input schema validation + branch detection; install from git until it is on PyPI:
-#   pip install "genomde-dk-validator @ git+https://github.com/KohlbacherLab/genomde-dk-validator@v1.1.2"
+# input gate: schema validation, undeclared-field detection, branch detection. genomde-dk-validator is not on PyPI,
+# so this extra cannot resolve from an index; install it from git into the environment genomde2fhir runs in:
+#   pipx inject genomde2fhir "genomde-dk-validator @ git+https://github.com/KohlbacherLab/genomde-dk-validator@v1.1.2"
+#   <that python> -m pip install "genomde-dk-validator @ git+https://github.com/KohlbacherLab/genomde-dk-validator@v1.1.2"
+# Without it `genomde2fhir convert` refuses to run (exit 1) unless --no-input-check is given; the Python API converts
+# and notes 'input validation skipped' in the report.
 input = ["genomde-dk-validator>=1.1.2"]
 dev = ["pytest>=8", "genomde-dk-validator>=1.1.2"]
 
