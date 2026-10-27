@@ -6,8 +6,8 @@ and GRZ submissions — into **FHIR R4 transaction Bundles** that follow the MII
 
 ```bash
 pipx install genomde2fhir
-pipx inject genomde2fhir "genomde-dk-validator @ git+https://github.com/KohlbacherLab/genomde-dk-validator@v1.1.2"   # input gate (required unless --no-input-check)
-# or, in a virtualenv: pip install genomde2fhir "genomde-dk-validator @ git+https://github.com/KohlbacherLab/genomde-dk-validator@v1.1.2"
+pipx inject genomde2fhir "genomde-dk-validator @ git+https://github.com/KohlbacherLab/genomde-dk-validator@v1.1.3"   # input gate (required unless --no-input-check)
+# or, in a virtualenv: pip install genomde2fhir "genomde-dk-validator @ git+https://github.com/KohlbacherLab/genomde-dk-validator@v1.1.3"
 
 genomde2fhir convert submission.json -o out/                     # one <name>.bundle.json per input
 genomde2fhir convert data/ --report report.json -o out/          # a directory (recursive), glob or .zip

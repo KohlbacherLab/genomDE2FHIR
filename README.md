@@ -54,7 +54,7 @@ bash scripts/regen-mapping.sh
 
 ```bash
 pipx install ./genomde2fhir            # (a); PyPI publication pending
-pipx inject genomde2fhir "genomde-dk-validator @ git+https://github.com/KohlbacherLab/genomde-dk-validator@v1.1.2"
+pipx inject genomde2fhir "genomde-dk-validator @ git+https://github.com/KohlbacherLab/genomde-dk-validator@v1.1.3"
 genomde2fhir convert data/ -o out/ --report report.json
 genomde2fhir validate out/*.bundle.json --matchbox http://localhost:8091/matchboxv3/fhir   # (c)
 
@@ -67,8 +67,7 @@ python scripts/run_corpus.py --sample 25 --fml                     # E2E: both p
 `convert` checks every input against the BfArM schemas with
 [genomde-dk-validator](https://github.com/KohlbacherLab/genomde-dk-validator) (not on PyPI; the pipx environment
 has no pip, hence `pipx inject`). Without it `convert` refuses to run (exit 1) unless `--no-input-check` is given.
-Validator v1.1.2 still knows only consent `schemaVersion` 2025.0.1, so it rejects KDK inputs with 2025.0.2–2026.0.1
-(valid under the vendored KDK schema) until it is updated. `-v` prints per-file lines on stderr, which can contain
+`-v` prints per-file lines on stderr, which can contain
 TANs or pseudonyms; `--strict` also rejects input fields the schema does not declare. That rejects all 42
 rare-disease example files (`examples/rarediseases/`, the `mv_dummy_data` revision of 2026-08-09): they carry `molecular.*Variants[].genes[].system` and `localization[].system` / `.display`,
 which the vendored KDK schema does not declare (nor does the upstream schema; RD `genes[].display` is undeclared too,

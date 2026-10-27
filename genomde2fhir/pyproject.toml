@@ -25,12 +25,12 @@ dependencies = [
 [project.optional-dependencies]
 # input gate: schema validation, undeclared-field detection, branch detection. genomde-dk-validator is not on PyPI,
 # so this extra cannot resolve from an index; install it from git into the environment genomde2fhir runs in:
-#   pipx inject genomde2fhir "genomde-dk-validator @ git+https://github.com/KohlbacherLab/genomde-dk-validator@v1.1.2"
-#   <that python> -m pip install "genomde-dk-validator @ git+https://github.com/KohlbacherLab/genomde-dk-validator@v1.1.2"
+#   pipx inject genomde2fhir "genomde-dk-validator @ git+https://github.com/KohlbacherLab/genomde-dk-validator@v1.1.3"
+#   <that python> -m pip install "genomde-dk-validator @ git+https://github.com/KohlbacherLab/genomde-dk-validator@v1.1.3"
 # Without it `genomde2fhir convert` refuses to run (exit 1) unless --no-input-check is given; the Python API converts
 # and notes 'input validation skipped' in the report.
-input = ["genomde-dk-validator>=1.1.2"]
-dev = ["pytest>=8", "genomde-dk-validator>=1.1.2"]
+input = ["genomde-dk-validator>=1.1.3"]
+dev = ["pytest>=8", "genomde-dk-validator>=1.1.3"]
 
 [project.urls]
 Homepage = "https://github.com/KohlbacherLab/genomDE2FHIR"

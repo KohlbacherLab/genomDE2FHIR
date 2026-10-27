@@ -65,8 +65,8 @@ je Kommentar oder je Modul)? (2) Abgleich mit den Texten von HDB-975/976 (SE-1, 
 der Frist.
 
 **Weitere offene Punkte auf unserer Seite** (`docs/PLAN-2027.md` §11): Unser Eingangsvalidator
-(genomde-dk-validator 1.1.2) kennt nur Consent-`schemaVersion` 2025.0.1. Die KDK- und GRZ-Schemata erlauben seit
-08/2026 auch 2025.0.2–2026.0.1; Release 1.1.3 ist in Arbeit. Der KDK-Zweig `develop` (unveröffentlicht,
+(genomde-dk-validator 1.1.3, 27.10.) akzeptiert jetzt wie die KDK- und GRZ-Schemata seit 08/2026 die
+Consent-`schemaVersion` 2025.0.1–2026.0.1. Der KDK-Zweig `develop` (unveröffentlicht,
 `confirmationId`, Feldumbenennung `interventionIsRiskReducing`) ist noch nicht eingearbeitet. Das synthetische
 Korpus `example-data/synthData-v1` ist wegen ungeklärter Herkunft nicht im Repository. Für den GRZ-Zweig fehlen
 Testdaten mit befüllter Broad-Consent-`scope`.

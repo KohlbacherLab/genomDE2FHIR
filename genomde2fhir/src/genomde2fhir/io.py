@@ -20,7 +20,7 @@ except ImportError:  # pragma: no cover - exercised only without the extra
 
 BRANCHES = ("oncology", "rare-disease", "grz")
 # genomde-dk-validator is not on PyPI (the 'input' extra cannot resolve from an index): install it from git
-VALIDATOR_REQ = "genomde-dk-validator @ git+https://github.com/KohlbacherLab/genomde-dk-validator@v1.1.2"
+VALIDATOR_REQ = "genomde-dk-validator @ git+https://github.com/KohlbacherLab/genomde-dk-validator@v1.1.3"
 
 
 def classify(dk) -> str:
