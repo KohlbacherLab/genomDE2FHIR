@@ -123,8 +123,10 @@
   - Invariante `tnm-sct-uicc-konsistenz` (error).
 - **Problem:** OncologyCase.diagnosisOd.tnmClassifications[] liefert SNOMED-CT-Codings (code, system, version, display, text).
   Die UICC-Codierung muss deshalb per Rückabbildung SNOMED → UICC erzeugt werden. Die MII-ConceptMaps laufen nur in
-  Richtung UICC → SNOMED. Von 131 UICC-Codes bleiben 38 (klinisch) bzw. 39 (pathologisch) ohne Abbildung, u. a. MX und
-  L/V/Pn/S. Einträge ohne Treffer können nicht konform übermittelt werden.
+  Richtung UICC → SNOMED; eine dokumentierte Rückrichtung gibt es nicht. Für die T-, N- und M-Kategorien, die der
+  Datenkranz liefert, fehlen in den Maps Tis(pu), Tis(pd), N1mi und MX (klinisch) bzw. Tis(pu), Tis(pd), T3e, M0 und MX
+  (pathologisch); die übrigen der 38 bzw. 39 ungemappten UICC-Codes sind Präfixe, Symbole und L/V/Pn/S, die der
+  Datenkranz nicht liefert. Einträge ohne Treffer können nicht konform übermittelt werden.
 - **Evidenz:** `mii-cm-onko-tnm-uicc-sct-clinical` und `-pathological` bilden nur in Richtung UICC → SCT ab.
   `tnm-sct-uicc-konsistenz` verlangt, dass das SNOMED-Display Präfix und UICC-Code enthält.
 - **Vorschlag:** `coding:uicc` 0..1 setzen, wenn `coding:snomed-ct` vorhanden ist (Invariante: mindestens eine der beiden
@@ -262,6 +264,9 @@
 - **Evidenz:** `StructureDefinition.context` = `[{type: extension, expression: Extension}]`, so auch schon in 2026.0.1.
   `sequencing-read-type.value[x]` hat keine Bindung.
 - **Vorschlag:** Den Kontext auf `Procedure` korrigieren. Definitionen nach GR-Semantik und Einheiten ergänzen.
+  Dokumentieren, wie `qc` sich zur ebenfalls geslicten GR-Extension `metrics` (Kontext Procedure, gültig; read-depth,
+  sequencing-coverage, metrics-description) verhält: Für diese drei Werte gibt es dort schon heute einen konformen
+  Träger; offen ist, ob `qc` sie ersetzen oder nur ergänzen soll.
   `sequencing-read-type` an ein ValueSet binden (z. B. single-end/paired-end, short/long read).
 - **Bezug:** 22
 
@@ -377,8 +382,9 @@
   und other sind damit vorhanden.
 - **Vorschlag:** `conclusion` als MS kennzeichnen oder festlegen, ob Freitext-Vorbefunde als Varianten-Observation mit
   `conclusion-string` erfasst werden sollen (Stand 2026-10-10: dieser profilierte Träger existiert bereits).
-  `effectiveDateTime` als MS kennzeichnen. Die Extension `genomic-study` in `ngs-bericht` slicen. Codes für die
-  Einzelgen-/gezielte Analyse und für Kurz- bzw. Langread ergänzen.
+  `effectiveDateTime` als MS kennzeichnen. Die Extension `genomic-study` in `ngs-bericht` slicen. Einen Code für
+  Einzelgen-Tests und die Unterscheidung Kurz-/Langread ergänzen (gezielte Analyse ist als GR
+  `targeted-variant-analysis` bereits enthalten).
 - **Bezug:** 12
 
 #### MTB-11 – Durchgeführte Therapie lässt sich nicht mit einer Studien- oder Kombinationsempfehlung verknüpfen
@@ -444,8 +450,9 @@
     `…/mii-ex-mtb-leitlinie-dokumentation`, und diese Extension wird nur in `mii-pr-mtb-systemische-vortherapie` und
     `mii-pr-mtb-behandlungsepisode` verwendet.
 - **Problem:** OncologyPlan.recommendedSystemicTherapies[].type (inLabel, offLabel, compassionateUse, secPreventive, unknown)
-  lässt sich an der Empfehlung nicht angeben, nicht einmal für die zwei Werte, die im CS existieren. compassionateUse,
-  secPreventive und unknown fehlen im CS ganz. Das LM `mii-lm-mvgenomseq-onkologie` führt genau diese fünf Werte als
+  hat an der Empfehlung keinen profilierten Platz. Strukturell zulässig ist `mii-ex-mtb-leitlinie-dokumentation`
+  (Kontext `Element`, `MedicationRequest.extension` offen geslict) für in-label und off-label; offen sind die
+  vorgesehene Verwendung und die Werte compassionateUse, secPreventive und unknown, die im CS ganz fehlen. Das LM `mii-lm-mvgenomseq-onkologie` führt genau diese fünf Werte als
   `EmpfehlungTyp`, aber ohne Mapping.
 - **Evidenz:** siehe Profil/Element (Snapshot geprüft).
 - **Vorschlag:** Eine Extension für Zulassungsstatus bzw. Empfehlungstyp auf `mii-pr-mtb-therapieempfehlung` slicen und
@@ -479,7 +486,8 @@
   `EinfacheVariante.LossOfHeterozygosity`, aber ohne Mapping.
 - **Evidenz:** siehe Profil/Element (Snapshot geprüft).
 - **Vorschlag:** Das Konzept `loh` in `mii-cs-mtb-molekulare-biomarker` aufnehmen und auf `einfache-variante` einen Slice
-  `component:loh` anlegen (valueBoolean, oder LOINC Ja/Nein wie bei `copy-number-neutral-loh`).
+  `component:loh` anlegen (valueBoolean). Als Code bietet sich NCIt C18016 „Loss of Heterozygosity“ an, das
+  `mii-pr-mtb-hrd-score.component:LOH` bereits verwendet; `copy-number-neutral-loh` hat einen ungebundenen Wert.
 - **Bezug:** 19
 
 #### MTB-17 – Mutationssignaturen (COSMIC SBS) haben kein Konzept
@@ -665,7 +673,9 @@
   MV-GenomSeq-CodeSystem.
 - **Evidenz:** siehe Profil/Element (Snapshot geprüft).
 - **Vorschlag:** HDB-976 unterstützen: ein MolGen-CodeSystem mit primary-finding, secondary-finding und candidate,
-  verwendet als Komponenten-Slice auf `diagnostische-implikation`.
+  verwendet als Komponenten-Slice auf `diagnostische-implikation`. Klären, ob der Datenkranz-Wert `incidental` einen
+  Sekundärbefund (gezielt gesucht, ACMG SF) oder einen Zufallsbefund meint; im zweiten Fall braucht das CodeSystem einen
+  eigenen Code `incidental-finding`.
 - **Bezug:** 27
 
 #### MOLGEN-5 – Segregation `biparental` / `notPerformed` und Erbgang `unclear` (Unterstützung von HDB-976 c)
@@ -691,10 +701,11 @@
 - **Problem:** RareDiseasesMolecular.{small,copyNumber,structural}Variants[].acmgCriteria[].value (Pflicht, PVS1 … BP7) und
   .modifier (Stärke) haben in MolGen, Seltene und MTB 2027 kein Element. Damit verliert jede klassifizierte Variante ihre
   Begründung. `component:evidence-level` (93044-6) hat eine andere Bedeutung.
-- **Evidenz:** Die Suche nach „acmg" findet in MolGen 2027 kein SD, VS oder CS. Für GR 3.0.0 ist das nicht verifiziert.
+- **Evidenz:** Die Suche nach „acmg" findet in MolGen 2027, MTB 2027 und GR 3.0.0 kein SD, VS oder CS.
 - **Vorschlag:** Einen Slice `component:acmg-criterion` 0..* auf `diagnostische-implikation` anlegen, mit valueCodeableConcept
-  extensible an ClinGen `https://clinicalgenome.org/codesystem/acmg-criteria`. Die Stärke als Unterkomponente oder zweites
-  Coding abbilden, einschließlich DNPM `bm`.
+  extensible an ein von MII benanntes CodeSystem für die Kriterien PVS1 … BP7 (ClinGen veröffentlicht die Kriterien in der
+  SEPIO-CG-Terminologie, aber keine FHIR-System-URI). Die Stärke als Unterkomponente oder zweites Coding abbilden,
+  einschließlich DNPM `bm`.
 - **Bezug:** 30
 
 #### MOLGEN-7 – Studiendesign Single/Duo/Trio hat kein Konzept
