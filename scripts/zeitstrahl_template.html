@@ -1,0 +1,216 @@
+<title>Datenkranz-Zeitstrahl</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one case at a time. Header with case picker and KPI strip, a two-track SVG timeline
+   (administrative events above the axis, clinical below), then the cohort context strip for one span. */
+:root {
+  --bg: #f6f7f4; --panel: #ffffff; --fg: #1c2321; --muted: #5d6b66; --line: #d6ddd9;
+  --accent: #0b6e4f;          /* boards */
+  --admin: #3b6ea8;           /* consent, submission */
+  --clin: #b4532a;            /* diagnosis, therapy, follow-up */
+  --bar: #e6c9b9; --warn: #a33;
+  --font: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #141917; --panel: #1d2422; --fg: #e8ece9; --muted: #9aa8a2; --line: #33403b;
+  --accent: #5fc99f; --admin: #7fb0e8; --clin: #e8946a; --bar: #4a2e22; --warn: #f08080; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #141917; --panel: #1d2422; --fg: #e8ece9; --muted: #9aa8a2; --line: #33403b;
+  --accent: #5fc99f; --admin: #7fb0e8; --clin: #e8946a; --bar: #4a2e22; --warn: #f08080; color-scheme: dark }
+body { background: var(--bg); color: var(--fg); font-family: var(--font); font-size: 14px; line-height: 1.45;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 18px 32px; }
+h1 { font-size: 20px; font-weight: 600; margin: 0 0 2px; text-wrap: balance; }
+.sub { color: var(--muted); margin: 0 0 14px; max-width: 70ch; }
+.bar-row { display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: center; margin-bottom: 12px; }
+select, button { font: inherit; color: var(--fg); background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 6px 9px; }
+select { min-width: 0; max-width: 100%; }
+button { cursor: pointer; } button:hover { border-color: var(--accent); }
+button:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+.seg button { border: 0; border-radius: 0; background: transparent; padding: 6px 10px; }
+.seg button[aria-pressed="true"] { background: var(--accent); color: var(--bg); }
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; margin-bottom: 12px; }
+.kpi { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; min-width: 0; }
+.kpi .l { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
+.kpi .v { font-family: var(--mono); font-size: 18px; font-variant-numeric: tabular-nums; }
+.kpi .v small { font-size: 11px; color: var(--muted); margin-left: 3px; }
+.kpi .v.neg { color: var(--warn); }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px 4px; position: relative; }
+.panel h2 { font-size: 13px; font-weight: 600; margin: 0 0 4px; color: var(--muted); }
+svg { display: block; width: 100%; height: auto; }
+.lbl { font-size: 11px; fill: var(--fg); }
+.lbl.m { fill: var(--muted); }
+.axis { stroke: var(--line); }
+.tick { font-family: var(--mono); font-size: 10px; fill: var(--muted); }
+.ev { cursor: pointer; }
+.tip { position: absolute; pointer-events: none; background: var(--fg); color: var(--bg); padding: 6px 8px; border-radius: 4px;
+  font-size: 12px; max-width: 260px; white-space: pre-line; z-index: 3; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 14px; color: var(--muted); font-size: 12px; margin: 6px 0 12px; }
+.legend i { display: inline-block; width: 10px; height: 10px; border-radius: 50%; vertical-align: -1px; margin-right: 4px; }
+.note { color: var(--muted); font-size: 12px; margin-top: 10px; max-width: 80ch; }
+code { font-family: var(--mono); font-size: 12px; }
+@media (prefers-reduced-motion: no-preference) { .ev circle, .ev rect { transition: r .1s, opacity .1s; } }
+</style>
+
+<h1>Datenkranz-Zeitstrahl</h1>
+<p class="sub">Ein Fall des synthetischen Korpus je Ansicht. Alle Tage relativ zum gewählten Bezugspunkt; oben die
+administrativen Ereignisse (Einwilligung, Boards, Meldung), unten der klinische Verlauf. Monatsgenaue Angaben
+(YYYY-MM) stehen auf dem 15. und sind hohl gezeichnet.</p>
+
+<div class="bar-row">
+  <div class="seg" id="branch" role="group" aria-label="Zweig">
+    <button aria-pressed="true" data-v="all">alle</button>
+    <button aria-pressed="false" data-v="oncology">Onkologie</button>
+    <button aria-pressed="false" data-v="rare-disease">Seltene</button>
+  </div>
+  <button id="prev" aria-label="voriger Fall">◀</button>
+  <select id="case" aria-label="Fall"></select>
+  <button id="next" aria-label="nächster Fall">▶</button>
+  <div class="seg" id="ref" role="group" aria-label="Bezugspunkt">
+    <button aria-pressed="true" data-v="b1">0 = Indikationsboard</button>
+    <button aria-pressed="false" data-v="b2">0 = molekulares Board</button>
+  </div>
+  <span id="count" class="sub" style="margin:0"></span>
+</div>
+
+<div class="kpis" id="kpis"></div>
+
+<div class="panel"><h2 id="tl-title">Zeitstrahl</h2><svg id="tl" viewBox="0 0 1000 300" aria-label="Zeitstrahl des Falls"></svg><div class="tip" id="tip" hidden></div></div>
+<div class="legend"><span><i style="background:var(--accent)"></i>Boards</span><span><i style="background:var(--admin)"></i>Einwilligung, Meldung</span><span><i style="background:var(--clin)"></i>Diagnose, Therapie, Follow-up</span><span><i style="background:var(--bar);border:1px solid var(--clin)"></i>Therapiedauer</span></div>
+
+<div class="panel" style="margin-top:12px"><h2>Kohorte: <span id="coh-title"></span> (gleicher Zweig); der gewählte Fall ist markiert</h2>
+  <div class="bar-row" style="margin:4px 0 6px"><select id="span" aria-label="Zeitspanne"></select></div>
+  <svg id="coh" viewBox="0 0 1000 120" aria-label="Verteilung in der Kohorte"></svg></div>
+
+<p class="note">Quelle: <code>docs/timespans/events.json</code> aus <code>scripts/timeline_events.py</code> (deduplizierte gültige KDK-Dateien).
+Die synthetischen Daten sind zeitlich nicht plausibel (Therapien vor dem Board, Tod Jahre vor Einschluss); die Seite zeigt die Methode, nicht den Versorgungsprozess.
+Felder: Indikationsboard = <code>metaData.molecularBoardDecisionDate</code>, molekulares Board = <code>plan.carePlan{Od,Rd}.molecularBoardDecisionDate</code>,
+Meldung = <code>metaData.submission.date</code>, Einwilligung = <code>metaData.mvConsent.scope[].date</code>.</p>
+
+<script>
+const DATA = /*DATA*/[];
+const SPANS = {
+  D1: ["Einwilligung → Indikationsboard", c => diff(c, firstT(c, /^Einwilligung/), b1(c))],
+  D6: ["Indikationsboard → molekulares Board", c => diff(c, b1(c), b2(c))],
+  D7: ["molekulares Board → Meldung", c => diff(c, b2(c), firstT(c, /^Meldung/))],
+  D4: ["Hauptdiagnose → Indikationsboard", c => diff(c, firstT(c, /^Hauptdiagnose/), b1(c))],
+  D5: ["Symptombeginn → Indikationsboard", c => diff(c, firstT(c, /^Symptombeginn/), b1(c))],
+  D16: ["molekulares Board → erster Therapiebeginn", c => diff(c, b2(c), firstT(c, /^Therapie$/))],
+  D13: ["molekulares Board → erstes Follow-up", c => diff(c, b2(c) ?? b1(c), firstT(c, /^Follow-up 1/))],
+};
+const b1 = c => 0, b2 = c => firstT(c, /^molekulares Board/);
+function firstT(c, re) { const e = c.events.find(e => re.test(e.n)); return e ? e.t : null; }
+function diff(c, a, b) { return a == null || b == null ? null : b - a; }
+
+let state = { branch: "all", idx: 0, ref: "b1", span: "D6" };
+const $ = id => document.getElementById(id);
+const list = () => DATA.filter(c => state.branch === "all" || c.branch === state.branch);
+
+function fillCases() {
+  const L = list(); const sel = $("case"); sel.innerHTML = "";
+  L.forEach((c, i) => { const o = document.createElement("option"); o.value = i;
+    o.textContent = `${c.branch === "oncology" ? "Onko" : "SE"} · ${c.id} · ${c.events.length} Ereignisse`; sel.appendChild(o); });
+  state.idx = Math.min(state.idx, L.length - 1); sel.value = state.idx;
+  $("count").textContent = `${L.length} Fälle`;
+}
+function fillSpans(c) {
+  const sel = $("span"); const cur = sel.value || state.span; sel.innerHTML = "";
+  for (const [k, [name, fn]] of Object.entries(SPANS)) {
+    if ((k === "D4" && c.branch !== "oncology") || (k === "D5" && c.branch !== "rare-disease") || (k === "D16" && c.branch !== "oncology")) continue;
+    const o = document.createElement("option"); o.value = k; o.textContent = `${k} ${name}`; sel.appendChild(o);
+  }
+  sel.value = [...sel.options].some(o => o.value === cur) ? cur : "D6"; state.span = sel.value;
+}
+function fmt(d) { return d == null ? "–" : (d > 0 ? "+" : "") + d; }
+
+function render() {
+  const L = list(); if (!L.length) return; const c = L[state.idx];
+  const shift = state.ref === "b2" ? (b2(c) ?? 0) : 0;
+  // KPIs
+  const kp = [["Zweig", c.branch === "oncology" ? "Onkologie" : "Seltene", ""], ["Indikationsboard", c.ref, ""], ["Meldung", c.type, ""]];
+  for (const k of ["D1", "D6", "D7", c.branch === "oncology" ? "D4" : "D5"]) { const v = SPANS[k][1](c); kp.push([`${k} ${SPANS[k][0]}`, fmt(v), "d", v != null && v < 0]); }
+  $("kpis").innerHTML = kp.map(([l, v, u, neg]) => `<div class="kpi"><div class="l">${l}</div><div class="v${neg ? " neg" : ""}">${v}${u ? `<small>${u}</small>` : ""}</div></div>`).join("");
+  drawTimeline(c, shift); fillSpans(c); drawCohort(c);
+}
+
+function drawTimeline(c, shift) {
+  const W = 1000, H = 300, pad = 60, y0 = 160;
+  const ts = c.events.flatMap(e => [e.t - shift, (e.end ?? e.t) - shift]);
+  let lo = Math.min(...ts), hi = Math.max(...ts); if (hi - lo < 60) { lo -= 30; hi += 30; }
+  const x = t => pad + (t - lo) / (hi - lo) * (W - 2 * pad);
+  const col = e => /Board|board/.test(e.n) ? "var(--accent)" : e.track === "admin" ? "var(--admin)" : "var(--clin)";
+  let s = `<line class="axis" x1="${pad}" x2="${W - pad}" y1="${y0}" y2="${y0}" stroke-width="1"/>`;
+  s += `<line x1="${x(0)}" x2="${x(0)}" y1="30" y2="${H - 20}" stroke="var(--accent)" stroke-dasharray="3 3" stroke-width="1"/>`;
+  const step = niceStep((hi - lo) / 8);
+  for (let t = Math.ceil(lo / step) * step; t <= hi; t += step)
+    s += `<line class="axis" x1="${x(t)}" x2="${x(t)}" y1="${y0 - 4}" y2="${y0 + 4}"/><text class="tick" x="${x(t)}" y="${y0 + 16}" text-anchor="middle">${fmt(t)}</text>`;
+  s += `<text class="lbl m" x="${pad}" y="22">administrativ</text><text class="lbl m" x="${pad}" y="${H - 6}">klinisch</text>`;
+  // stack labels: lanes per track, assign by x-collision
+  const lanes = { admin: [], clin: [] };
+  c.events.map((e, i) => ({ e, i })).sort((a, b) => a.e.t - b.e.t).forEach(({ e, i }) => {
+    const px = x(e.t - shift), ln = lanes[e.track]; let k = 0;
+    while (ln[k] != null && px - ln[k] < 95) k++; ln[k] = px;
+    const up = e.track === "admin", y = up ? y0 - 28 - k * 26 : y0 + 36 + k * 26;
+    const tt = `${e.n}${e.d ? " · " + e.d : ""}\n${fmt(e.t - shift)} d${e.end != null ? " → " + fmt(e.end - shift) + " d" : ""}${e.approx ? "\n(monatsgenau, ±15 d)" : ""}`;
+    s += `<g class="ev" data-tip="${tt.replace(/"/g, "&quot;")}">`;
+    if (e.end != null) s += `<rect x="${Math.min(px, x(e.end - shift))}" y="${y0 - 5}" width="${Math.max(2, Math.abs(x(e.end - shift) - px))}" height="10" fill="var(--bar)" stroke="var(--clin)" stroke-width="1" rx="2"/>`;
+    s += `<line x1="${px}" x2="${px}" y1="${y0}" y2="${up ? y + 6 : y - 12}" stroke="${col(e)}" stroke-width="1" opacity=".5"/>`;
+    s += `<circle cx="${px}" cy="${y0}" r="5" fill="${e.approx ? "var(--panel)" : col(e)}" stroke="${col(e)}" stroke-width="2"/>`;
+    s += `<text class="lbl" x="${px}" y="${y}" text-anchor="middle">${esc(short(e.n))}</text><text class="tick" x="${px}" y="${y + 12}" text-anchor="middle">${fmt(e.t - shift)}</text></g>`;
+  });
+  const svg = $("tl"); svg.innerHTML = s;
+  const maxUp = (lanes.admin.length), maxDn = (lanes.clin.length);
+  const h = Math.max(300, 60 + maxUp * 26 + 60 + maxDn * 26); svg.setAttribute("viewBox", `0 0 ${W} ${h}`);
+  // re-layout vertical offset if more lanes than fit: simple approach, shift axis to middle
+  if (h > 300) { const dy = Math.round((maxUp * 26 + 60) - y0); svg.innerHTML = `<g transform="translate(0 ${dy})">${s}</g>`; }
+  $("tl-title").textContent = `Zeitstrahl ${c.id} (Tage relativ zum ${state.ref === "b2" ? "molekularen Board" : "Indikationsboard"})`;
+  hookTips(svg);
+}
+function short(n) { return n.length > 22 ? n.slice(0, 21) + "…" : n; }
+function esc(s) { return s.replace(/&/g, "&amp;").replace(/</g, "&lt;"); }
+function niceStep(r) { const p = Math.pow(10, Math.floor(Math.log10(Math.max(r, 1)))); const m = r / p; return (m < 1.5 ? 1 : m < 3.5 ? 2 : m < 7.5 ? 5 : 10) * p; }
+
+function drawCohort(c) {
+  const k = state.span, [name, fn] = SPANS[k]; $("coh-title").textContent = `${k} ${name}`;
+  const vals = DATA.filter(d => d.branch === c.branch).map(fn).filter(v => v != null).sort((a, b) => a - b);
+  const mine = fn(c); const W = 1000, pad = 60, y0 = 60;
+  if (!vals.length) { $("coh").innerHTML = `<text class="lbl m" x="${pad}" y="${y0}">keine Werte</text>`; return; }
+  const lo = vals[0], hi = vals[vals.length - 1], x = v => pad + (v - lo) / Math.max(1, hi - lo) * (W - 2 * pad);
+  const q = p => vals[Math.min(vals.length - 1, Math.floor(p * (vals.length - 1)))];
+  let s = `<line class="axis" x1="${pad}" x2="${W - pad}" y1="${y0}" y2="${y0}"/>`;
+  s += `<rect x="${x(q(.25))}" y="${y0 - 14}" width="${Math.max(2, x(q(.75)) - x(q(.25)))}" height="28" fill="var(--bar)" opacity=".7"/>`;
+  s += `<line x1="${x(q(.5))}" x2="${x(q(.5))}" y1="${y0 - 18}" y2="${y0 + 18}" stroke="var(--clin)" stroke-width="2"/>`;
+  // jittered points, deterministic
+  vals.forEach((v, i) => { s += `<circle cx="${x(v)}" cy="${y0 + ((i * 7919) % 21 - 10)}" r="2" fill="var(--fg)" opacity=".25"/>`; });
+  if (mine != null) s += `<circle cx="${x(mine)}" cy="${y0}" r="6" fill="var(--accent)" stroke="var(--panel)" stroke-width="2"/><text class="lbl" x="${x(mine)}" y="${y0 - 26}" text-anchor="middle">dieser Fall ${fmt(mine)} d</text>`;
+  const step = niceStep((hi - lo) / 8);
+  for (let t = Math.ceil(lo / step) * step; t <= hi; t += step) s += `<text class="tick" x="${x(t)}" y="${y0 + 38}" text-anchor="middle">${fmt(t)}</text>`;
+  s += `<text class="tick" x="${W - pad}" y="18" text-anchor="end">n = ${vals.length} · Median ${fmt(q(.5))} d · Q1 ${fmt(q(.25))} · Q3 ${fmt(q(.75))}</text>`;
+  $("coh").innerHTML = s;
+}
+
+function hookTips(svg) {
+  const tip = $("tip"), panel = svg.parentElement;
+  svg.querySelectorAll(".ev").forEach(g => {
+    const show = ev => { tip.textContent = g.dataset.tip; tip.hidden = false;
+      const r = panel.getBoundingClientRect(); tip.style.left = Math.min(ev.clientX - r.left + 10, r.width - 270) + "px"; tip.style.top = (ev.clientY - r.top + 10) + "px"; };
+    g.addEventListener("mousemove", show); g.addEventListener("click", show);
+    g.addEventListener("mouseleave", () => tip.hidden = true);
+  });
+}
+
+// controls
+document.querySelectorAll("#branch button").forEach(b => b.addEventListener("click", () => {
+  document.querySelectorAll("#branch button").forEach(x => x.setAttribute("aria-pressed", x === b)); state.branch = b.dataset.v; state.idx = 0; fillCases(); render(); }));
+document.querySelectorAll("#ref button").forEach(b => b.addEventListener("click", () => {
+  document.querySelectorAll("#ref button").forEach(x => x.setAttribute("aria-pressed", x === b)); state.ref = b.dataset.v; render(); }));
+$("case").addEventListener("change", e => { state.idx = +e.target.value; render(); });
+$("prev").addEventListener("click", () => { state.idx = (state.idx - 1 + list().length) % list().length; $("case").value = state.idx; render(); });
+$("next").addEventListener("click", () => { state.idx = (state.idx + 1) % list().length; $("case").value = state.idx; render(); });
+$("span").addEventListener("change", e => { state.span = e.target.value; drawCohort(list()[state.idx]); });
+try { const h = location.hash.slice(1); const i = DATA.findIndex(c => c.id === h); if (i >= 0) { state.idx = i; } } catch (e) {}
+fillCases(); render();
+</script>
