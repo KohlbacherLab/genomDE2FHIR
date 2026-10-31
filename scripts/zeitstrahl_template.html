@@ -52,13 +52,20 @@ svg { display: block; width: 100%; height: auto; }
 .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 50%; vertical-align: -1px; margin-right: 4px; }
 .note { color: var(--muted); font-size: 12px; margin-top: 10px; max-width: 80ch; }
 code { font-family: var(--mono); font-size: 12px; }
+.out { border-collapse: collapse; width: 100%; font-size: 12px; margin-bottom: 6px; }
+.out td { padding: 3px 8px 3px 0; border-top: 1px solid var(--line); vertical-align: top; }
+.out td.n { font-family: var(--mono); font-variant-numeric: tabular-nums; white-space: nowrap; text-align: right; }
+.out .flag { color: var(--warn); font-weight: 500; }
+.out .hist { color: var(--muted); }
 @media (prefers-reduced-motion: no-preference) { .ev circle, .ev rect { transition: r .1s, opacity .1s; } }
 </style>
 
 <h1>Datenkranz-Zeitstrahl</h1>
-<p class="sub">Ein Fall des synthetischen Korpus je Ansicht. Alle Tage relativ zum gewählten Bezugspunkt; oben die
-administrativen Ereignisse (Einwilligung, Boards, Meldung), unten der klinische Verlauf. Monatsgenaue Angaben
-(YYYY-MM) stehen auf dem 15. und sind hohl gezeichnet.</p>
+<p class="sub">Ein Fall des synthetischen Korpus je Ansicht, begrenzt auf das Prozessfenster: vom Einschluss
+(Indikationsboard, mit der Einwilligung, wenn sie höchstens 180 Tage davor liegt) bis zur letzten Datenlieferung
+(Meldung oder letztes Follow-up). Oben die administrativen Ereignisse, unten der klinische Verlauf. Ereignisse
+außerhalb des Fensters stehen in der Liste unter dem Zeitstrahl; unplausible (Follow-up oder Tod vor dem
+Einschluss) sind markiert. Monatsgenaue Angaben (YYYY-MM) stehen auf dem 15. und sind hohl gezeichnet.</p>
 
 <div class="bar-row">
   <div class="seg" id="branch" role="group" aria-label="Zweig">
@@ -81,6 +88,8 @@ administrativen Ereignisse (Einwilligung, Boards, Meldung), unten der klinische 
 <div class="panel"><h2 id="tl-title">Zeitstrahl</h2><svg id="tl" viewBox="0 0 1000 300" aria-label="Zeitstrahl des Falls"></svg><div class="tip" id="tip" hidden></div></div>
 <div class="legend"><span><i style="background:var(--accent)"></i>Boards</span><span><i style="background:var(--admin)"></i>Einwilligung, Meldung</span><span><i style="background:var(--clin)"></i>Diagnose, Therapie, Follow-up</span><span><i style="background:var(--bar);border:1px solid var(--clin)"></i>Therapiedauer</span></div>
 
+<div class="panel" id="outside-panel" style="margin-top:12px"><h2>Außerhalb des Prozessfensters</h2><table class="out" id="outside"></table></div>
+
 <div class="panel" style="margin-top:12px"><h2>Kohorte: <span id="coh-title"></span> (gleicher Zweig); der gewählte Fall ist markiert</h2>
   <div class="bar-row" style="margin:4px 0 6px"><select id="span" aria-label="Zeitspanne"></select></div>
   <svg id="coh" viewBox="0 0 1000 120" aria-label="Verteilung in der Kohorte"></svg></div>
@@ -92,7 +101,18 @@ Meldung = <code>metaData.submission.date</code>, Einwilligung = <code>metaData.m
 
 <script>
 const DATA = /*DATA*/[];
+// Prozessfenster: Start = Indikationsboard (t=0), vorgezogen auf die Einwilligung, wenn sie <= 180 d davor liegt;
+// Ende = letzte Datenlieferung (Meldung oder letztes Follow-up), mindestens das molekulare Board.
+function windowOf(c) {
+  const cons = firstT(c, /^Einwilligung/);
+  const start = cons != null && cons < 0 && cons >= -180 ? cons : 0;
+  const ends = c.events.filter(e => /^(Meldung|Follow-up|molekulares Board)/.test(e.n)).map(e => e.t).filter(t => t >= 0);
+  const end = ends.length ? Math.max(...ends) : 0;
+  return { start, end: Math.max(end, start + 1) };
+}
+const inWin = (c, w) => e => e.t >= w.start && (e.end ?? e.t) <= w.end;
 const SPANS = {
+  P: ["Prozessdauer Einschluss → letzte Lieferung", c => { const w = windowOf(c); return w.end - w.start; }],
   D1: ["Einwilligung → Indikationsboard", c => diff(c, firstT(c, /^Einwilligung/), b1(c))],
   D6: ["Indikationsboard → molekulares Board", c => diff(c, b1(c), b2(c))],
   D7: ["molekulares Board → Meldung", c => diff(c, b2(c), firstT(c, /^Meldung/))],
@@ -105,7 +125,7 @@ const b1 = c => 0, b2 = c => firstT(c, /^molekulares Board/);
 function firstT(c, re) { const e = c.events.find(e => re.test(e.n)); return e ? e.t : null; }
 function diff(c, a, b) { return a == null || b == null ? null : b - a; }
 
-let state = { branch: "all", idx: 0, ref: "b1", span: "D6" };
+let state = { branch: "all", idx: 0, ref: "b1", span: "P" };
 const $ = id => document.getElementById(id);
 const list = () => DATA.filter(c => state.branch === "all" || c.branch === state.branch);
 
@@ -120,9 +140,10 @@ function fillSpans(c) {
   const sel = $("span"); const cur = sel.value || state.span; sel.innerHTML = "";
   for (const [k, [name, fn]] of Object.entries(SPANS)) {
     if ((k === "D4" && c.branch !== "oncology") || (k === "D5" && c.branch !== "rare-disease") || (k === "D16" && c.branch !== "oncology")) continue;
+    if (k === "D16" || k === "D13") { /* nur innerhalb des Fensters sinnvoll; Werte < 0 werden in drawCohort ausgeschlossen */ }
     const o = document.createElement("option"); o.value = k; o.textContent = `${k} ${name}`; sel.appendChild(o);
   }
-  sel.value = [...sel.options].some(o => o.value === cur) ? cur : "D6"; state.span = sel.value;
+  sel.value = [...sel.options].some(o => o.value === cur) ? cur : "P"; state.span = sel.value;
 }
 function fmt(d) { return d == null ? "–" : (d > 0 ? "+" : "") + d; }
 
@@ -130,16 +151,26 @@ function render() {
   const L = list(); if (!L.length) return; const c = L[state.idx];
   const shift = state.ref === "b2" ? (b2(c) ?? 0) : 0;
   // KPIs
-  const kp = [["Zweig", c.branch === "oncology" ? "Onkologie" : "Seltene", ""], ["Indikationsboard", c.ref, ""], ["Meldung", c.type, ""]];
-  for (const k of ["D1", "D6", "D7", c.branch === "oncology" ? "D4" : "D5"]) { const v = SPANS[k][1](c); kp.push([`${k} ${SPANS[k][0]}`, fmt(v), "d", v != null && v < 0]); }
+  const w = windowOf(c), inside = c.events.filter(inWin(c, w)), outside = c.events.filter(e => !inWin(c, w)(e));
+  const kp = [["Zweig", c.branch === "oncology" ? "Onkologie" : "Seltene", ""], ["Indikationsboard", c.ref, ""], ["Meldung", c.type, ""],
+    ["Prozessdauer", String(w.end - w.start), "d"]];
+  for (const k of ["D1", "D6", "D7"]) { const v = SPANS[k][1](c); kp.push([`${k} ${SPANS[k][0]}`, fmt(v), "d", v != null && v < 0]); }
+  kp.push(["Außerhalb des Fensters", String(outside.length), outside.some(e => flagOf(e)) ? "davon unplausibel " + outside.filter(flagOf).length : "", outside.some(flagOf)]);
   $("kpis").innerHTML = kp.map(([l, v, u, neg]) => `<div class="kpi"><div class="l">${l}</div><div class="v${neg ? " neg" : ""}">${v}${u ? `<small>${u}</small>` : ""}</div></div>`).join("");
-  drawTimeline(c, shift); fillSpans(c); drawCohort(c);
+  drawTimeline(c, shift, inside, w); drawOutside(c, outside, shift); fillSpans(c); drawCohort(c);
+}
+// Follow-up, Therapie, Response, Tod oder letzter Kontakt vor dem Einschluss können im Prozess nicht vorkommen.
+function flagOf(e) { return e.t < 0 && /^(Follow-up|Therapie$|Response$|Tod|letzter Kontakt|Meldung|molekulares Board|präventive)/.test(e.n) ? "vor dem Einschluss" : e.t < 0 && /^Einwilligung/.test(e.n) && e.t < -180 ? "> 180 d vor dem Einschluss" : null; }
+function drawOutside(c, outside, shift) {
+  const rows = outside.sort((a, b) => a.t - b.t).map(e => { const f = flagOf(e);
+    return `<tr><td class="n">${fmt(e.t - shift)} d${e.end != null ? " → " + fmt(e.end - shift) : ""}</td><td>${esc(e.n)}${e.d ? " · " + esc(e.d) : ""}${e.approx ? " (±15 d)" : ""}</td><td class="${f ? "flag" : "hist"}">${f ? "unplausibel: " + f : e.t < 0 ? "Vorgeschichte" : "nach der letzten Lieferung"}</td></tr>`; });
+  $("outside").innerHTML = rows.join("") || `<tr><td class="hist">keine</td></tr>`;
+  $("outside-panel").hidden = !outside.length;
 }
 
-function drawTimeline(c, shift) {
+function drawTimeline(c, shift, events, w) {
   const W = 1000, H = 300, pad = 60, y0 = 160;
-  const ts = c.events.flatMap(e => [e.t - shift, (e.end ?? e.t) - shift]);
-  let lo = Math.min(...ts), hi = Math.max(...ts); if (hi - lo < 60) { lo -= 30; hi += 30; }
+  let lo = w.start - shift, hi = w.end - shift; if (hi - lo < 60) { const m = (lo + hi) / 2; lo = m - 30; hi = m + 30; }
   const x = t => pad + (t - lo) / (hi - lo) * (W - 2 * pad);
   const col = e => /Board|board/.test(e.n) ? "var(--accent)" : e.track === "admin" ? "var(--admin)" : "var(--clin)";
   let s = `<line class="axis" x1="${pad}" x2="${W - pad}" y1="${y0}" y2="${y0}" stroke-width="1"/>`;
@@ -150,7 +181,7 @@ function drawTimeline(c, shift) {
   s += `<text class="lbl m" x="${pad}" y="22">administrativ</text><text class="lbl m" x="${pad}" y="${H - 6}">klinisch</text>`;
   // stack labels: lanes per track, assign by x-collision
   const lanes = { admin: [], clin: [] };
-  c.events.map((e, i) => ({ e, i })).sort((a, b) => a.e.t - b.e.t).forEach(({ e, i }) => {
+  events.map((e, i) => ({ e, i })).sort((a, b) => a.e.t - b.e.t).forEach(({ e, i }) => {
     const px = x(e.t - shift), ln = lanes[e.track]; let k = 0;
     while (ln[k] != null && px - ln[k] < 95) k++; ln[k] = px;
     const up = e.track === "admin", y = up ? y0 - 28 - k * 26 : y0 + 36 + k * 26;
@@ -175,7 +206,8 @@ function niceStep(r) { const p = Math.pow(10, Math.floor(Math.log10(Math.max(r, 
 
 function drawCohort(c) {
   const k = state.span, [name, fn] = SPANS[k]; $("coh-title").textContent = `${k} ${name}`;
-  const vals = DATA.filter(d => d.branch === c.branch).map(fn).filter(v => v != null).sort((a, b) => a - b);
+  // Prozessspannen (D13, D16, P) nur mit Werten >= 0: ein Follow-up oder Therapiebeginn vor dem Board gehört nicht zum Prozess
+  const vals = DATA.filter(d => d.branch === c.branch).map(fn).filter(v => v != null && (!/^(D13|D16|P)$/.test(k) || v >= 0)).sort((a, b) => a - b);
   const mine = fn(c); const W = 1000, pad = 60, y0 = 60;
   if (!vals.length) { $("coh").innerHTML = `<text class="lbl m" x="${pad}" y="${y0}">keine Werte</text>`; return; }
   const lo = vals[0], hi = vals[vals.length - 1], x = v => pad + (v - lo) / Math.max(1, hi - lo) * (W - 2 * pad);
